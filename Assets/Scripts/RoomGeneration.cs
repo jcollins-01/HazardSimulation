@@ -13,6 +13,19 @@ public class RoomGeneration : MonoBehaviour
     public bool destroyPreviousGeneration = true;
     public bool roomRoofsTransparent = false;
 
+    [Header("House Dimensions")]
+    public int minHouseWidth = 20;
+    public int maxHouseWidth = 40;
+    public int minHouseLength = 20;
+    public int maxHouseLength = 40;
+
+    [Header("Placement Settings")]
+    [Tooltip("How many times to try finding a spot for a room before giving up.")]
+    public int maxPlacementAttempts = 50;
+
+    // Tracks EVERY tile in the entire house to prevent overlaps
+    private HashSet<Vector2Int> allHouseOccupiedTiles = new HashSet<Vector2Int>();
+
     [Header("Room Dimensions")]
     public int minRoomWidth = 4;
     public int maxRoomWidth = 10;
@@ -40,6 +53,8 @@ public class RoomGeneration : MonoBehaviour
     private void Start()
     {
         GenerateAllRooms();
+
+        // Include an array of Material slots later to randomly assign materials
     }
 
     public void GenerateAllRooms()
@@ -55,22 +70,67 @@ public class RoomGeneration : MonoBehaviour
         // Reset room roofs so that only new roofs being generated are checked for, in case past ones were deleted
         allRoomRoofs.Clear();
 
+        // Reset map of occupied tiles/placed rooms
+        allHouseOccupiedTiles.Clear(); 
+
+        // Determine the actual house area for this generation
+        int houseW = Random.Range(minHouseWidth, maxHouseWidth);
+        int houseL = Random.Range(minHouseLength, maxHouseLength);
+
         // Reset the starting/spawn point of the rooms to 0
         currentWorldX = 0;
 
         for (int i = 0; i < numberOfRooms; i++)
-            CreateRoom(i);
+            CreateRoom(i, houseW, houseL);
 
         // Check transparency toggle after rooms are made and automatically toggle transparency if necessary
         lastTransparencyState = roomRoofsTransparent;
         ToggleRoofTransparency();
     }
 
-    void CreateRoom(int id)
+    void CreateRoom(int id, int houseW, int houseL)
     {
+        // Generate the Floor Plan (HashSet handles duplicates)
+        HashSet<Vector2Int> floorCoordinates = GenerateFloorPlan();
+
+        // Moves the source of the room to 0,0 inside the house plan
+        HashSet<Vector2Int> normalizedCoords = NormalizeCoords(floorCoordinates, out Vector2Int size);
+
+        // Try to find a valid spot in the house plan
+        Vector2Int finalOffset = Vector2Int.zero;
+        bool foundSpot = false;
+
+        for (int attempt = 0; attempt < maxPlacementAttempts; attempt++)
+        {
+            // Pick a random spot within the house bounds
+            // Subtract room size so it doesn't bleed outside the house area
+            int x = Random.Range(0, Mathf.Max(1, houseW - size.x));
+            int z = Random.Range(0, Mathf.Max(1, houseL - size.y));
+            Vector2Int testOffset = new Vector2Int(x, z);
+
+            if (!CheckOverlap(normalizedCoords, testOffset))
+            {
+                finalOffset = testOffset;
+                foundSpot = true;
+                break;
+            }
+        }
+
+        // If we couldn't find a spot, we'll skip this room to keep the house clean
+        if (!foundSpot)
+        {
+            Debug.LogWarning($"Could not find a spot for Room_{id} after {maxPlacementAttempts} tries.");
+            return;
+        }
+
+        // Save the tile placements we chose in the global coords so the next room won't hit them
+        foreach (var coord in normalizedCoords)
+            allHouseOccupiedTiles.Add(coord + finalOffset);
+
         // Create the Parent GameObject
         GameObject roomParent = new GameObject($"Room_{id}");
         roomParent.transform.parent = this.transform;
+        roomParent.transform.position = new Vector3(finalOffset.x, 0, finalOffset.y);
 
         // Create sub-groups for the Floors, Walls, and Ceiling tiles so we can combine them later
         GameObject floorGroup = new GameObject("Floors");
@@ -83,31 +143,7 @@ public class RoomGeneration : MonoBehaviour
         // An "undo" option to undo the generation if we didn't like it
 #if UNITY_EDITOR
         Undo.RegisterCreatedObjectUndo(roomParent, "Generate Room");
-        #endif
-
-        // Generate the Floor Plan (HashSet handles duplicates)
-        HashSet<Vector2Int> floorCoordinates = GenerateFloorPlan();
-
-        // Vars to help us reposition the entire room so new rooms don't overlap
-        Vector2Int minBound = new Vector2Int(int.MaxValue, int.MaxValue);
-        Vector2Int maxBound = new Vector2Int(int.MinValue, int.MinValue);
-
-        // Find the extreme edges of the generated shape
-        foreach (var coord in floorCoordinates)
-        {
-            if (coord.x < minBound.x) minBound.x = coord.x;
-            if (coord.y < minBound.y) minBound.y = coord.y;
-            if (coord.x > maxBound.x) maxBound.x = coord.x;
-            if (coord.y > maxBound.y) maxBound.y = coord.y;
-        }
-
-        // Shift all coordinates so the room starts at 0,0 locally
-        HashSet<Vector2Int> normalizedCoords = new HashSet<Vector2Int>();
-        foreach (var coord in floorCoordinates)
-            normalizedCoords.Add(coord - minBound);
-
-        // Calculate the actual width of the normalized room
-        int roomWidth = maxBound.x - minBound.x;
+#endif
 
         // Build the Room Geometry
         foreach (Vector2Int coord in normalizedCoords)
@@ -137,10 +173,6 @@ public class RoomGeneration : MonoBehaviour
         data.originalMaterial = ceilingGroup.GetComponent<MeshRenderer>().sharedMaterial;
 
         allRoomRoofs.Add(ceilingGroup);
-
-        // Move the spawn point forward by the room's width + spacing
-        roomParent.transform.position = new Vector3(currentWorldX, 0, 0);
-        currentWorldX += roomWidth + roomSpacing;
     }
 
     // Generate different shapes of rooms
@@ -293,5 +325,35 @@ public class RoomGeneration : MonoBehaviour
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(parent.transform.GetChild(i).gameObject);
+    }
+
+    // Checks if a room at a specific offset hits any existing tiles
+    bool CheckOverlap(HashSet<Vector2Int> roomTiles, Vector2Int offset)
+    {
+        foreach (var tile in roomTiles)
+        {
+            // We check if the global map already has a tile at this specific world-coord
+            if (allHouseOccupiedTiles.Contains(tile + offset)) return true;
+
+            // Could add a 1-tile "buffer" check here if we want space between rooms
+            // if (allHouseOccupiedTiles.Contains(tile + offset + Vector2Int.up)... etc.
+        }
+        return false;
+    }
+
+    // Moves any raw set of coordinates to start at 0,0 and returns the room's size
+    HashSet<Vector2Int> NormalizeCoords(HashSet<Vector2Int> input, out Vector2Int size)
+    {
+        Vector2Int min = new Vector2Int(int.MaxValue, int.MaxValue);
+        Vector2Int max = new Vector2Int(int.MinValue, int.MinValue);
+        foreach (var c in input)
+        {
+            if (c.x < min.x) min.x = c.x; if (c.y < min.y) min.y = c.y;
+            if (c.x > max.x) max.x = c.x; if (c.y > max.y) max.y = c.y;
+        }
+        size = new Vector2Int(max.x - min.x + 1, max.y - min.y + 1);
+        HashSet<Vector2Int> output = new HashSet<Vector2Int>();
+        foreach (var c in input) output.Add(c - min);
+        return output;
     }
 }
