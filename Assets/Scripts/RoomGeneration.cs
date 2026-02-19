@@ -69,205 +69,152 @@ public class RoomGeneration : MonoBehaviour
 
         // Reset room roofs so that only new roofs being generated are checked for, in case past ones were deleted
         allRoomRoofs.Clear();
-
         // Reset map of occupied tiles/placed rooms
         allHouseOccupiedTiles.Clear();
         placedRooms.Clear();
 
-        // Generate each of the rooms sequentially
-        for (int i = 0; i < numberOfRooms; i++)
-            PlaceRoom(i);
+        // Generate the overall layout of the house/house borders
+        HashSet<Vector2Int> houseLayout = GenerateHouseLayout();
+        allHouseOccupiedTiles = new HashSet<Vector2Int>(houseLayout); // Save the layout so the wall-spawning logic knows where the outside of the house is
+
+        // Subdivide the house layout into the desired num of rooms
+        List<HashSet<Vector2Int>> rooms = SubdivideHouse(houseLayout, numberOfRooms);
+
+        // Build the geometry of the rooms based on the subsivision sections created
+        for (int i = 0; i < rooms.Count; i++)
+            BuildRoomGeometry(i, rooms[i], Vector2Int.zero); // Offset is now 0 because the house layout is already globally placed
 
         // Check transparency toggle after rooms are made and automatically toggle transparency if necessary
         lastTransparencyState = roomRoofsTransparent;
         ToggleRoofTransparency();
     }
 
-    void PlaceRoom(int id)
-    {
-        // Generate the Floor Plan (HashSet handles duplicates)
-        HashSet<Vector2Int> floorCoordinates = GenerateFloorPlan();
-
-        // Moves the source of the room to 0,0 inside the house plan
-        HashSet<Vector2Int> normalizedCoords = NormalizeCoords(floorCoordinates, out Vector2Int roomSize);
-
-        // Try to find a valid spot in the house plan
-        Vector2Int finalOffset = Vector2Int.zero;
-        bool foundSpot = false;
-
-        if (placedRooms.Count == 0)
-        {
-            // Place first room in the local center 0,0
-            finalOffset = new Vector2Int(0, 0);
-            foundSpot = true;
-        }
-        else
-        {
-            // Try to snap new room onto an existing room
-            foundSpot = FindSnapPosition(normalizedCoords, roomSize, out finalOffset);
-        }
-
-        if (foundSpot)
-        {
-            // Record tiles globally
-            foreach (var coord in normalizedCoords) allHouseOccupiedTiles.Add(coord + finalOffset);
-
-            // Track this room for future attachments
-            placedRooms.Add(new PlacedRoom { tiles = normalizedCoords, worldOffset = finalOffset, size = roomSize });
-
-            // Create the visual rooms
-            BuildRoomGeometry(id, normalizedCoords, finalOffset);
-        }
-        else
-        {
-            Debug.LogWarning($"Could not find a valid spot for Room {id}. House might be too crowded.");
-        }
-    }
-
-    bool FindSnapPosition(HashSet<Vector2Int> newRoomTiles, Vector2Int newRoomSize, out Vector2Int foundOffset)
-    {
-        foundOffset = Vector2Int.zero;
-
-        // Create a random order list of existing rooms so we don't always build in a straight line
-        List<PlacedRoom> potentialAnchors = placedRooms.OrderBy(x => Random.value).ToList();
-
-        foreach (PlacedRoom anchor in potentialAnchors)
-        {
-            // Try all 4 sides of this anchor room
-            // Order: North, South, East, West (shuffled for variety)
-            int[] sides = { 0, 1, 2, 3 };
-            ShuffleArray(sides);
-
-            foreach (int side in sides)
-            {
-                // We scan along the edge of the anchor room to find a fit
-                // This ensures we try every possible "Lego click" position
-
-                // Determine the range we can slide the new room along the anchor
-                int scanStart = 0;
-                int scanEnd = 0;
-
-                if (side == 0 || side == 1) // North/South: Slide along X
-                {
-                    scanStart = -newRoomSize.x + 1; // Start with the new room barely touching the left corner
-                    scanEnd = anchor.size.x - 1;    // End with it barely touching the right corner
-                }
-                else // East/West: Slide along Y
-                {
-                    scanStart = -newRoomSize.y + 1;
-                    scanEnd = anchor.size.y - 1;
-                }
-
-                // Randomize the scan direction so we don't always stack to the left
-                List<int> scanOffsets = new List<int>();
-                for (int k = scanStart; k <= scanEnd; k++) scanOffsets.Add(k);
-                scanOffsets = scanOffsets.OrderBy(x => Random.value).ToList();
-
-                foreach (int slide in scanOffsets)
-                {
-                    Vector2Int testOffset = Vector2Int.zero;
-
-                    if (side == 0) // North
-                        testOffset = anchor.worldOffset + new Vector2Int(slide, anchor.size.y);
-                    else if (side == 1) // South
-                        testOffset = anchor.worldOffset + new Vector2Int(slide, -newRoomSize.y);
-                    else if (side == 2) // East
-                        testOffset = anchor.worldOffset + new Vector2Int(anchor.size.x, slide);
-                    else if (side == 3) // West
-                        testOffset = anchor.worldOffset + new Vector2Int(-newRoomSize.x, slide);
-
-                    // Check if this specific spot is valid
-                    if (!CheckOverlap(newRoomTiles, testOffset))
-                    {
-                        // Check house bounds (Optional: Center the house around 0,0 conceptually)
-                        if (IsInsideBounds(newRoomTiles, testOffset))
-                        {
-                            foundOffset = testOffset;
-                            return true; // Found a spot! Stop looking.
-                        }
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
-    void ShuffleArray<T>(T[] arr)
-    {
-        for (int i = arr.Length - 1; i > 0; i--)
-        {
-            int j = Random.Range(0, i + 1);
-            T temp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
-        }
-    }
-
-    bool IsInsideBounds(HashSet<Vector2Int> tiles, Vector2Int offset)
-    {
-        // Simple bounding box check centered around World 0,0
-        int limitX = maxHouseWidth / 2;
-        int limitZ = maxHouseLength / 2;
-
-        foreach (var t in tiles)
-        {
-            Vector2Int pos = t + offset;
-            if (pos.x < -limitX || pos.x > limitX || pos.y < -limitZ || pos.y > limitZ) return false;
-        }
-        return true;
-    }
-
-    // Checks if a room at a specific offset hits any existing tiles
-    bool CheckOverlap(HashSet<Vector2Int> roomTiles, Vector2Int offset)
-    {
-        foreach (var tile in roomTiles)
-        {
-            // We check if the global map already has a tile at this specific world-coord
-            if (allHouseOccupiedTiles.Contains(tile + offset)) return true;
-        }
-        return false;
-    }
-
-    // Generate different shapes of rooms
-    HashSet<Vector2Int> GenerateFloorPlan()
+    // Creates the basic outline of a house, with nooks and complexity as determined by our vars
+    HashSet<Vector2Int> GenerateHouseLayout()
     {
         HashSet<Vector2Int> coords = new HashSet<Vector2Int>();
         int complexity = Random.Range(minComplexity, maxComplexity + 1);
 
-        for (int roomSections = 0; roomSections < complexity; roomSections++)
+        for (int i = 0; i < complexity; i++) // Complexity here is the num of rectangles we are potentially smashing together into this layout
         {
-            // Create a random rectangle
-            int width = Random.Range(minRoomWidth, maxRoomWidth);
-            int length = Random.Range(minRoomLength, maxRoomLength);
+            // Scale up the rectangles to represent sections of the house
+            int width = Random.Range(minRoomWidth * 2, maxHouseWidth);
+            int length = Random.Range(minRoomLength * 2, maxHouseLength);
 
-            // Offset the rectangle slightly to create overlaps (nooks/corners)
-            // We keep the first rectangle at (0,0)
-            int startX = (roomSections == 0) ? 0 : Random.Range(-width / 2, width / 2);
-            int startY = (roomSections == 0) ? 0 : Random.Range(-length / 2, length / 2);
+            // Offset to create the L-shapes and nooks
+            int startX = (i == 0) ? 0 : Random.Range(-width / 2, width / 2);
+            int startY = (i == 0) ? 0 : Random.Range(-length / 2, length / 2);
 
             for (int x = 0; x < width; x++)
             {
                 for (int y = 0; y < length; y++)
+                {
                     coords.Add(new Vector2Int(startX + x, startY + y));
+                }
             }
         }
         return coords;
     }
 
-    // Moves any raw set of coordinates to start at 0,0 and returns the room's size
-    HashSet<Vector2Int> NormalizeCoords(HashSet<Vector2Int> input, out Vector2Int size)
+    // The looping logic to continuously call for splitting the space in the house
+    List<HashSet<Vector2Int>> SubdivideHouse(HashSet<Vector2Int> layout, int targetRoomCount)
     {
-        Vector2Int min = new Vector2Int(int.MaxValue, int.MaxValue);
-        Vector2Int max = new Vector2Int(int.MinValue, int.MinValue);
-        foreach (var c in input)
+        List<HashSet<Vector2Int>> rooms = new List<HashSet<Vector2Int>> { layout };
+
+        int attempts = 0;
+        // Keep looping until we hit our target room count or get stuck
+        while (rooms.Count < targetRoomCount && attempts < 100)
         {
-            if (c.x < min.x) min.x = c.x; if (c.y < min.y) min.y = c.y;
-            if (c.x > max.x) max.x = c.x; if (c.y > max.y) max.y = c.y;
+            attempts++;
+
+            // Find the largest room we currently have to split it
+            HashSet<Vector2Int> largestRoom = rooms.OrderByDescending(r => r.Count).First();
+
+            // Attempt to split it. We need a function that finds its bounding box, picks a random X or Y line, and divides the HashSet into two.
+            if (TrySplitRoom(largestRoom, out HashSet<Vector2Int> roomA, out HashSet<Vector2Int> roomB))
+            {
+                rooms.Remove(largestRoom);
+                rooms.Add(roomA);
+                rooms.Add(roomB);
+            }
         }
-        size = new Vector2Int(max.x - min.x + 1, max.y - min.y + 1);
-        HashSet<Vector2Int> output = new HashSet<Vector2Int>();
-        foreach (var c in input) output.Add(c - min);
-        return output;
+
+        return rooms;
+    }
+
+    // Utilizes binary space partitioning method for procedural generation
+    // (splits a space in half, then continuously divides to create reasonable subspaces to alter within the area)
+    bool TrySplitRoom(HashSet<Vector2Int> currentRoom, out HashSet<Vector2Int> roomA, out HashSet<Vector2Int> roomB)
+    {
+        roomA = new HashSet<Vector2Int>();
+        roomB = new HashSet<Vector2Int>();
+
+        // Find the Bounding Box of this specific room chunk (since the rooms are in irregular shapes, we grab the individual bounding box of their chunks)
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+
+        foreach (var tile in currentRoom)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        int width = maxX - minX + 1;
+        int length = maxY - minY + 1;
+
+        // Decide split direction. We generally want to split the longest axis to avoid thin hallways.
+        bool splitVertical = width > length;
+
+        // Add a bit of randomness so it isn't completely predictable, provided both sides are big enough
+        if (width >= minRoomWidth * 2 && length >= minRoomLength * 2)
+        {
+            splitVertical = Random.value > 0.5f;
+        }
+
+        // Perform the slice
+        if (splitVertical)
+        {
+            // Calculate valid range for the slice to ensure minRoomWidth is respected on both sides
+            int minSplit = minX + minRoomWidth;
+            int maxSplit = maxX - minRoomWidth + 1;
+
+            // If the room is too small to split, cancel it - we'll have a larger, open space/room as a result
+            if (minSplit > maxSplit) return false;
+
+            // Pick a random line to draw the knife through
+            int splitLine = Random.Range(minSplit, maxSplit);
+
+            // Sort tiles into Room A or Room B based on the line
+            foreach (var tile in currentRoom)
+            {
+                if (tile.x < splitLine) roomA.Add(tile);
+                else roomB.Add(tile);
+            }
+        }
+        else
+        {
+            // Same logic, but slicing horizontally along the Y axis
+            int minSplit = minY + minRoomLength;
+            int maxSplit = maxY - minRoomLength + 1;
+
+            if (minSplit > maxSplit) return false;
+
+            int splitLine = Random.Range(minSplit, maxSplit);
+
+            foreach (var tile in currentRoom)
+            {
+                if (tile.y < splitLine) roomA.Add(tile);
+                else roomB.Add(tile);
+            }
+        }
+
+        // Safety check: Because the house layout is irregular, a straight slice might occasionally catch an empty corner and make an empty room.
+        // If that happens, reject the split.
+        if (roomA.Count == 0 || roomB.Count == 0) return false;
+
+        return true;
     }
 
     void BuildRoomGeometry(int id, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos)
@@ -327,30 +274,51 @@ public class RoomGeneration : MonoBehaviour
 
         foreach (var dir in directions)
         {
-            Vector2Int neighborLocal = localCoord + dir;
-            Vector2Int neighborWorld = (localCoord + worldOffset) + dir;
+            Vector2Int neighbor = localCoord + dir;
+            //Vector2Int neighborWorld = (localCoord + worldOffset) + dir;
 
-            // If a neighbor is in this current room, no wall is needed
-            if (roomTiles.Contains(neighborLocal)) continue;
+            // Is the neighbor inside this same room?
+            if (roomTiles.Contains(neighbor))
+                continue; // No wall needed, it's open floor
 
-            // If neighbor is in another room, we don't spawn a wall (this creates a doorway/opening)
-            // If we want a wall between rooms, remove this line
-            if (allHouseOccupiedTiles.Contains(neighborWorld)) continue;
+            // Is the neighbor still inside the house, but in a different room?
+            if (allHouseOccupiedTiles.Contains(neighbor))
+            {
+                // Spawn an interior wall to divide the rooms. Can later work in doorways at this point!!
+                SpawnWall(pos, dir, parent, isInterior: true);
+                continue;
+            }
 
-            // Otherwise, we hit the edge of the house, so we spawn a wall
-            // Calculate wall position (offset by 0.5 towards the empty space)
-            Vector3 wallPos = pos + new Vector3(dir.x * 0.5f, wallHeight / 2f, dir.y * 0.5f);
-
-            // Scale the wall to fill the gap - check which direction we're facing to determine which way the wall stretches
-            // (walls are thin on one axis and long on another - all our walls should be 0.1f thin)
-            Vector3 wallScale = new Vector3(
-                Mathf.Abs(dir.y) + (Mathf.Abs(dir.x) * 0.1f), // If dir is X, make wall thin on X
-                wallHeight,
-                Mathf.Abs(dir.x) + (Mathf.Abs(dir.y) * 0.1f)  // If dir is Y, make wall thin on Y
-            );
-
-            SpawnPrimitive(PrimitiveType.Cube, parent, wallPos, wallScale, "Wall");
+            // If it's not in the room or in the house layout, this neighbor space is outside
+            // We spawn an exterior wall to block off the outside
+            SpawnWall(pos, dir, parent, isInterior: false);
         }
+    }
+
+    void SpawnWall(Vector3 tilePos, Vector2Int dir, Transform parent, bool isInterior)
+    {
+        // Calculate wall position (offset by 0.5 towards the empty space so it is offset to the tile)
+        Vector3 wallPos = tilePos + new Vector3(dir.x * 0.5f, wallHeight / 2f, dir.y * 0.5f);
+
+        // Check which direction we're facing to determine which way the wall stretches
+        // (walls are thin on one axis and long on another - we can make exterior walls a bit beefier (0.2) and interior walls thinner (0.1) on the thinner axis
+        float thickness = isInterior ? 0.1f : 0.2f;
+
+        // Stretch the wall based on which direction it is facing
+        Vector3 wallScale = new Vector3(
+            Mathf.Abs(dir.y) + (Mathf.Abs(dir.x) * thickness), // If dir is X, make wall thin on X
+            wallHeight,
+            Mathf.Abs(dir.x) + (Mathf.Abs(dir.y) * thickness) // If dir is Y, make wall thin on Y
+        );
+
+        string wallName = isInterior ? "Interior_Wall" : "Exterior_Wall";
+        GameObject wall = SpawnPrimitive(PrimitiveType.Cube, parent, wallPos, wallScale, wallName);
+
+        // Apply different material to interior/exterior walls
+        /*
+        if (!isInterior && exteriorWallMaterial != null) 
+            wall.GetComponent<MeshRenderer>().material = exteriorWallMaterial;
+        */
     }
 
     // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
