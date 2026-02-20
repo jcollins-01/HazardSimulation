@@ -230,14 +230,14 @@ Transform:
   m_GameObject: {fileID: 103579879}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964907}
-  m_LocalScale: {x: 0.6935293, y: 0.6935293, z: 0.6935293}
+  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964906}
+  m_LocalScale: {x: 0.69352925, y: 0.69352925, z: 0.69352925}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2138319481}
   - {fileID: 493413964}
   - {fileID: 1084691880}
-  m_Father: {fileID: 2121615328}
+  m_Father: {fileID: 1673774126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &117837074
 Mesh:
@@ -1152,14 +1152,14 @@ Transform:
   m_GameObject: {fileID: 301920783}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964907}
-  m_LocalScale: {x: 0.6935293, y: 0.6935293, z: 0.6935293}
+  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964906}
+  m_LocalScale: {x: 0.69352925, y: 0.69352925, z: 0.69352925}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1620815697}
   - {fileID: 897943317}
   - {fileID: 204684368}
-  m_Father: {fileID: 2121615328}
+  m_Father: {fileID: 1673774126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &330585543
 GameObject:
@@ -2039,14 +2039,14 @@ Transform:
   m_GameObject: {fileID: 613932136}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964907}
-  m_LocalScale: {x: 0.6935293, y: 0.6935293, z: 0.6935293}
+  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964906}
+  m_LocalScale: {x: 0.69352925, y: 0.69352925, z: 0.69352925}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 31128489}
   - {fileID: 1709941454}
   - {fileID: 641129548}
-  m_Father: {fileID: 2121615328}
+  m_Father: {fileID: 1673774126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &641129547
 GameObject:
@@ -3257,6 +3257,7 @@ Transform:
   m_Children:
   - {fileID: 410087041}
   - {fileID: 832575519}
+  - {fileID: 1673774126}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1620815696
@@ -3376,6 +3377,41 @@ Transform:
   m_Children:
   - {fileID: 1519417125}
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1673774125
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1673774126}
+  m_Layer: 0
+  m_Name: House
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &1673774126
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1673774125}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -4.4684653, y: 0.17497706, z: -0.45558572}
+  m_LocalScale: {x: 1.4419, y: 1.4419, z: 1.4419}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 301920784}
+  - {fileID: 1864755180}
+  - {fileID: 103579880}
+  - {fileID: 613932137}
+  m_Father: {fileID: 1586868005}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1709941453
 GameObject:
@@ -3831,14 +3867,14 @@ Transform:
   m_GameObject: {fileID: 1864755179}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964907}
-  m_LocalScale: {x: 0.6935293, y: 0.6935293, z: 0.6935293}
+  m_LocalPosition: {x: 1.4772176, y: -1.4362993, z: -1.3964906}
+  m_LocalScale: {x: 0.69352925, y: 0.69352925, z: 0.69352925}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 676875793}
   - {fileID: 1357095601}
   - {fileID: 829776814}
-  m_Father: {fileID: 2121615328}
+  m_Father: {fileID: 1673774126}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &1871493137
 Mesh:
@@ -4200,7 +4236,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   numberOfRooms: 4
-  roomSpacing: 5
+  numberOfFloors: 2
   destroyPreviousGeneration: 1
   roomRoofsTransparent: 1
   maxHouseWidth: 20
@@ -4227,11 +4263,7 @@ Transform:
   m_LocalPosition: {x: -2.13, y: 2.071, z: 2.0136}
   m_LocalScale: {x: 1.4419, y: 1.4419, z: 1.4419}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 301920784}
-  - {fileID: 1864755180}
-  - {fileID: 103579880}
-  - {fileID: 613932137}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2138319480

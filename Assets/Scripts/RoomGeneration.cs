@@ -9,13 +9,15 @@ public class RoomGeneration : MonoBehaviour
 {
     [Header("Generation Settings")]
     public int numberOfRooms = 5;
-    public float roomSpacing = 5f;
+    public int numberOfFloors = 2;
+    public bool identicalFloors = false;
+    public bool roomAmountsDifferPerFloor = false;
     public bool destroyPreviousGeneration = true;
     public bool roomRoofsTransparent = false;
 
     [Header("House Dimensions")]
-    public int maxHouseWidth = 40;
-    public int maxHouseLength = 40;
+    public int maxHouseWidth = 20;
+    public int maxHouseLength = 20;
 
     [Header("Room Dimensions")]
     public int minRoomWidth = 4;
@@ -54,7 +56,7 @@ public class RoomGeneration : MonoBehaviour
     {
         GenerateAllRooms();
 
-        // Include an array of Material slots later to randomly assign materials
+        // FUTURE: Include an array of Material slots later to randomly assign materials
     }
 
     public void GenerateAllRooms()
@@ -80,9 +82,44 @@ public class RoomGeneration : MonoBehaviour
         // Subdivide the house layout into the desired num of rooms
         List<HashSet<Vector2Int>> rooms = SubdivideHouse(houseLayout, numberOfRooms);
 
-        // Build the geometry of the rooms based on the subsivision sections created
-        for (int i = 0; i < rooms.Count; i++)
-            BuildRoomGeometry(i, rooms[i], Vector2Int.zero); // Offset is now 0 because the house layout is already globally placed
+        // Start the base roof height at 0 (global 0)
+        float roofHeight = 0;
+
+        for (int floor = 0; floor < numberOfFloors; floor++)
+        {
+            // Build the geometry of the rooms based on the subsivision sections created
+            if (floor == 0) // The first floor that we try building, build regularly
+            {
+                for (int i = 0; i < rooms.Count; i++)
+                    BuildRoomGeometry(i, rooms[i], Vector2Int.zero, roofHeight); // Offset is now 0 because the house layout is already globally placed, height is 0 since we start on ground level
+            }
+            else // All other floors must search for the roof of the floor below and build on top of that
+            {
+                // Need to take the houseLayout and subdivide it differently to get different room arrangements - otherwise, we'll have identical floors
+                if (!identicalFloors) 
+                {
+                    int roomsOnCurrentFloor; // Check if we want different nums of rooms on each floor
+                    if (roomAmountsDifferPerFloor)
+                        roomsOnCurrentFloor = Random.Range(numberOfRooms, numberOfRooms + 3); // Some houses might have just one room (e.g., a warehouse) so minimum must always be numberOfRooms for now
+                    else
+                        roomsOnCurrentFloor = numberOfRooms;
+
+                    List<HashSet<Vector2Int>> newRooms = SubdivideHouse(houseLayout, roomsOnCurrentFloor);
+                    
+                    for (int i = 0; i < newRooms.Count; i++) 
+                        BuildRoomGeometry(i, newRooms[i], Vector2Int.zero, roofHeight);
+                }
+                else // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
+                {
+                    for (int i = 0; i < rooms.Count; i++)
+                        BuildRoomGeometry(i, rooms[i], Vector2Int.zero, roofHeight);
+                }
+            }
+
+            // Get the highest point in all room roofs and build off that
+            roofHeight += GetHighestRoofPoint();
+            Debug.Log("Roof height is " + roofHeight);
+        }
 
         // Check transparency toggle after rooms are made and automatically toggle transparency if necessary
         lastTransparencyState = roomRoofsTransparent;
@@ -210,19 +247,19 @@ public class RoomGeneration : MonoBehaviour
             }
         }
 
-        // Safety check: Because the house layout is irregular, a straight slice might occasionally catch an empty corner and make an empty room.
+        // Because the house layout is irregular, a straight slice might occasionally catch an empty corner and make an empty room.
         // If that happens, reject the split.
         if (roomA.Count == 0 || roomB.Count == 0) return false;
 
         return true;
     }
 
-    void BuildRoomGeometry(int id, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos)
+    void BuildRoomGeometry(int id, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset)
     {
         // Create the Parent GameObject
         GameObject roomParent = new GameObject($"Room_{id}");
         roomParent.transform.parent = this.transform;
-        roomParent.transform.position = new Vector3(worldPos.x, 0, worldPos.y);
+        roomParent.transform.position = new Vector3(worldPos.x, heightOffset, worldPos.y);
 
         // Create sub-groups for the Floors, Walls, and Ceiling tiles so we can combine them later
         GameObject floorGroup = new GameObject("Floors");
@@ -284,7 +321,8 @@ public class RoomGeneration : MonoBehaviour
             // Is the neighbor still inside the house, but in a different room?
             if (allHouseOccupiedTiles.Contains(neighbor))
             {
-                // Spawn an interior wall to divide the rooms. Can later work in doorways at this point!!
+                // Spawn an interior wall to divide the rooms.
+                // FUTURE: Can later work in doorways at this point!!
                 SpawnWall(pos, dir, parent, isInterior: true);
                 continue;
             }
@@ -314,7 +352,7 @@ public class RoomGeneration : MonoBehaviour
         string wallName = isInterior ? "Interior_Wall" : "Exterior_Wall";
         GameObject wall = SpawnPrimitive(PrimitiveType.Cube, parent, wallPos, wallScale, wallName);
 
-        // Apply different material to interior/exterior walls
+        // FUTURE: Apply different material to interior/exterior walls
         /*
         if (!isInterior && exteriorWallMaterial != null) 
             wall.GetComponent<MeshRenderer>().material = exteriorWallMaterial;
@@ -367,6 +405,22 @@ public class RoomGeneration : MonoBehaviour
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(parent.transform.GetChild(i).gameObject);
+    }
+
+    // Helper class to get the highest roof in the floor layouts we make
+    // Done like this instead of using wallHeight in case we build irregular roofs in the future
+    float GetHighestRoofPoint()
+    {
+        float highestY = 0;
+        foreach (GameObject roof in allRoomRoofs)
+        {
+            if (roof == null) continue;
+
+            // Bounds.max.y gives the highest point of the mesh in world space
+            float topPoint = roof.GetComponent<MeshRenderer>().bounds.max.y;
+            if (topPoint > highestY) highestY = topPoint;
+        }
+        return highestY;
     }
 
     private void OnValidate()
