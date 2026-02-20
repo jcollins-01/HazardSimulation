@@ -88,12 +88,14 @@ public class RoomGeneration : MonoBehaviour
         for (int floor = 0; floor < numberOfFloors; floor++)
         {
             // Determine how many rooms for THIS floor
-            int roomsOnCurrentFloor = (floor > 0 && roomAmountsDifferPerFloor) // If this is NOT the first floor and room numbers on each floor should differ
+            int roomsOnCurrentFloor = (floor > 0 && roomAmountsDifferPerFloor && !identicalFloors) // If this is NOT the first floor and room numbers on each floor should differ
                 ? Random.Range(numberOfRooms, numberOfRooms + 3) // Some houses might have just one room (e.g., a warehouse) so minimum must always be numberOfRooms for now
                 : numberOfRooms; // Else, we stick to the universal/base num of rooms
 
+            Debug.Log("Number of rooms on each floor should be " + numberOfRooms);
+
             // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
-            List<HashSet<Vector2Int>> floorRooms = (floor == 0 || !identicalFloors)
+            List<HashSet<Vector2Int>> floorRooms = (!identicalFloors)
                 ? SubdivideHouse(houseLayout, roomsOnCurrentFloor)
                 : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
 
