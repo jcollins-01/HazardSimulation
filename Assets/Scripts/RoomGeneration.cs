@@ -7,7 +7,14 @@ using UnityEditor;
 
 public class RoomGeneration : MonoBehaviour
 {
-    [Header("Generation Settings")]
+    [Header("Preset Generation Settings")]
+    public bool dormitory = false;
+    public bool warehouse = false;
+    public bool smallHouse = false;
+    public bool twoStoryHouse = false;
+    public bool skyscraper = false;
+
+    [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
     public int numberOfFloors = 2;
     public bool identicalFloors = false;
@@ -54,9 +61,101 @@ public class RoomGeneration : MonoBehaviour
 
     private void Start()
     {
+        // Check for any preset values we want to follow
+        CheckPresetLayouts();
+        
+        // Generate houses
         GenerateAllRooms();
 
         // FUTURE: Include an array of Material slots later to randomly assign materials
+    }
+
+    private void CheckPresetLayouts()
+    {
+        if (dormitory)
+        {
+            numberOfRooms = 10;
+            numberOfFloors = 4;
+            identicalFloors = true;
+            roomAmountsDifferPerFloor = false;
+            maxHouseWidth = 20;
+            maxHouseLength = 30;
+            minRoomWidth = 4;
+            maxRoomWidth = 10;
+            minRoomLength = 4;
+            maxRoomLength = 10;
+            wallHeight = 3;
+            minComplexity = 1;
+            maxComplexity = 3;
+        }
+
+        if (warehouse)
+        {
+            numberOfRooms = 1;
+            numberOfFloors = 1;
+            identicalFloors = true;
+            roomAmountsDifferPerFloor = false;
+            maxHouseWidth = 20;
+            maxHouseLength = 40;
+            minRoomWidth = 4;
+            maxRoomWidth = 10;
+            minRoomLength = 4;
+            maxRoomLength = 10;
+            wallHeight = 6;
+            minComplexity = 1;
+            maxComplexity = 1;
+        }
+
+        if (smallHouse)
+        {
+            numberOfRooms = 4;
+            numberOfFloors = 1;
+            identicalFloors = false;
+            roomAmountsDifferPerFloor = false;
+            maxHouseWidth = 15;
+            maxHouseLength = 15;
+            minRoomWidth = 4;
+            maxRoomWidth = 10;
+            minRoomLength = 4;
+            maxRoomLength = 10;
+            wallHeight = 3;
+            minComplexity = 1;
+            maxComplexity = 4;
+        }
+
+        if (twoStoryHouse)
+        {
+            numberOfRooms = 4;
+            numberOfFloors = 2;
+            identicalFloors = false;
+            roomAmountsDifferPerFloor = true;
+            maxHouseWidth = 15;
+            maxHouseLength = 15;
+            minRoomWidth = 4;
+            maxRoomWidth = 10;
+            minRoomLength = 4;
+            maxRoomLength = 10;
+            wallHeight = 3;
+            minComplexity = 1;
+            maxComplexity = 4;
+        }
+
+        if (skyscraper)
+        {
+            numberOfRooms = 10;
+            numberOfFloors = 30;
+            identicalFloors = true;
+            roomAmountsDifferPerFloor = false;
+            maxHouseWidth = 20;
+            maxHouseLength = 20;
+            minRoomWidth = 6;
+            maxRoomWidth = 6;
+            minRoomLength = 6;
+            maxRoomLength = 6;
+            wallHeight = 3;
+            minComplexity = 1;
+            maxComplexity = 2;
+        }
     }
 
     public void GenerateAllRooms()
