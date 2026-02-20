@@ -87,38 +87,23 @@ public class RoomGeneration : MonoBehaviour
 
         for (int floor = 0; floor < numberOfFloors; floor++)
         {
-            // Build the geometry of the rooms based on the subsivision sections created
-            if (floor == 0) // The first floor that we try building, build regularly
-            {
-                for (int i = 0; i < rooms.Count; i++)
-                    BuildRoomGeometry(i, rooms[i], Vector2Int.zero, roofHeight); // Offset is now 0 because the house layout is already globally placed, height is 0 since we start on ground level
-            }
-            else // All other floors must search for the roof of the floor below and build on top of that
-            {
-                // Need to take the houseLayout and subdivide it differently to get different room arrangements - otherwise, we'll have identical floors
-                if (!identicalFloors) 
-                {
-                    int roomsOnCurrentFloor; // Check if we want different nums of rooms on each floor
-                    if (roomAmountsDifferPerFloor)
-                        roomsOnCurrentFloor = Random.Range(numberOfRooms, numberOfRooms + 3); // Some houses might have just one room (e.g., a warehouse) so minimum must always be numberOfRooms for now
-                    else
-                        roomsOnCurrentFloor = numberOfRooms;
+            // Determine how many rooms for THIS floor
+            int roomsOnCurrentFloor = (floor > 0 && roomAmountsDifferPerFloor) // If this is NOT the first floor and room numbers on each floor should differ
+                ? Random.Range(numberOfRooms, numberOfRooms + 3) // Some houses might have just one room (e.g., a warehouse) so minimum must always be numberOfRooms for now
+                : numberOfRooms; // Else, we stick to the universal/base num of rooms
 
-                    List<HashSet<Vector2Int>> newRooms = SubdivideHouse(houseLayout, roomsOnCurrentFloor);
-                    
-                    for (int i = 0; i < newRooms.Count; i++) 
-                        BuildRoomGeometry(i, newRooms[i], Vector2Int.zero, roofHeight);
-                }
-                else // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
-                {
-                    for (int i = 0; i < rooms.Count; i++)
-                        BuildRoomGeometry(i, rooms[i], Vector2Int.zero, roofHeight);
-                }
-            }
+            // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
+            List<HashSet<Vector2Int>> floorRooms = (floor == 0 || !identicalFloors)
+                ? SubdivideHouse(houseLayout, roomsOnCurrentFloor)
+                : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
 
-            // Get the highest point in all room roofs and build off that
-            roofHeight += GetHighestRoofPoint();
-            Debug.Log("Roof height is " + roofHeight);
+            // Build at the current roofHeight
+            for (int i = 0; i < floorRooms.Count; i++)
+                BuildRoomGeometry(i, floorRooms[i], Vector2Int.zero, roofHeight); // Offset is now 0 because the house layout is already globally placed, height is 0 at first since we start on ground level
+
+            // Get the highest point in all room roofs and build off that for the next floor
+            roofHeight = GetHighestRoofPoint();
+            // Debug.Log($"Floor {floor} complete. Next floor will be at: {roofHeight}");
         }
 
         // Check transparency toggle after rooms are made and automatically toggle transparency if necessary
@@ -278,7 +263,7 @@ public class RoomGeneration : MonoBehaviour
         foreach (Vector2Int coord in normalizedCoords)
         {
             // Position relative to the room parent
-            Vector3 tilePos = new Vector3(coord.x, 0, coord.y);
+            Vector3 tilePos = new Vector3(coord.x, heightOffset, coord.y); // z was 0
 
             // Spawn Floor
             SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, tilePos, Vector3.one, "Floor");
