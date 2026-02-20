@@ -75,6 +75,11 @@ public class RoomGeneration : MonoBehaviour
         allHouseOccupiedTiles.Clear();
         placedRooms.Clear();
 
+        // Create a master House parent to hold the layout in
+        GameObject houseParent = new GameObject("House");
+        houseParent.transform.SetParent(this.transform);
+        houseParent.transform.localPosition = Vector3.zero;
+
         // Generate the overall layout of the house/house borders
         HashSet<Vector2Int> houseLayout = GenerateHouseLayout();
         allHouseOccupiedTiles = new HashSet<Vector2Int>(houseLayout); // Save the layout so the wall-spawning logic knows where the outside of the house is
@@ -87,12 +92,15 @@ public class RoomGeneration : MonoBehaviour
 
         for (int floor = 0; floor < numberOfFloors; floor++)
         {
+            // Create the iterative Floor parent to hold each generated floor in
+            GameObject floorParent = new GameObject($"Floor_{floor}");
+            floorParent.transform.SetParent(houseParent.transform);
+            floorParent.transform.localPosition = Vector3.zero;
+
             // Determine how many rooms for THIS floor
             int roomsOnCurrentFloor = (floor > 0 && roomAmountsDifferPerFloor && !identicalFloors) // If this is NOT the first floor and room numbers on each floor should differ
                 ? Random.Range(numberOfRooms, numberOfRooms + 3) // Some houses might have just one room (e.g., a warehouse) so minimum must always be numberOfRooms for now
                 : numberOfRooms; // Else, we stick to the universal/base num of rooms
-
-            Debug.Log("Number of rooms on each floor should be " + numberOfRooms);
 
             // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
             List<HashSet<Vector2Int>> floorRooms = (!identicalFloors)
@@ -101,7 +109,7 @@ public class RoomGeneration : MonoBehaviour
 
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
-                BuildRoomGeometry(i, floorRooms[i], Vector2Int.zero, roofHeight); // Offset is now 0 because the house layout is already globally placed, height is 0 at first since we start on ground level
+                BuildRoomGeometry(i, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform); // Offset is now 0 because the house layout is already globally placed, height is 0 at first since we start on ground level
 
             // Get the highest point in all room roofs and build off that for the next floor
             roofHeight = GetHighestRoofPoint();
@@ -241,11 +249,11 @@ public class RoomGeneration : MonoBehaviour
         return true;
     }
 
-    void BuildRoomGeometry(int id, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset)
+    void BuildRoomGeometry(int id, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor)
     {
         // Create the Parent GameObject
         GameObject roomParent = new GameObject($"Room_{id}");
-        roomParent.transform.parent = this.transform;
+        roomParent.transform.SetParent(parentFloor);
         roomParent.transform.position = new Vector3(worldPos.x, heightOffset, worldPos.y);
 
         // Create sub-groups for the Floors, Walls, and Ceiling tiles so we can combine them later
