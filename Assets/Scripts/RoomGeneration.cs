@@ -393,8 +393,7 @@ public class RoomGeneration : MonoBehaviour
             if (isStair && floor < numberOfFloors - 1)
             {
                 // Spawns a slanted block acting as a ramp to the next floor
-                GameObject stairs = SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, tilePos + (Vector3.up * (wallHeight / 2f)), new Vector3(1, wallHeight * 1.2f, 1), "Stairs");
-                stairs.transform.rotation = Quaternion.Euler(45, 0, 0); // Slant it
+                SpawnStairs(coord, heightOffset, floorGroup);
             }
 
             // Spawn Walls (Check neighbors)
@@ -476,6 +475,21 @@ public class RoomGeneration : MonoBehaviour
         */
     }
 
+    void SpawnStairs(Vector2Int coord, float heightOffset, GameObject floorGroup)
+    {
+        // Width is 1 (the tile), Height is wallHeight - calculate the exact mathematical length and angle for the ramp
+        float rampWidth = 2.0f;
+        float rampLength = Mathf.Sqrt((rampWidth * rampWidth) + (wallHeight * wallHeight));
+        float angle = Mathf.Atan2(wallHeight, rampWidth) * Mathf.Rad2Deg;
+
+        // Center it between the two tiles
+        Vector3 rampPos = new Vector3(coord.x, heightOffset + (wallHeight / 2f), coord.y - 0.5f);
+        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, rampPos, new Vector3(0.8f, 0.1f, rampLength), "Ramp");
+
+        // Pivot at the center, so we rotate around the midpoint
+        ramp.transform.rotation = Quaternion.Euler(-angle, 0, 0);
+    }
+
     // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
     GameObject SpawnPrimitive(PrimitiveType type, Transform parent, Vector3 localPos, Vector3 scale, string name)
     {
@@ -549,36 +563,72 @@ public class RoomGeneration : MonoBehaviour
             return $"{b.x},{b.y}_{a.x},{a.y}";
     }
 
-    // Finds all adjacent rooms on a floor and creates a doorway between them
+    // Finds all adjacent rooms on a floor and creates a REALISTIC path through the house using a minimum spanning tree method for procedural generation
+    // (considers each room in the layout as one node, generates a map of all the routes necessary to have each node connected, WITHOUT drawing every possible line between them)
     HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms)
     {
         HashSet<string> doors = new HashSet<string>();
         Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        // Gather all possible shared walls between all rooms (key: "room A index, room B index" , value: list of shared edge keys)
+        Dictionary<string, List<string>> roomConnections = new Dictionary<string, List<string>>();
 
         // Compare every room against every other room
         for (int i = 0; i < rooms.Count; i++)
         {
             for (int j = i + 1; j < rooms.Count; j++)
             {
-                List<string> sharedEdges = new List<string>();
-
                 // Check every tile in Room A to see if it touches Room B
-                foreach (Vector2Int tileA in rooms[i])
-                {
-                    foreach (Vector2Int dir in dirs)
-                    {
-                        Vector2Int neighbor = tileA + dir;
-                        if (rooms[j].Contains(neighbor))
-                            sharedEdges.Add(GetEdgeKey(tileA, neighbor));
-                    }
-                }
+                List<string> shared = GetSharedEdges(rooms[i], rooms[j]);
 
-                // If they share walls, pick one random wall to be the doorway
-                if (sharedEdges.Count > 0)
-                    doors.Add(sharedEdges[Random.Range(0, sharedEdges.Count)]);
+                if (shared.Count > 0)
+                {
+                    roomConnections.Add($"{i}_{j}", shared);
+                }
             }
         }
+
+        // Use a union to find all connected rooms (groups of rooms sharing the same walls) and ensure connections via MINIMUM necessary doors
+        int[] parents = Enumerable.Range(0, rooms.Count).ToArray();
+        int Find(int i) => parents[i] == i ? i : parents[i] = Find(parents[i]);
+
+        // Shuffle the connections so the house layout feels random and organic
+        var connectionKeys = roomConnections.Keys.OrderBy(x => Random.value).ToList();
+
+        // Connect the rooms in their new paths
+        foreach (var key in connectionKeys)
+        {
+            string[] parts = key.Split('_');
+            int r1 = int.Parse(parts[0]);
+            int r2 = int.Parse(parts[1]);
+
+            if (Find(r1) != Find(r2))
+            {
+                // Pick exactly one edge from the shared list to connect them
+                List<string> possibleEdges = roomConnections[key];
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+                parents[Find(r1)] = Find(r2);
+            }
+            // If they are ALREADY connected (indirectly through other rooms), have a random 15% chance to add a door anyway to create a realistic loop
+            //else if (Random.value < 0.15f)
+                //doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+        }
+
         return doors;
+    }
+
+    // Helper to find where the rooms are touching
+    List<string> GetSharedEdges(HashSet<Vector2Int> roomA, HashSet<Vector2Int> roomB)
+    {
+        List<string> edges = new List<string>();
+        foreach (var tile in roomA)
+        {
+            if (roomB.Contains(tile + Vector2Int.up)) edges.Add(GetEdgeKey(tile, tile + Vector2Int.up));
+            if (roomB.Contains(tile + Vector2Int.down)) edges.Add(GetEdgeKey(tile, tile + Vector2Int.down));
+            if (roomB.Contains(tile + Vector2Int.left)) edges.Add(GetEdgeKey(tile, tile + Vector2Int.left));
+            if (roomB.Contains(tile + Vector2Int.right)) edges.Add(GetEdgeKey(tile, tile + Vector2Int.right));
+        }
+        return edges;
     }
 
     private void OnValidate()
