@@ -47,6 +47,9 @@ public class RoomGeneration : MonoBehaviour
     private HashSet<Vector2Int> allHouseOccupiedTiles = new HashSet<Vector2Int>();
     private List<PlacedRoom> placedRooms = new List<PlacedRoom>();
 
+    // Room variables to track privately
+    private int stairDepth = 5; // Makes for an angle of 31 degrees, architectural height for a comfortable set of stairs
+
     // Vars to handle toggling roof transparency
     private bool lastTransparencyState = false; // To ensure we only change roof materials once when converting them to and from transparency
     private List<GameObject> allRoomRoofs = new List<GameObject>(); // To hold all roofs generated and make them transparent later
@@ -184,10 +187,11 @@ public class RoomGeneration : MonoBehaviour
         allHouseOccupiedTiles = new HashSet<Vector2Int>(houseLayout); // Save the layout so the wall-spawning logic knows where the outside of the house is
 
         // Pick one random tile from the layout to serve as the stairwell for all floors
-        Vector2Int stairwellTile = houseLayout.ElementAt(Random.Range(0, houseLayout.Count));
+        //Vector2Int stairwellTile = houseLayout.ElementAt(Random.Range(0, houseLayout.Count));
+        Vector2Int stairwellTile = FindStairwellTile(houseLayout);
 
         // Subdivide the house layout into the desired num of rooms
-        List<HashSet<Vector2Int>> rooms = SubdivideHouse(houseLayout, numberOfRooms);
+        List <HashSet<Vector2Int>> rooms = SubdivideHouse(houseLayout, numberOfRooms);
 
         // Start the base roof height at 0 (global 0)
         float roofHeight = 0;
@@ -211,6 +215,10 @@ public class RoomGeneration : MonoBehaviour
 
             // Generate doorways for this specific floor layout (now that we have the full layout)
             HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
+
+            // Spawn a ramp to connect floors if this is the stairwell (and not the top floor)
+            if (floor < numberOfFloors - 1) 
+                SpawnStairs(stairwellTile, roofHeight, floorParent.transform, stairDepth);
 
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
@@ -373,31 +381,25 @@ public class RoomGeneration : MonoBehaviour
 #if UNITY_EDITOR
         Undo.RegisterCreatedObjectUndo(roomParent, "Generate Room");
 #endif
-
+        
         // Build the Room Geometry
         foreach (Vector2Int coord in normalizedCoords)
         {
             // Position relative to the room parent
             Vector3 tilePos = new Vector3(coord.x, heightOffset, coord.y); // z was 0
-            bool isStair = (coord == stairTile);
+            //bool isStair = (coord == stairTile);
+            bool isStairArea = IsInStairwell(coord, stairTile, stairDepth);
 
             // Spawn Floor (skip if it's the stairwell, UNLESS it's the ground floor)
-            if (!isStair || floor == 0)
+            if (!isStairArea || floor == 0)
                 SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, tilePos, Vector3.one, "Floor");
 
             // Spawn Ceiling (skip if it's the stairwell, UNLESS it's the very top floor/roof)
-            if (!isStair || floor == numberOfFloors - 1)
+            if (!isStairArea || floor == numberOfFloors - 1)
                 SpawnPrimitive(PrimitiveType.Cube, ceilingGroup.transform, tilePos + Vector3.up * wallHeight, Vector3.one, "Ceiling");
 
-            // Spawn a ramp to connect floors if this is the stairwell (and not the top floor)
-            if (isStair && floor < numberOfFloors - 1)
-            {
-                // Spawns a slanted block acting as a ramp to the next floor
-                SpawnStairs(coord, heightOffset, floorGroup);
-            }
-
             // Spawn Walls (Check neighbors)
-            CheckAndSpawnWalls(coord, worldPos, normalizedCoords, wallGroup.transform, tilePos, floorDoors);
+            CheckAndSpawnWalls(coord, worldPos, normalizedCoords, wallGroup.transform, tilePos, floorDoors, stairTile, stairDepth);
 
             // FUTURE: call a separate script to spawn items in the spaces
         }
@@ -414,7 +416,7 @@ public class RoomGeneration : MonoBehaviour
     }
 
     // Placing walls on the floors of generated rooms
-    void CheckAndSpawnWalls(Vector2Int localCoord, Vector2Int worldOffset, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos, HashSet<string> floorDoors)
+    void CheckAndSpawnWalls(Vector2Int localCoord, Vector2Int worldOffset, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos, HashSet<string> floorDoors, Vector2Int stairTile, int stairDepth)
     {
         // Directions: Up, Down, Left, Right
         Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
@@ -427,9 +429,16 @@ public class RoomGeneration : MonoBehaviour
             if (roomTiles.Contains(neighbor))
                 continue; // No wall needed, it's open floor
 
-            // Is the neighbor still inside the house, but in a different room?
-            if (allHouseOccupiedTiles.Contains(neighbor))
+            // Check if this is an exterior wall
+            bool isOutsideHouse = !allHouseOccupiedTiles.Contains(neighbor);
+
+            // Skip the walls if both tiles are in the stairwell layout and it's not an exterior wall
+            // (prevents the outside wall from getting a hole punched in it)
+            if (!isOutsideHouse)
             {
+                if (IsInStairwell(localCoord, stairTile, stairDepth) && IsInStairwell(neighbor, stairTile, stairDepth))
+                    continue; // Don't build walls inside the stairwell corridor!
+
                 // Check if the specific interior wall tile is on the list of doors
                 string edge = GetEdgeKey(localCoord, neighbor);
                 if (floorDoors.Contains(edge))
@@ -437,7 +446,11 @@ public class RoomGeneration : MonoBehaviour
                     // FUTURE: Add the door prefab that we want to spawn later
                     continue; // Skip spawning the wall since this is a door
                 }
+            }
 
+            // Is the neighbor still inside the house, but in a different room?
+            if (allHouseOccupiedTiles.Contains(neighbor))
+            {
                 // Spawn an interior wall to divide the rooms.
                 SpawnWall(pos, dir, parent, isInterior: true);
                 continue;
@@ -475,19 +488,62 @@ public class RoomGeneration : MonoBehaviour
         */
     }
 
-    void SpawnStairs(Vector2Int coord, float heightOffset, GameObject floorGroup)
+    Vector2Int FindStairwellTile (HashSet<Vector2Int> houseLayout)
     {
-        // Width is 1 (the tile), Height is wallHeight - calculate the exact mathematical length and angle for the ramp
-        float rampWidth = 2.0f;
-        float rampLength = Mathf.Sqrt((rampWidth * rampWidth) + (wallHeight * wallHeight));
-        float angle = Mathf.Atan2(wallHeight, rampWidth) * Mathf.Rad2Deg;
+        // Find a valid stairwell location with enough "runway" behind it
+        // Convert HashSet to List to shuffle and find a spot
+        var possibleTiles = houseLayout.OrderBy(t => Random.value).ToList();
 
-        // Center it between the two tiles
-        Vector3 rampPos = new Vector3(coord.x, heightOffset + (wallHeight / 2f), coord.y - 0.5f);
-        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, rampPos, new Vector3(0.8f, 0.1f, rampLength), "Ramp");
+        foreach (var tile in possibleTiles)
+        {
+            bool runwayClear = true;
+            for (int i = 0; i < stairDepth; i++)
+            {
+                // Check if the tiles behind this one (where the ramp will be) exist in the house
+                if (!houseLayout.Contains(new Vector2Int(tile.x, tile.y - i)))
+                {
+                    runwayClear = false;
+                    break;
+                }
+            }
 
-        // Pivot at the center, so we rotate around the midpoint
+            if (runwayClear) return tile;
+        }
+
+        // Fallback if the house is too small/complex for a 4-tile ramp
+        return houseLayout.First();
+    }
+
+    void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
+    {
+        // 1. Calculate the horizontal run
+        // The ramp starts at (topTile.y - depth + 1) and ends at topTile.y
+        float startZ = (float)topTile.y - depth + 1;
+        float endZ = (float)topTile.y;
+        float centerZ = (startZ + endZ) / 2f;
+
+        // 2. Calculate the vertical rise
+        // Floors are 1 unit thick. Surface is height + 0.5.
+        // We want to go from the surface of this floor to the surface of the next.
+        float surfaceBottom = heightOffset + 0.5f;
+        float surfaceTop = heightOffset + wallHeight + 0.5f;
+        float centerY = (surfaceBottom + surfaceTop) / 2f;
+
+        // 3. Math for Scale and Angle
+        float run = depth;
+        float rise = wallHeight;
+        float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
+        float angle = Mathf.Atan2(rise, run) * Mathf.Rad2Deg;
+
+        // 4. Spawn
+        Vector3 rampPos = new Vector3(topTile.x, centerY, centerZ);
+        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(0.9f, 0.1f, rampLength), "Stair_Ramp");
+
+        // Rotate around the center
         ramp.transform.rotation = Quaternion.Euler(-angle, 0, 0);
+
+        if (floorMaterial != null)
+            ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
     }
 
     // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
@@ -602,19 +658,35 @@ public class RoomGeneration : MonoBehaviour
             int r1 = int.Parse(parts[0]);
             int r2 = int.Parse(parts[1]);
 
+            List<string> possibleEdges = roomConnections[key];
+
             if (Find(r1) != Find(r2))
             {
                 // Pick exactly one edge from the shared list to connect them
-                List<string> possibleEdges = roomConnections[key];
                 doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
                 parents[Find(r1)] = Find(r2);
             }
-            // If they are ALREADY connected (indirectly through other rooms), have a random 15% chance to add a door anyway to create a realistic loop
-            //else if (Random.value < 0.15f)
-                //doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+            // If they are ALREADY connected (indirectly through other rooms), have a random 5% chance to add a door anyway to create a realistic loop
+            else if (Random.value < 0.05f)
+            {
+                Debug.Log("[RARE EVENT]: Added a natural loop!");   
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+            }
         }
 
         return doors;
+    }
+
+    // Check if a tile is part of the stairwell layout
+    bool IsInStairwell(Vector2Int coord, Vector2Int topTile, int depth)
+    {
+        // The ramp covers 'depth' tiles, ending at topTile.y and going backwards
+        for (int i = 0; i < depth; i++)
+        {
+            if (coord.x == topTile.x && coord.y == (topTile.y - i))
+                return true;
+        }
+        return false;
     }
 
     // Helper to find where the rooms are touching
