@@ -8,11 +8,11 @@ using UnityEditor;
 public class RoomGeneration : MonoBehaviour
 {
     [Header("Preset Generation Settings")]
-    public bool dormitory = false;
-    public bool warehouse = false;
-    public bool smallHouse = false;
-    public bool twoStoryHouse = false;
-    public bool skyscraper = false;
+    private bool dormitory = false;
+    private bool warehouse = false;
+    private bool smallHouse = false;
+    private bool twoStoryHouse = false;
+    private bool skyscraper = false;
 
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
@@ -62,7 +62,7 @@ public class RoomGeneration : MonoBehaviour
     private void Start()
     {
         // Check for any preset values we want to follow
-        CheckPresetLayouts();
+        //CheckPresetLayouts();
         
         // Generate houses
         GenerateAllRooms();
@@ -183,6 +183,9 @@ public class RoomGeneration : MonoBehaviour
         HashSet<Vector2Int> houseLayout = GenerateHouseLayout();
         allHouseOccupiedTiles = new HashSet<Vector2Int>(houseLayout); // Save the layout so the wall-spawning logic knows where the outside of the house is
 
+        // Pick one random tile from the layout to serve as the stairwell for all floors
+        Vector2Int stairwellTile = houseLayout.ElementAt(Random.Range(0, houseLayout.Count));
+
         // Subdivide the house layout into the desired num of rooms
         List<HashSet<Vector2Int>> rooms = SubdivideHouse(houseLayout, numberOfRooms);
 
@@ -206,9 +209,12 @@ public class RoomGeneration : MonoBehaviour
                 ? SubdivideHouse(houseLayout, roomsOnCurrentFloor)
                 : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
 
+            // Generate doorways for this specific floor layout (now that we have the full layout)
+            HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
+
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
-                BuildRoomGeometry(i, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform); // Offset is now 0 because the house layout is already globally placed, height is 0 at first since we start on ground level
+                BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, stairwellTile, floorDoors); // Offset is now 0 because the house layout is already globally placed, height is 0 at first since we start on ground level
 
             // Get the highest point in all room roofs and build off that for the next floor
             roofHeight = GetHighestRoofPoint();
@@ -348,7 +354,7 @@ public class RoomGeneration : MonoBehaviour
         return true;
     }
 
-    void BuildRoomGeometry(int id, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor)
+    void BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
     {
         // Create the Parent GameObject
         GameObject roomParent = new GameObject($"Room_{id}");
@@ -373,17 +379,28 @@ public class RoomGeneration : MonoBehaviour
         {
             // Position relative to the room parent
             Vector3 tilePos = new Vector3(coord.x, heightOffset, coord.y); // z was 0
+            bool isStair = (coord == stairTile);
 
-            // Spawn Floor
-            SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, tilePos, Vector3.one, "Floor");
+            // Spawn Floor (skip if it's the stairwell, UNLESS it's the ground floor)
+            if (!isStair || floor == 0)
+                SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, tilePos, Vector3.one, "Floor");
 
-            // Spawn Ceiling
-            GameObject ceiling = SpawnPrimitive(PrimitiveType.Cube, ceilingGroup.transform, tilePos + Vector3.up * wallHeight, Vector3.one, "Ceiling");
+            // Spawn Ceiling (skip if it's the stairwell, UNLESS it's the very top floor/roof)
+            if (!isStair || floor == numberOfFloors - 1)
+                SpawnPrimitive(PrimitiveType.Cube, ceilingGroup.transform, tilePos + Vector3.up * wallHeight, Vector3.one, "Ceiling");
+
+            // Spawn a ramp to connect floors if this is the stairwell (and not the top floor)
+            if (isStair && floor < numberOfFloors - 1)
+            {
+                // Spawns a slanted block acting as a ramp to the next floor
+                GameObject stairs = SpawnPrimitive(PrimitiveType.Cube, floorGroup.transform, tilePos + (Vector3.up * (wallHeight / 2f)), new Vector3(1, wallHeight * 1.2f, 1), "Stairs");
+                stairs.transform.rotation = Quaternion.Euler(45, 0, 0); // Slant it
+            }
 
             // Spawn Walls (Check neighbors)
-            CheckAndSpawnWalls(coord, worldPos, normalizedCoords, wallGroup.transform, tilePos);
+            CheckAndSpawnWalls(coord, worldPos, normalizedCoords, wallGroup.transform, tilePos, floorDoors);
 
-            // Here later, potentially call a separate script to spawn items?
+            // FUTURE: call a separate script to spawn items in the spaces
         }
 
         // Bake the different groups of primitive child tiles into single objects
@@ -398,7 +415,7 @@ public class RoomGeneration : MonoBehaviour
     }
 
     // Placing walls on the floors of generated rooms
-    void CheckAndSpawnWalls(Vector2Int localCoord, Vector2Int worldOffset, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos)
+    void CheckAndSpawnWalls(Vector2Int localCoord, Vector2Int worldOffset, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos, HashSet<string> floorDoors)
     {
         // Directions: Up, Down, Left, Right
         Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
@@ -406,7 +423,6 @@ public class RoomGeneration : MonoBehaviour
         foreach (var dir in directions)
         {
             Vector2Int neighbor = localCoord + dir;
-            //Vector2Int neighborWorld = (localCoord + worldOffset) + dir;
 
             // Is the neighbor inside this same room?
             if (roomTiles.Contains(neighbor))
@@ -415,8 +431,15 @@ public class RoomGeneration : MonoBehaviour
             // Is the neighbor still inside the house, but in a different room?
             if (allHouseOccupiedTiles.Contains(neighbor))
             {
+                // Check if the specific interior wall tile is on the list of doors
+                string edge = GetEdgeKey(localCoord, neighbor);
+                if (floorDoors.Contains(edge))
+                {
+                    // FUTURE: Add the door prefab that we want to spawn later
+                    continue; // Skip spawning the wall since this is a door
+                }
+
                 // Spawn an interior wall to divide the rooms.
-                // FUTURE: Can later work in doorways at this point!!
                 SpawnWall(pos, dir, parent, isInterior: true);
                 continue;
             }
@@ -517,6 +540,47 @@ public class RoomGeneration : MonoBehaviour
         return highestY;
     }
 
+    // Normalizes an edge between two tiles so Tile A -> Tile B is the same as Tile B -> Tile A (helps us find tiles touching both walls)
+    string GetEdgeKey(Vector2Int a, Vector2Int b)
+    {
+        if (a.x < b.x || (a.x == b.x && a.y < b.y))
+            return $"{a.x},{a.y}_{b.x},{b.y}";
+        else
+            return $"{b.x},{b.y}_{a.x},{a.y}";
+    }
+
+    // Finds all adjacent rooms on a floor and creates a doorway between them
+    HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms)
+    {
+        HashSet<string> doors = new HashSet<string>();
+        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        // Compare every room against every other room
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            for (int j = i + 1; j < rooms.Count; j++)
+            {
+                List<string> sharedEdges = new List<string>();
+
+                // Check every tile in Room A to see if it touches Room B
+                foreach (Vector2Int tileA in rooms[i])
+                {
+                    foreach (Vector2Int dir in dirs)
+                    {
+                        Vector2Int neighbor = tileA + dir;
+                        if (rooms[j].Contains(neighbor))
+                            sharedEdges.Add(GetEdgeKey(tileA, neighbor));
+                    }
+                }
+
+                // If they share walls, pick one random wall to be the doorway
+                if (sharedEdges.Count > 0)
+                    doors.Add(sharedEdges[Random.Range(0, sharedEdges.Count)]);
+            }
+        }
+        return doors;
+    }
+
     private void OnValidate()
     {
         // Only run this if the bool actually changed, to save performance
@@ -551,21 +615,6 @@ public class RoomGeneration : MonoBehaviour
                 // Switch the material back to its original one
                 if (data != null && data.originalMaterial != null)
                     renderer.sharedMaterial = data.originalMaterial;
-            }
-        }
-    }
-
-    // Enable "Gizmos" in Scene View to see the occupied tiles map
-    private void OnDrawGizmos()
-    {
-        if (allHouseOccupiedTiles != null)
-        {
-            Gizmos.color = new Color(1, 0, 0, 0.3f); // Semi-transparent Red
-            foreach (var tile in allHouseOccupiedTiles)
-            {
-                // Adjust for current script transform if needed, or assume 0,0
-                Vector3 pos = transform.position + new Vector3(tile.x, 0.5f, tile.y);
-                Gizmos.DrawCube(pos, Vector3.one * 0.9f);
             }
         }
     }
