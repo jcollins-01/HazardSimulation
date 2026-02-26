@@ -592,6 +592,10 @@ public class RoomGeneration : MonoBehaviour
         else
             mr.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
 
+        // Add colliders so that the house is walkable
+        MeshCollider mc = parent.AddComponent<MeshCollider>();
+        mc.sharedMesh = combinedMesh;
+
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(parent.transform.GetChild(i).gameObject);
