@@ -516,31 +516,34 @@ public class RoomGeneration : MonoBehaviour
 
     void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
     {
-        // 1. Calculate the horizontal run
-        // The ramp starts at (topTile.y - depth + 1) and ends at topTile.y
-        float startZ = (float)topTile.y - depth + 1;
-        float endZ = (float)topTile.y;
-        float centerZ = (startZ + endZ) / 2f;
+        // Figure out the vertical bounds of the ramp
+        // The floor we are standing on has a top surface at heightOffset + 0.5 - the next floor up is wallHeight + 1 unit
+        float surfaceBottom = heightOffset - 1.5f; // + 0.5f;
+        float surfaceTop = heightOffset + wallHeight - 1f; // + 1 unit for the floor thickness
+        float rise = surfaceTop - surfaceBottom;
 
-        // 2. Calculate the vertical rise
-        // Floors are 1 unit thick. Surface is height + 0.5.
-        // We want to go from the surface of this floor to the surface of the next.
-        float surfaceBottom = heightOffset + 0.5f;
-        float surfaceTop = heightOffset + wallHeight + 0.5f;
-        float centerY = (surfaceBottom + surfaceTop) / 2f;
+        // Figure out the horizontal bounds of the ramp
+        // The hole ends at topTile.y - the ramp starts 'depth' tiles back. To center it perfectly, we find the middle of the 'run'.
+        float run = (float)depth;
+        float centerZ = (float)topTile.y - (run - 1f); // run - 1f- was run/2f, was + 0.5f
 
-        // 3. Math for Scale and Angle
-        float run = depth;
-        float rise = wallHeight;
+        // Geometry to determine the angle of the ramp
         float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
         float angle = Mathf.Atan2(rise, run) * Mathf.Rad2Deg;
 
-        // 4. Spawn
-        Vector3 rampPos = new Vector3(topTile.x, centerY, centerZ);
-        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(0.9f, 0.1f, rampLength), "Stair_Ramp");
+        // Alignment tweak - helps us to make the ramp flush with the upper floor
+        // Lower the center slightly so the top surface of the ramp is what aligns with the floor, not the core center
+        float thickness = 0.2f;
+        float centerY = ((surfaceBottom + surfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
 
-        // Rotate around the center
-        ramp.transform.rotation = Quaternion.Euler(-angle, 0, 0);
+        float centerX = topTile.x - 1f; // was topFile.x
+
+        // Spawn the ramp - X must be exactly topTile.x to align with the hole
+        Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
+        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(0.95f, thickness, rampLength), "Stair_Ramp");
+
+        // Rotation - apply the angle rotation to the ramp's position so it connects the floors
+        ramp.transform.localRotation = Quaternion.Euler(-angle, 0, 0);
 
         if (floorMaterial != null)
             ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
@@ -680,13 +683,12 @@ public class RoomGeneration : MonoBehaviour
     // Check if a tile is part of the stairwell layout
     bool IsInStairwell(Vector2Int coord, Vector2Int topTile, int depth)
     {
-        // The ramp covers 'depth' tiles, ending at topTile.y and going backwards
-        for (int i = 0; i < depth; i++)
-        {
-            if (coord.x == topTile.x && coord.y == (topTile.y - i))
-                return true;
-        }
-        return false;
+        // If X doesn't match, it's not the stairwell
+        if (coord.x != topTile.x) return false;
+
+        // The hole starts at the topTile and goes BACKWARDS for 'depth' tiles
+        // Example: Top is 10, Depth is 4. Hole is 10, 9, 8, 7.
+        return (coord.y <= topTile.y && coord.y > topTile.y - depth);
     }
 
     // Helper to find where the rooms are touching
