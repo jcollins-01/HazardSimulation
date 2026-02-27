@@ -6153,6 +6153,8 @@ MonoBehaviour:
   floorMaterial: {fileID: 2100000, guid: 15ee2042f27af81459dc4f0bc28046a0, type: 2}
   wallMaterial: {fileID: 2100000, guid: a9b0beffe62a118419166104d6c000f7, type: 2}
   ceilingMaterial: {fileID: 2100000, guid: 15ee2042f27af81459dc4f0bc28046a0, type: 2}
+  addCollidersToCombinedGeometry: 1
+  enableTeleportationOnFloors: 1
 --- !u!4 &2121615328
 Transform:
   m_ObjectHideFlags: 0

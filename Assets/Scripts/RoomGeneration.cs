@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -33,6 +34,10 @@ public class RoomGeneration : MonoBehaviour
     public Material floorMaterial;
     public Material wallMaterial;
     public Material ceilingMaterial;
+
+    [Header("XR Locomotion")]
+    public bool addCollidersToCombinedGeometry = true;
+    public bool enableTeleportationOnFloors = true;
 
     // Tracks EVERY tile in the entire house to prevent overlaps
     private HashSet<Vector2Int> allHouseOccupiedTiles = new HashSet<Vector2Int>();
@@ -309,9 +314,19 @@ public class RoomGeneration : MonoBehaviour
         }
 
         // Bake the different groups of primitive child tiles into single objects
-        CombineChildrenMeshes(floorGroup, floorMaterial);
-        CombineChildrenMeshes(ceilingGroup, ceilingMaterial);
-        CombineChildrenMeshes(wallGroup, wallMaterial);
+        CombineChildrenMeshes(
+            floorGroup,
+            floorMaterial,
+            addCollider: addCollidersToCombinedGeometry,
+            addTeleportationArea: enableTeleportationOnFloors);
+        CombineChildrenMeshes(
+            ceilingGroup,
+            ceilingMaterial,
+            addCollider: addCollidersToCombinedGeometry);
+        CombineChildrenMeshes(
+            wallGroup,
+            wallMaterial,
+            addCollider: addCollidersToCombinedGeometry);
 
         // After baking, capture the default material of the roof through our RoofData tracker
         RoofData data = ceilingGroup.AddComponent<RoofData>();
@@ -364,7 +379,11 @@ public class RoomGeneration : MonoBehaviour
         return obj;
     }
 
-    void CombineChildrenMeshes(GameObject parent, Material targetMaterial)
+    void CombineChildrenMeshes(
+        GameObject parent,
+        Material targetMaterial,
+        bool addCollider = false,
+        bool addTeleportationArea = false)
     {
         MeshFilter[] meshFilters = parent.GetComponentsInChildren<MeshFilter>();
         CombineInstance[] combine = new CombineInstance[meshFilters.Length];
@@ -395,6 +414,21 @@ public class RoomGeneration : MonoBehaviour
             mr.sharedMaterial = targetMaterial;
         else
             mr.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+
+        if (addCollider)
+        {
+            MeshCollider collider = parent.GetComponent<MeshCollider>();
+            if (collider == null)
+                collider = parent.AddComponent<MeshCollider>();
+
+            collider.sharedMesh = combinedMesh;
+        }
+
+        if (addTeleportationArea)
+        {
+            if (parent.GetComponent<TeleportationArea>() == null)
+                parent.AddComponent<TeleportationArea>();
+        }
 
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
