@@ -8,11 +8,11 @@ using UnityEditor;
 public class RoomGeneration : MonoBehaviour
 {
     [Header("Preset Generation Settings")]
-    private bool dormitory = false;
-    private bool warehouse = false;
-    private bool smallHouse = false;
-    private bool twoStoryHouse = false;
-    private bool skyscraper = false;
+    public bool dormitory = false;
+    public bool warehouse = false;
+    public bool smallHouse = false;
+    public bool twoStoryHouse = false;
+    public bool skyscraper = false;
 
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
@@ -64,9 +64,6 @@ public class RoomGeneration : MonoBehaviour
 
     private void Start()
     {
-        // Check for any preset values we want to follow
-        //CheckPresetLayouts();
-        
         // Generate houses
         GenerateAllRooms();
 
@@ -90,6 +87,8 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 3;
+
+            dormitory = false; // Turn off so we can manually tweak values afterward
         }
 
         if (warehouse)
@@ -107,6 +106,8 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 6;
             minComplexity = 1;
             maxComplexity = 1;
+
+            warehouse = false;
         }
 
         if (smallHouse)
@@ -124,6 +125,8 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 4;
+
+            smallHouse = false;
         }
 
         if (twoStoryHouse)
@@ -141,6 +144,8 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 4;
+
+            twoStoryHouse = false;
         }
 
         if (skyscraper)
@@ -158,6 +163,8 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 2;
+
+            skyscraper = false;
         }
     }
 
@@ -711,6 +718,9 @@ public class RoomGeneration : MonoBehaviour
 
     private void OnValidate()
     {
+        // Check for any preset values we want to follow
+        CheckPresetLayouts();
+
         // Only run this if the bool actually changed, to save performance
         if (roomRoofsTransparent != lastTransparencyState)
         {
