@@ -14,6 +14,13 @@ public class RoomGeneration : MonoBehaviour
     public bool twoStoryHouse = false;
     public bool skyscraper = false;
 
+    [Header("Outbuilding Settings")]
+    public bool chanceForOutbuilding = false;
+    [Range(0f, 1f)]
+    [Tooltip("0.0 is 0%, 1.0 is 100% chance")]
+    public float outbuildingSpawnChance = 0.5f;
+    public int outbuildingOffset = 5;
+
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
     public int numberOfFloors = 2;
@@ -236,9 +243,59 @@ public class RoomGeneration : MonoBehaviour
             // Debug.Log($"Floor {floor} complete. Next floor will be at: {roofHeight}");
         }
 
+        // Generate outbuilding if toggled and the random chance succeeds
+        if (chanceForOutbuilding && Random.value <= outbuildingSpawnChance)
+        {
+            GenerateOutbuilding(houseParent.transform);
+        }
+
         // Check transparency toggle after rooms are made and automatically toggle transparency if necessary
         lastTransparencyState = roomRoofsTransparent;
         ToggleRoofTransparency();
+    }
+
+    void GenerateOutbuilding(Transform parent)
+    {
+        // 1. Set up the parent container
+        GameObject outbuildingParent = new GameObject("Outbuilding");
+        outbuildingParent.transform.SetParent(parent);
+        outbuildingParent.transform.localPosition = Vector3.zero;
+
+        // 2. Temporarily save the main house's wall height, then set to Warehouse height
+        int originalWallHeight = wallHeight;
+        wallHeight = 6; // Your preset warehouse height
+
+        // 3. Define warehouse room dimensions (1 big room)
+        int width = Random.Range(minRoomWidth, maxRoomWidth + 1);
+        int length = Random.Range(minRoomLength, maxRoomLength + 1);
+
+        // 4. Calculate a safe offset to the right of the main house
+        // We push it out past the max width of the main house plus your chosen offset
+        int startX = maxHouseWidth + outbuildingOffset;
+        int startY = 0;
+
+        HashSet<Vector2Int> outbuildingTiles = new HashSet<Vector2Int>();
+
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < length; y++)
+            {
+                // We bake the offset directly into the coordinates so the wall logic works
+                Vector2Int tile = new Vector2Int(startX + x, startY + y);
+                outbuildingTiles.Add(tile);
+
+                // Add to the global tracker so the script knows to build exterior walls here
+                allHouseOccupiedTiles.Add(tile);
+            }
+        }
+
+        // 5. Build the geometry
+        // We pass an empty HashSet for doors, and a dummy Vector2Int(-999, -999) so it doesn't accidentally spawn stairs
+        HashSet<string> noDoors = new HashSet<string>();
+        BuildRoomGeometry(999, 0, outbuildingTiles, Vector2Int.zero, 0f, outbuildingParent.transform, new Vector2Int(-999, -999), noDoors);
+
+        // 6. Restore the original wall height so the next time you hit generate, it's correct
+        wallHeight = originalWallHeight;
     }
 
     // Creates the basic outline of a house, with nooks and complexity as determined by our vars
