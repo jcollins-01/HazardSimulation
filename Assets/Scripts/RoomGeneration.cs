@@ -13,6 +13,7 @@ public class RoomGeneration : MonoBehaviour
     public bool smallHouse = false;
     public bool twoStoryHouse = false;
     public bool skyscraper = false;
+    public bool mansion = false;
 
     [Header("Outbuilding Settings")]
     public bool chanceForOutbuilding = false;
@@ -21,11 +22,17 @@ public class RoomGeneration : MonoBehaviour
     public float outbuildingSpawnChance = 0.5f;
     public int outbuildingOffset = 5;
 
+    [Header("Yard Settings")]
+    public bool generateYard = true;
+    public int minYardPadding = 2;
+    public int maxYardPadding = 8;
+
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
     public int numberOfFloors = 2;
     public bool identicalFloors = false;
     public bool roomAmountsDifferPerFloor = false;
+    public bool heightenedNooks = false;
     public bool destroyPreviousGeneration = true;
     public bool roomRoofsTransparent = false;
 
@@ -45,10 +52,11 @@ public class RoomGeneration : MonoBehaviour
     public int minComplexity = 1;
     public int maxComplexity = 3;
 
-    [Header("Room Materials")]
+    [Header("All Materials")]
     public Material floorMaterial;
     public Material wallMaterial;
     public Material ceilingMaterial;
+    public Material yardMaterial;
 
     // Tracks EVERY tile in the entire house to prevent overlaps
     private HashSet<Vector2Int> allHouseOccupiedTiles = new HashSet<Vector2Int>();
@@ -85,6 +93,7 @@ public class RoomGeneration : MonoBehaviour
             numberOfFloors = 4;
             identicalFloors = true;
             roomAmountsDifferPerFloor = false;
+            heightenedNooks = false;
             maxHouseWidth = 20;
             maxHouseLength = 30;
             minRoomWidth = 4;
@@ -104,6 +113,7 @@ public class RoomGeneration : MonoBehaviour
             numberOfFloors = 1;
             identicalFloors = true;
             roomAmountsDifferPerFloor = false;
+            heightenedNooks = false;
             maxHouseWidth = 20;
             maxHouseLength = 40;
             minRoomWidth = 4;
@@ -123,6 +133,7 @@ public class RoomGeneration : MonoBehaviour
             numberOfFloors = 1;
             identicalFloors = false;
             roomAmountsDifferPerFloor = false;
+            heightenedNooks = false;
             maxHouseWidth = 15;
             maxHouseLength = 15;
             minRoomWidth = 4;
@@ -142,6 +153,7 @@ public class RoomGeneration : MonoBehaviour
             numberOfFloors = 2;
             identicalFloors = false;
             roomAmountsDifferPerFloor = true;
+            heightenedNooks = false;
             maxHouseWidth = 15;
             maxHouseLength = 15;
             minRoomWidth = 4;
@@ -161,6 +173,7 @@ public class RoomGeneration : MonoBehaviour
             numberOfFloors = 30;
             identicalFloors = true;
             roomAmountsDifferPerFloor = false;
+            heightenedNooks = false;
             maxHouseWidth = 20;
             maxHouseLength = 20;
             minRoomWidth = 6;
@@ -172,6 +185,26 @@ public class RoomGeneration : MonoBehaviour
             maxComplexity = 2;
 
             skyscraper = false;
+        }
+
+        if (mansion)
+        {
+            numberOfRooms = 10;
+            numberOfFloors = 4;
+            identicalFloors = false;
+            roomAmountsDifferPerFloor = true;
+            heightenedNooks = true;
+            maxHouseWidth = 30;
+            maxHouseLength = 40;
+            minRoomWidth = 10;
+            maxRoomWidth = 20;
+            minRoomLength = 10;
+            maxRoomLength = 20;
+            wallHeight = 5;
+            minComplexity = 6;
+            maxComplexity = 10;
+
+            mansion = false;
         }
     }
 
@@ -227,6 +260,10 @@ public class RoomGeneration : MonoBehaviour
                 ? SubdivideHouse(houseLayout, roomsOnCurrentFloor)
                 : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
 
+            // If we had created slim long hallways, chop them up into nooks
+            if (heightenedNooks)
+                SubdivideNooks(floorRooms);
+
             // Generate doorways for this specific floor layout (now that we have the full layout)
             HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
 
@@ -245,9 +282,10 @@ public class RoomGeneration : MonoBehaviour
 
         // Generate outbuilding if toggled and the random chance succeeds
         if (chanceForOutbuilding && Random.value <= outbuildingSpawnChance)
-        {
             GenerateOutbuilding(houseParent.transform);
-        }
+
+        // Generate the yard to encompass all the present buildings
+        GenerateYard(houseParent.transform);
 
         // Check transparency toggle after rooms are made and automatically toggle transparency if necessary
         lastTransparencyState = roomRoofsTransparent;
@@ -256,21 +294,20 @@ public class RoomGeneration : MonoBehaviour
 
     void GenerateOutbuilding(Transform parent)
     {
-        // 1. Set up the parent container
+        // Set up the parent container
         GameObject outbuildingParent = new GameObject("Outbuilding");
         outbuildingParent.transform.SetParent(parent);
         outbuildingParent.transform.localPosition = Vector3.zero;
 
-        // 2. Temporarily save the main house's wall height, then set to Warehouse height
+        // Temporarily save the main house's wall height, then set to Warehouse height
         int originalWallHeight = wallHeight;
         wallHeight = 6; // Your preset warehouse height
 
-        // 3. Define warehouse room dimensions (1 big room)
+        // Define warehouse room dimensions (1 big room)
         int width = Random.Range(minRoomWidth, maxRoomWidth + 1);
         int length = Random.Range(minRoomLength, maxRoomLength + 1);
 
-        // 4. Calculate a safe offset to the right of the main house
-        // We push it out past the max width of the main house plus your chosen offset
+        // Calculate a safe offset to the right of the main house - we push it out past the max width of the main house plus the chosen offset
         int startX = maxHouseWidth + outbuildingOffset;
         int startY = 0;
 
@@ -289,13 +326,61 @@ public class RoomGeneration : MonoBehaviour
             }
         }
 
-        // 5. Build the geometry
-        // We pass an empty HashSet for doors, and a dummy Vector2Int(-999, -999) so it doesn't accidentally spawn stairs
+        // Build the geometry - we pass an empty HashSet for doors, and a dummy Vector2Int(-999, -999) so it doesn't accidentally spawn stairs
         HashSet<string> noDoors = new HashSet<string>();
         BuildRoomGeometry(999, 0, outbuildingTiles, Vector2Int.zero, 0f, outbuildingParent.transform, new Vector2Int(-999, -999), noDoors);
 
-        // 6. Restore the original wall height so the next time you hit generate, it's correct
+        // Restore the original wall height so the next time you hit generate, it's correct
         wallHeight = originalWallHeight;
+    }
+
+    void GenerateYard(Transform parent)
+    {
+        if (allHouseOccupiedTiles.Count == 0 || !generateYard) return;
+
+        // Find the extreme bounds of ALL buildings (Main House + Outbuilding)
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+
+        foreach (Vector2Int tile in allHouseOccupiedTiles)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        // Add random padding to make it look like a varied property lot
+        int paddingX = Random.Range(minYardPadding, maxYardPadding + 1);
+        int paddingY = Random.Range(minYardPadding, maxYardPadding + 1);
+
+        minX -= paddingX;
+        maxX += paddingX;
+        minY -= paddingY;
+        maxY += paddingY;
+
+        float yardWidth = (maxX - minX) + 1;
+        float yardLength = (maxY - minY) + 1;
+
+        // Calculate the center point of the new yard - use the parent's position as the base to ensure it aligns with the house
+        Vector3 origin = parent.position;
+        float centerX = origin.x + minX + (yardWidth / 2f) - 0.5f;
+        float centerZ = origin.z + minY + (yardLength / 2f) - 0.5f;
+
+        // Spawn the yard as a flattened cube (easier to scale precisely than a Plane)
+        GameObject yard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        yard.name = "Yard";
+        yard.transform.SetParent(parent);
+
+        // FORCE the World Position to be slightly below the house origin
+        yard.transform.position = new Vector3(centerX, origin.y + 0.5f - wallHeight, centerZ);
+        yard.transform.localScale = new Vector3(yardWidth, 0.1f, yardLength);
+
+        // Apply the Yard Material
+        if (yardMaterial != null)
+            yard.GetComponent<MeshRenderer>().sharedMaterial = yardMaterial;
+        else
+            yard.GetComponent<MeshRenderer>().sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
     }
 
     // Creates the basic outline of a house, with nooks and complexity as determined by our vars
@@ -351,6 +436,65 @@ public class RoomGeneration : MonoBehaviour
         return rooms;
     }
 
+    void SubdivideNooks(List<HashSet<Vector2Int>> rooms)
+    {
+        List<HashSet<Vector2Int>> newCubbies = new List<HashSet<Vector2Int>>();
+        List<HashSet<Vector2Int>> roomsToRemove = new List<HashSet<Vector2Int>>();
+
+        foreach (var room in rooms)
+        {
+            // Find the bounding box of this specific room
+            int minX = int.MaxValue, maxX = int.MinValue;
+            int minY = int.MaxValue, maxY = int.MinValue;
+            foreach (var tile in room)
+            {
+                if (tile.x < minX) minX = tile.x;
+                if (tile.x > maxX) maxX = tile.x;
+                if (tile.y < minY) minY = tile.y;
+                if (tile.y > maxY) maxY = tile.y;
+            }
+
+            int width = maxX - minX + 1;
+            int length = maxY - minY + 1;
+
+            // Define what a "long thin room" is
+            bool isThinX = width <= 2 && length >= 4;
+            bool isThinY = length <= 2 && width >= 4;
+
+            // If it's awkwardly long, give it a high chance to be chopped into cubbies
+            if (isThinX || isThinY)
+            {
+                if (Random.value < 0.7f) // 70% chance to chop it up
+                {
+                    HashSet<Vector2Int> cubbyA = new HashSet<Vector2Int>();
+                    HashSet<Vector2Int> cubbyB = new HashSet<Vector2Int>();
+
+                    if (isThinX) // Chop horizontally across the long Y axis
+                    {
+                        int split = Random.Range(minY + 1, maxY);
+                        foreach (var tile in room) { if (tile.y < split) cubbyA.Add(tile); else cubbyB.Add(tile); }
+                    }
+                    else // Chop vertically across the long X axis
+                    {
+                        int split = Random.Range(minX + 1, maxX);
+                        foreach (var tile in room) { if (tile.x < split) cubbyA.Add(tile); else cubbyB.Add(tile); }
+                    }
+
+                    if (cubbyA.Count > 0 && cubbyB.Count > 0)
+                    {
+                        roomsToRemove.Add(room);
+                        newCubbies.Add(cubbyA);
+                        newCubbies.Add(cubbyB);
+                    }
+                }
+            }
+        }
+
+        // Apply the cuts to the floor plan
+        foreach (var r in roomsToRemove) rooms.Remove(r);
+        rooms.AddRange(newCubbies);
+    }
+
     // Utilizes binary space partitioning method for procedural generation
     // (splits a space in half, then continuously divides to create reasonable subspaces to alter within the area)
     bool TrySplitRoom(HashSet<Vector2Int> currentRoom, out HashSet<Vector2Int> roomA, out HashSet<Vector2Int> roomB)
@@ -373,11 +517,24 @@ public class RoomGeneration : MonoBehaviour
         int width = maxX - minX + 1;
         int length = maxY - minY + 1;
 
+        // Determine the minimum size for THIS specific slice - default to your standard minimums
+        int currentMinWidth = minRoomWidth;
+        int currentMinLength = minRoomLength;
+
+        // If heightenedNooks is checked, give a chance to ignore the standard minimums and create a tiny space
+        if (heightenedNooks && Random.value < 0.6f) // 60% chance for a nook when splitting
+        {
+            // Force the slice to be extremely narrow (1 or 2 tiles wide)
+            Debug.Log("[MANSION EVENT]: Added a narrow slice/nook!");
+            currentMinWidth = Random.Range(1, 3);
+            currentMinLength = Random.Range(1, 3);
+        }
+
         // Decide split direction. We generally want to split the longest axis to avoid thin hallways.
         bool splitVertical = width > length;
 
         // Add a bit of randomness so it isn't completely predictable, provided both sides are big enough
-        if (width >= minRoomWidth * 2 && length >= minRoomLength * 2)
+        if (width >= currentMinWidth * 2 && length >= currentMinLength * 2)
         {
             splitVertical = Random.value > 0.5f;
         }
@@ -386,8 +543,8 @@ public class RoomGeneration : MonoBehaviour
         if (splitVertical)
         {
             // Calculate valid range for the slice to ensure minRoomWidth is respected on both sides
-            int minSplit = minX + minRoomWidth;
-            int maxSplit = maxX - minRoomWidth + 1;
+            int minSplit = minX + currentMinWidth;
+            int maxSplit = maxX - currentMinWidth + 1;
 
             // If the room is too small to split, cancel it - we'll have a larger, open space/room as a result
             if (minSplit > maxSplit) return false;
@@ -405,8 +562,8 @@ public class RoomGeneration : MonoBehaviour
         else
         {
             // Same logic, but slicing horizontally along the Y axis
-            int minSplit = minY + minRoomLength;
-            int maxSplit = maxY - minRoomLength + 1;
+            int minSplit = minY + currentMinLength;
+            int maxSplit = maxY - currentMinLength + 1;
 
             if (minSplit > maxSplit) return false;
 
@@ -736,6 +893,12 @@ public class RoomGeneration : MonoBehaviour
                 // Pick exactly one edge from the shared list to connect them
                 doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
                 parents[Find(r1)] = Find(r2);
+            }
+            // If they are already connected and the mansion bool is on, have a large chance (60%) to create realistic, maze-like loops
+            else if (Random.value < 0.6f && heightenedNooks)
+            {
+                Debug.Log("[MANSION EVENT]: Added a natural loop!");
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
             }
             // If they are ALREADY connected (indirectly through other rooms), have a random 5% chance to add a door anyway to create a realistic loop
             else if (Random.value < 0.05f)
