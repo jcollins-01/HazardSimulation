@@ -69,6 +69,8 @@ public class RoomGeneration : MonoBehaviour
 
     // Room variables to track privately
     private int stairDepth = 5; // Makes for an angle of 31 degrees, architectural height for a comfortable set of stairs
+    private Vector2Int mainDoorTile;
+    private string mainDoorDirection; // "N", "S", "E", or "W"
 
     // Vars to handle toggling roof transparency
     private bool lastTransparencyState = false; // To ensure we only change roof materials once when converting them to and from transparency
@@ -275,6 +277,9 @@ public class RoomGeneration : MonoBehaviour
             // Spawn a ramp to connect floors if this is the stairwell (and not the top floor)
             if (floor < numberOfFloors - 1) 
                 SpawnStairs(stairwellTile, roofHeight, floorParent.transform, stairDepth);
+
+            // Determine the main door tile in the layout
+            DetermineMainDoor(floorRooms);
 
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
@@ -626,7 +631,7 @@ public class RoomGeneration : MonoBehaviour
                 SpawnPrimitive(PrimitiveType.Cube, ceilingGroup.transform, tilePos + Vector3.up * wallHeight, Vector3.one, "Ceiling");
 
             // Spawn Walls (Check neighbors)
-            CheckAndSpawnWalls(coord, worldPos, normalizedCoords, wallGroup.transform, tilePos, floorDoors, stairTile, stairDepth);
+            CheckAndSpawnWalls(coord, normalizedCoords, wallGroup.transform, tilePos, floorDoors, stairTile, stairDepth, floor);
 
             // FUTURE: call a separate script to spawn items in the spaces
         }
@@ -653,13 +658,16 @@ public class RoomGeneration : MonoBehaviour
     }
 
     // Placing walls on the floors of generated rooms
-    void CheckAndSpawnWalls(Vector2Int localCoord, Vector2Int worldOffset, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos, HashSet<string> floorDoors, Vector2Int stairTile, int stairDepth)
+    void CheckAndSpawnWalls(Vector2Int localCoord, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos, HashSet<string> floorDoors, Vector2Int stairTile, int stairDepth, int floorLevel)
     {
         // Directions: Up, Down, Left, Right
         Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+        string[] dirLabels = { "N", "S", "W", "E" };
 
-        foreach (var dir in directions)
+        for (int i = 0; i < 4; i++)
         {
+            Vector2Int dir = directions[i];
+            string currentDir = dirLabels[i];
             Vector2Int neighbor = localCoord + dir;
 
             // Is the neighbor inside this same room?
@@ -693,9 +701,20 @@ public class RoomGeneration : MonoBehaviour
                 continue;
             }
 
-            // If it's not in the room or in the house layout, this neighbor space is outside
-            // We spawn an exterior wall to block off the outside
-            SpawnWall(pos, dir, parent, isInterior: false);
+            // Check if THIS specific wall segment is the designated Main Door
+            bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
+
+            if (isMainDoor)
+            {
+                // FUTURE: Spawn a special Door Frame prefab here
+                //Debug.Log("Carving out the main entrance!");
+            }
+            else
+            {
+                // If it's not in the room or in the house layout, this neighbor space is outside
+                // We spawn an exterior wall to block off the outside
+                SpawnWall(pos, dir, parent, isInterior: false);
+            }
         }
     }
 
@@ -773,7 +792,7 @@ public class RoomGeneration : MonoBehaviour
         float thickness = 0.2f;
         float centerY = ((surfaceBottom + surfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
 
-        float centerX = topTile.x - 1f; // was topFile.x
+        float centerX = topTile.x; // was topFile.x - 1f;
 
         // Spawn the ramp - X must be exactly topTile.x to align with the hole
         Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
@@ -784,6 +803,36 @@ public class RoomGeneration : MonoBehaviour
 
         if (floorMaterial != null)
             ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
+    }
+
+    void DetermineMainDoor(List<HashSet<Vector2Int>> groundFloorRooms)
+    {
+        List<(Vector2Int tile, string dir)> validExteriorWalls = new List<(Vector2Int, string)>();
+
+        foreach (var room in groundFloorRooms)
+        {
+            foreach (var tile in room)
+            {
+                // Check all 4 directions. If a neighbor is NOT in allHouseOccupiedTiles, it is an exterior wall and a candidate for the main door
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.up))
+                    validExteriorWalls.Add((tile, "N"));
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.down))
+                    validExteriorWalls.Add((tile, "S"));
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.right))
+                    validExteriorWalls.Add((tile, "E"));
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.left))
+                    validExteriorWalls.Add((tile, "W"));
+            }
+        }
+
+        if (validExteriorWalls.Count > 0)
+        {
+            // Pick a random exterior wall segment to be the door
+            var chosen = validExteriorWalls[Random.Range(0, validExteriorWalls.Count)];
+            mainDoorTile = chosen.tile;
+            mainDoorDirection = chosen.dir;
+            //Debug.Log("Chose a door");
+        }
     }
 
     // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
@@ -997,4 +1046,3 @@ public class RoomGeneration : MonoBehaviour
         }
     }
 }
->>>>>>> procedural-generation
