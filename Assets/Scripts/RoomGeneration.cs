@@ -466,6 +466,7 @@ public class RoomGeneration : MonoBehaviour
             {
                 if (Random.value < 0.7f) // 70% chance to chop it up
                 {
+                    Debug.Log("[MANSION EVENT: Chopped up a nook!");
                     HashSet<Vector2Int> cubbyA = new HashSet<Vector2Int>();
                     HashSet<Vector2Int> cubbyB = new HashSet<Vector2Int>();
 
