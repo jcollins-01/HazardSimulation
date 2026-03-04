@@ -31,6 +31,7 @@ public class RoomGeneration : MonoBehaviour
     public bool generateHallways = true;
     [Range(0f, 1f)]
     public float hallwayChance = 0.6f;
+    public int hallwayWidth = 2;
 
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
@@ -457,29 +458,34 @@ public class RoomGeneration : MonoBehaviour
         int width = maxX - minX + 1;
         int length = maxY - minY + 1;
 
-        // If the house is too small, abort the hallway carve
-        if (width < 5 && length < 5) return false;
+        // If the house is too small, abort the hallway carve - needs to be at least four additional tiles on either side + the minimum width of our hallway
+        // I.e., there need to be at least 4 tiles worth of rooms next to the hallway, and 4 tiles worth of space for the hallway to stretch down + our width
+        if (width < hallwayWidth + 4 || length < hallwayWidth + 4) return false; // was &&
 
         // Slice along the longest axis
         bool carveVertical = width > length;
 
         if (carveVertical)
         {
-            int splitX = minX + (width / 2); // Find the middle X
+            int splitXStart = minX + (width / 2) - (hallwayWidth / 2); // Find the middle X in our hallway zone (space needed for a hallway of our width)
+            int splitXEnd = splitXStart + hallwayWidth - 1;
+
             foreach (var tile in footprint)
             {
-                if (tile.x == splitX) hallway.Add(tile); // Middle line is the hallway
-                else if (tile.x < splitX) chunkA.Add(tile); // Left side
+                if (tile.x >= splitXStart && tile.x <= splitXEnd) hallway.Add(tile); // Middle line is the hallway
+                else if (tile.x < splitXStart) chunkA.Add(tile); // Left side
                 else chunkB.Add(tile); // Right side (you are king)
             }
         }
         else
         {
-            int splitY = minY + (length / 2); // Find the middle Y
+            int splitYStart = minY + (length / 2) - (hallwayWidth / 2); // Find the middle Y
+            int splitYEnd = splitYStart + hallwayWidth - 1; 
+
             foreach (var tile in footprint)
             {
-                if (tile.y == splitY) hallway.Add(tile); // Middle line is the hallway
-                else if (tile.y < splitY) chunkA.Add(tile); // Bottom side
+                if (tile.y >= splitYStart && tile.y <= splitYEnd) hallway.Add(tile); // Middle line is the hallway
+                else if (tile.y < splitYStart) chunkA.Add(tile); // Bottom side
                 else chunkB.Add(tile); // Top side
             }
         }
