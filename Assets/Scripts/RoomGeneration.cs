@@ -215,6 +215,14 @@ public class RoomGeneration : MonoBehaviour
         }
     }
 
+    // Copied in the values that the spawning logic is based around so we can preserve positioning if script object was moved
+    public void RestoreGeneratorTransform()
+    {
+        this.gameObject.transform.position = new Vector3(-0.05f, 2.071f, 2.0136f);
+        this.gameObject.transform.rotation = new Quaternion(0f, 0f, 0f, 0f);
+        this.gameObject.transform.localScale = new Vector3(1.4419f, 1.4419f, 1.4419f);
+    }
+
     public void GenerateAllRooms()
     {
         // Clear previous generation (optional, if calling multiple times)
@@ -230,6 +238,9 @@ public class RoomGeneration : MonoBehaviour
         // Reset map of occupied tiles/placed rooms
         allHouseOccupiedTiles.Clear();
         placedRooms.Clear();
+
+        // Ensure the RoomGeneration object is set to the original transform values (in case it was accidentally moved)
+        RestoreGeneratorTransform();
 
         // Create a master House parent to hold the layout in
         GameObject houseParent = new GameObject("House");
