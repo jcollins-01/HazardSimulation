@@ -115,6 +115,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 3;
+            generateHallways = true;
+            hallwayChance = 95; // nearly all dorm-style buildings should have hallways
+            hallwayWidth = 2;
 
             dormitory = false; // Turn off so we can manually tweak values afterward
         }
@@ -135,11 +138,12 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 6;
             minComplexity = 1;
             maxComplexity = 1;
+            generateHallways = false;
 
             warehouse = false;
         }
 
-        if (smallHouse)
+        if (smallHouse) // Essentially like a cottage - very slim chance of having a hallway to connect the rooms
         {
             numberOfRooms = 4;
             numberOfFloors = 1;
@@ -155,6 +159,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 4;
+            generateHallways = true;
+            hallwayChance = 5;
+            hallwayWidth = 1; // Very thin hallway?
 
             smallHouse = false;
         }
@@ -175,6 +182,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 4;
+            generateHallways = true;
+            hallwayChance = 60; // Average chance for the floor to have a hallway or not
+            hallwayWidth = 2;
 
             twoStoryHouse = false;
         }
@@ -195,6 +205,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 2;
+            generateHallways = true;
+            hallwayChance = 95; // Most skyscrapers should have hallways as well
+            hallwayWidth = 3;
 
             skyscraper = false;
         }
@@ -215,6 +228,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 5;
             minComplexity = 6;
             maxComplexity = 10;
+            generateHallways = true;
+            hallwayChance = 80; // Higher chance for hallways due to the large amount of rooms, but some layouts may be more maze-like
+            hallwayWidth = 3;
 
             mansion = false;
         }
@@ -260,8 +276,24 @@ public class RoomGeneration : MonoBehaviour
         //Vector2Int stairwellTile = houseLayout.ElementAt(Random.Range(0, houseLayout.Count));
         Vector2Int stairwellTile = FindStairwellTile(houseLayout);
 
+        // Create a new floorplan and allow us to try generating a hallway on floor one
+        List<HashSet<Vector2Int>> rooms = new List<HashSet<Vector2Int>>();
+
         // Subdivide the house layout into the desired num of rooms
-        List <HashSet<Vector2Int>> rooms = SubdivideHouse(houseLayout, numberOfRooms);
+        if (generateHallways && Random.value <= hallwayChance && GenerateHallway(houseLayout, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB))
+        {
+            rooms.Add(hallway);
+
+            // Subdivide the remaining halves independently, splitting the target room count
+            int halfRooms = Mathf.Max(1, numberOfRooms / 2);
+
+            rooms.AddRange(SubdivideHouse(chunkA, halfRooms));
+            rooms.AddRange(SubdivideHouse(chunkB, halfRooms));
+        }
+        else
+        {
+            rooms = SubdivideHouse(houseLayout, numberOfRooms); // Else, just subdivide the house in the standard fashion
+        }
 
         // Start the base roof height at 0 (global 0)
         float roofHeight = 0;
@@ -289,16 +321,16 @@ public class RoomGeneration : MonoBehaviour
             if (!identicalFloors)
             {
                 // Attempt to carve out a hallway on this floor if the chance threshold was reached
-                if(generateHallways && Random.value <= hallwayChance && GenerateHallway(houseLayout, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB))
+                if(generateHallways && Random.value <= hallwayChance && GenerateHallway(houseLayout, out HashSet<Vector2Int> currentHallway, out HashSet<Vector2Int> currentChunkA, out HashSet<Vector2Int> currentChunkB))
                 {
                     // Add the hallway to our final room list
-                    floorRooms.Add(hallway);
+                    floorRooms.Add(currentHallway);
 
                     // Subdivide the remaining halves independently, splitting the target room count
                     int halfRooms = Mathf.Max(1, roomsOnCurrentFloor / 2);
 
-                    floorRooms.AddRange(SubdivideHouse(chunkA, halfRooms));
-                    floorRooms.AddRange(SubdivideHouse(chunkB, halfRooms));
+                    floorRooms.AddRange(SubdivideHouse(currentChunkA, halfRooms));
+                    floorRooms.AddRange(SubdivideHouse(currentChunkB, halfRooms));
                 }
                 else
                 {
@@ -439,6 +471,8 @@ public class RoomGeneration : MonoBehaviour
 
     bool GenerateHallway(HashSet<Vector2Int> footprint, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
     {
+        Debug.Log("[COMMON EVENT: Attempting to generate hallway");
+
         hallway = new HashSet<Vector2Int>();
         // The chunks are the two separate sides of the house that the hallway connects
         chunkA = new HashSet<Vector2Int>();
@@ -460,7 +494,11 @@ public class RoomGeneration : MonoBehaviour
 
         // If the house is too small, abort the hallway carve - needs to be at least four additional tiles on either side + the minimum width of our hallway
         // I.e., there need to be at least 4 tiles worth of rooms next to the hallway, and 4 tiles worth of space for the hallway to stretch down + our width
-        if (width < hallwayWidth + 4 || length < hallwayWidth + 4) return false; // was &&
+        if (width < hallwayWidth + 4 || length < hallwayWidth + 4)
+        {
+            Debug.Log("Aborted hallway attempt");
+            return false; // was &&
+        }
 
         // Slice along the longest axis
         bool carveVertical = width > length;
