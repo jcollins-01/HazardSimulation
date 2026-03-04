@@ -19,14 +19,18 @@ public class RoomGeneration : MonoBehaviour
     [Header("Outbuilding Settings")]
     public bool chanceForOutbuilding = false;
     [Range(0f, 1f)]
-    [Tooltip("0.0 is 0%, 1.0 is 100% chance")]
     public float outbuildingSpawnChance = 0.5f;
     public int outbuildingOffset = 5;
 
     [Header("Yard Settings")]
-    public bool generateYard = true;
+    public bool generateYard = true; // Generally, always generate a yard (except for when we are making non-explorable houses)
     public int minYardPadding = 2;
     public int maxYardPadding = 8;
+
+    [Header("Hallway Settings")]
+    public bool generateHallways = true;
+    [Range(0f, 1f)]
+    public float hallwayChance = 0.6f;
 
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
@@ -274,9 +278,37 @@ public class RoomGeneration : MonoBehaviour
                 : numberOfRooms; // Else, we stick to the universal/base num of rooms
 
             // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
-            List<HashSet<Vector2Int>> floorRooms = (!identicalFloors)
+            /*List<HashSet<Vector2Int>> floorRoomsOld = (!identicalFloors)
                 ? SubdivideHouse(houseLayout, roomsOnCurrentFloor)
-                : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
+                : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors*/
+
+            List<HashSet<Vector2Int>> floorRooms = new List<HashSet<Vector2Int>>();
+
+            // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
+            if (!identicalFloors)
+            {
+                // Attempt to carve out a hallway on this floor if the chance threshold was reached
+                if(generateHallways && Random.value <= hallwayChance && GenerateHallway(houseLayout, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB))
+                {
+                    // Add the hallway to our final room list
+                    floorRooms.Add(hallway);
+
+                    // Subdivide the remaining halves independently, splitting the target room count
+                    int halfRooms = Mathf.Max(1, roomsOnCurrentFloor / 2);
+
+                    floorRooms.AddRange(SubdivideHouse(chunkA, halfRooms));
+                    floorRooms.AddRange(SubdivideHouse(chunkB, halfRooms));
+                }
+                else
+                {
+                    // Standard generation if the hallway fails or is toggled off
+                    floorRooms = SubdivideHouse(houseLayout, roomsOnCurrentFloor);
+                }
+            }
+            else
+            {
+                floorRooms = rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
+            }
 
             // If we had created slim long hallways, chop them up into nooks
             if (heightenedNooks)
@@ -402,6 +434,57 @@ public class RoomGeneration : MonoBehaviour
             yard.GetComponent<MeshRenderer>().sharedMaterial = yardMaterial;
         else
             yard.GetComponent<MeshRenderer>().sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+    }
+
+    bool GenerateHallway(HashSet<Vector2Int> footprint, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
+    {
+        hallway = new HashSet<Vector2Int>();
+        // The chunks are the two separate sides of the house that the hallway connects
+        chunkA = new HashSet<Vector2Int>();
+        chunkB = new HashSet<Vector2Int>();
+
+        // Find the bounding box of the footprint
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+        foreach (var tile in footprint)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        int width = maxX - minX + 1;
+        int length = maxY - minY + 1;
+
+        // If the house is too small, abort the hallway carve
+        if (width < 5 && length < 5) return false;
+
+        // Slice along the longest axis
+        bool carveVertical = width > length;
+
+        if (carveVertical)
+        {
+            int splitX = minX + (width / 2); // Find the middle X
+            foreach (var tile in footprint)
+            {
+                if (tile.x == splitX) hallway.Add(tile); // Middle line is the hallway
+                else if (tile.x < splitX) chunkA.Add(tile); // Left side
+                else chunkB.Add(tile); // Right side (you are king)
+            }
+        }
+        else
+        {
+            int splitY = minY + (length / 2); // Find the middle Y
+            foreach (var tile in footprint)
+            {
+                if (tile.y == splitY) hallway.Add(tile); // Middle line is the hallway
+                else if (tile.y < splitY) chunkA.Add(tile); // Bottom side
+                else chunkB.Add(tile); // Top side
+            }
+        }
+
+        return true;
     }
 
     // Creates the basic outline of a house, with nooks and complexity as determined by our vars
