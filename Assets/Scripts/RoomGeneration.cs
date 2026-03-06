@@ -1048,12 +1048,14 @@ public class RoomGeneration : MonoBehaviour
             }
         }
 
-        // Spawn a shelf in a random corner/edge
+        // Spawn other objects in a random corner/edge
         Vector2Int edgeTile = new Vector2Int(minX, minY);
         if (roomTiles.Contains(edgeTile) && shelfPrefab != null)
         {
             Vector3 edgePos = new Vector3(edgeTile.x, 0, edgeTile.y);
             Instantiate(shelfPrefab, edgePos, Quaternion.identity, roomParent);
+            Instantiate(couchPrefab, edgePos, Quaternion.identity, roomParent);
+            Instantiate(lampPrefab, edgePos, Quaternion.identity, roomParent);
         }
     }
 
