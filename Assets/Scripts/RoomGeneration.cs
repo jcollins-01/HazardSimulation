@@ -27,11 +27,10 @@ public class RoomGeneration : MonoBehaviour
     public int minYardPadding = 2;
     public int maxYardPadding = 8;
 
-    [Header("Hallway Settings")]
-    public bool generateHallways = true;
+    [Header("Interior Settings")]
+    public bool spawnInterior = false;
     [Range(0f, 1f)]
-    public float hallwayChance = 0.6f;
-    public int hallwayWidth = 2;
+    public float windowChance = 0.3f;
 
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
@@ -39,6 +38,12 @@ public class RoomGeneration : MonoBehaviour
     public bool identicalFloors = false;
     public bool roomAmountsDifferPerFloor = false;
     public bool heightenedNooks = false;
+    public bool generateHallways = true;
+    [Range(0f, 1f)]
+    public float hallwayChance = 0.6f;
+    public int hallwayWidth = 2;
+
+    [Header("Editor View Settings")]
     public bool destroyPreviousGeneration = true;
     public bool roomRoofsTransparent = false;
 
@@ -359,7 +364,11 @@ public class RoomGeneration : MonoBehaviour
 
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
+            {
                 BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, stairwellTile, floorDoors); // Offset is now 0 because the house layout is already globally placed, height is 0 at first since we start on ground level
+                // After we build the room, we can decorate it!
+                DecorateRoom(floorRooms[i], floorParent.transform);
+            }
 
             // Get the highest point in all room roofs and build off that for the next floor
             roofHeight = GetHighestRoofPoint();
@@ -436,14 +445,19 @@ public class RoomGeneration : MonoBehaviour
             if (tile.y > maxY) maxY = tile.y;
         }
 
-        // Add random padding to make it look like a varied property lot
-        int paddingX = Random.Range(minYardPadding, maxYardPadding + 1);
-        int paddingY = Random.Range(minYardPadding, maxYardPadding + 1);
+        // Force a guaranteed minimum of 3 tiles of walking space
+        int minWalkableSpace = 3;
 
-        minX -= paddingX;
-        maxX += paddingX;
-        minY -= paddingY;
-        maxY += paddingY;
+        // Overall, padding is still variable so it looks like a random property lot (not a generic square yard)
+        int paddingLeft = Random.Range(minWalkableSpace, maxYardPadding + 1);
+        int paddingRight = Random.Range(minWalkableSpace, maxYardPadding + 1);
+        int paddingTop = Random.Range(minWalkableSpace, maxYardPadding + 1);
+        int paddingBottom = Random.Range(minWalkableSpace, maxYardPadding + 1);
+
+        minX -= paddingLeft;
+        maxX += paddingRight;
+        minY -= paddingBottom;
+        maxY += paddingTop;
 
         float yardWidth = (maxX - minX) + 1;
         float yardLength = (maxY - minY) + 1;
@@ -842,10 +856,28 @@ public class RoomGeneration : MonoBehaviour
             // Check if THIS specific wall segment is the designated Main Door
             bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
 
+            // It can be a window if it's NOT a door
+            bool isWindow = !isMainDoor && (Random.value <= windowChance);
+
             if (isMainDoor)
             {
                 // FUTURE: Spawn a special Door Frame prefab here
                 //Debug.Log("Carving out the main entrance!");
+                GameObject doorPrefab = Resources.Load<GameObject>("Door");
+                if (doorPrefab != null)
+                {
+                    // Spawn and rotate to face outward
+                    Instantiate(doorPrefab, pos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
+                }
+            }
+            else if (isWindow)
+            {
+                // Always spawn the windows + doors since they are exterior
+                GameObject windowPrefab = Resources.Load<GameObject>("Window");
+                if (windowPrefab != null)
+                {
+                    Instantiate(windowPrefab, pos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
+                }
             }
             else
             {
@@ -970,6 +1002,56 @@ public class RoomGeneration : MonoBehaviour
             mainDoorTile = chosen.tile;
             mainDoorDirection = chosen.dir;
             //Debug.Log("Chose a door");
+        }
+    }
+
+    // Very basic decorator that uses the same kind of layout for furniture (for now)
+    void DecorateRoom(HashSet<Vector2Int> roomTiles, Transform roomParent)
+    {
+        if (!spawnInterior) return;
+
+        // Load prefabs for interior objects
+        GameObject tablePrefab = Resources.Load<GameObject>("Table");
+        GameObject shelfPrefab = Resources.Load<GameObject>("Shelf");
+        GameObject interactablePrefab = Resources.Load<GameObject>("Interactable");
+        GameObject couchPrefab = Resources.Load<GameObject>("Couch");
+        GameObject lampPrefab = Resources.Load<GameObject>("Lamp");
+
+        // Find the center of the room (for the table)
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+        foreach (var tile in roomTiles)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        Vector2Int centerTile = new Vector2Int(minX + (maxX - minX) / 2, minY + (maxY - minY) / 2);
+
+        // Spawn table at center
+        if (roomTiles.Contains(centerTile) && tablePrefab != null)
+        {
+            // Convert coordinate to world position
+            Vector3 centerPos = new Vector3(centerTile.x, 0, centerTile.y);
+            GameObject table = Instantiate(tablePrefab, centerPos, Quaternion.identity, roomParent);
+
+            // Spawn Interactable ON TOP of the table
+            if (interactablePrefab != null)
+            {
+                // We assume the table is roughly 1 unit tall - adjust the Y offset when we get an actual prefab
+                Vector3 topOfTablePos = centerPos + new Vector3(0, 1.0f, 0);
+                Instantiate(interactablePrefab, topOfTablePos, Quaternion.identity, roomParent);
+            }
+        }
+
+        // Spawn a shelf in a random corner/edge
+        Vector2Int edgeTile = new Vector2Int(minX, minY);
+        if (roomTiles.Contains(edgeTile) && shelfPrefab != null)
+        {
+            Vector3 edgePos = new Vector3(edgeTile.x, 0, edgeTile.y);
+            Instantiate(shelfPrefab, edgePos, Quaternion.identity, roomParent);
         }
     }
 
