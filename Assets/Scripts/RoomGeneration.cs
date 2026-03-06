@@ -1010,12 +1010,14 @@ public class RoomGeneration : MonoBehaviour
     {
         if (!spawnInterior) return;
 
+        Debug.Log("[COMMON EVENT: Spawned interior]");
+
         // Load prefabs for interior objects
-        GameObject tablePrefab = Resources.Load<GameObject>("Table");
-        GameObject shelfPrefab = Resources.Load<GameObject>("Shelf");
-        GameObject interactablePrefab = Resources.Load<GameObject>("Interactable");
-        GameObject couchPrefab = Resources.Load<GameObject>("Couch");
-        GameObject lampPrefab = Resources.Load<GameObject>("Lamp");
+        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
+        GameObject shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
+        GameObject interactablePrefab = Resources.Load<GameObject>("Interior Prefabs/Interactable");
+        GameObject couchPrefab = Resources.Load<GameObject>("Interior Prefabs/Couch");
+        GameObject lampPrefab = Resources.Load<GameObject>("Interior Prefabs/Lamp");
 
         // Find the center of the room (for the table)
         int minX = int.MaxValue, maxX = int.MinValue;
