@@ -840,8 +840,15 @@ public class RoomGeneration : MonoBehaviour
                 string edge = GetEdgeKey(localCoord, neighbor);
                 if (floorDoors.Contains(edge))
                 {
-                    // FUTURE: Add the door prefab that we want to spawn later
-                    continue; // Skip spawning the wall since this is a door
+                    // Randomly choose between a floor-to-ceiling archway or a framed doorway
+                    if (Random.value > 0.5f && wallHeight > 2f)
+                    {
+                        // Spawn a header above the doorway (starting at 2 units high)
+                        SpawnWall(pos, dir, parent, isInterior: true, 2f, wallHeight - 2f);
+                    }
+
+                    // FUTURE: Add the interior door prefab here if needed
+                    continue;
                 }
             }
 
@@ -861,23 +868,45 @@ public class RoomGeneration : MonoBehaviour
 
             if (isMainDoor)
             {
-                // FUTURE: Spawn a special Door Frame prefab here
-                //Debug.Log("Carving out the main entrance!");
-                GameObject doorPrefab = Resources.Load<GameObject>("Door");
+                // Spawn a header wall above the main door
+                if (wallHeight > 2f)
+                {
+                    SpawnWall(pos, dir, parent, isInterior: false, 2f, wallHeight - 2f);
+                }
+
+                // Apply the edge offset to the prefab so it perfectly aligns with the wall, not the floor center
+                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f);
+
+                GameObject doorPrefab = Resources.Load<GameObject>("Interior Prefabs/Door");
                 if (doorPrefab != null)
                 {
-                    // Spawn and rotate to face outward
-                    Instantiate(doorPrefab, pos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
+                    Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
                 }
+                continue; // Prevent standard full wall from spawning
             }
             else if (isWindow)
             {
-                // Always spawn the windows + doors since they are exterior
-                GameObject windowPrefab = Resources.Load<GameObject>("Window");
+                float windowSillHeight = 0.8f;
+                float windowTopHeight = 2.0f;
+
+                // Spawn the wall below the window (the sill)
+                SpawnWall(pos, dir, parent, isInterior: false, 0f, windowSillHeight);
+
+                // Spawn the wall above the window (the header)
+                if (wallHeight > windowTopHeight)
+                {
+                    SpawnWall(pos, dir, parent, isInterior: false, windowTopHeight, wallHeight - windowTopHeight);
+                }
+
+                // Apply the edge offset AND elevate the window to sit exactly on the sill
+                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, windowSillHeight, dir.y * 0.5f);
+
+                GameObject windowPrefab = Resources.Load<GameObject>("Interior Prefabs/Window");
                 if (windowPrefab != null)
                 {
-                    Instantiate(windowPrefab, pos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
+                    Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
                 }
+                continue; // Prevent standard full wall from spawning
             }
             else
             {
@@ -888,20 +917,23 @@ public class RoomGeneration : MonoBehaviour
         }
     }
 
-    void SpawnWall(Vector3 tilePos, Vector2Int dir, Transform parent, bool isInterior)
+    void SpawnWall(Vector3 tilePos, Vector2Int dir, Transform parent, bool isInterior, float startHeight = 0f, float customHeight = -1f)
     {
-        // Calculate wall position (offset by 0.5 towards the empty space so it is offset to the tile)
-        Vector3 wallPos = tilePos + new Vector3(dir.x * 0.5f, wallHeight / 2f, dir.y * 0.5f);
+        // If no custom height is provided, use the default wallHeight
+        float actualHeight = customHeight < 0 ? wallHeight : customHeight;
 
-        // Check which direction we're facing to determine which way the wall stretches
-        // (walls are thin on one axis and long on another - we can make exterior walls a bit beefier (0.2) and interior walls thinner (0.1) on the thinner axis
+        // Calculate the center point on the Y axis for this specific wall chunk
+        float centerHeight = startHeight + (actualHeight / 2f);
+
+        // Apply the directional offset so the wall sits on the edge of the tile, not the center
+        Vector3 wallPos = tilePos + new Vector3(dir.x * 0.5f, centerHeight, dir.y * 0.5f);
+
         float thickness = isInterior ? 0.1f : 0.2f;
 
-        // Stretch the wall based on which direction it is facing
         Vector3 wallScale = new Vector3(
-            Mathf.Abs(dir.y) + (Mathf.Abs(dir.x) * thickness), // If dir is X, make wall thin on X
-            wallHeight,
-            Mathf.Abs(dir.x) + (Mathf.Abs(dir.y) * thickness) // If dir is Y, make wall thin on Y
+            Mathf.Abs(dir.y) + (Mathf.Abs(dir.x) * thickness),
+            actualHeight,
+            Mathf.Abs(dir.x) + (Mathf.Abs(dir.y) * thickness)
         );
 
         string wallName = isInterior ? "Interior_Wall" : "Exterior_Wall";
