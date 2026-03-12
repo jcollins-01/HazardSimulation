@@ -31,6 +31,9 @@ public class RoomGeneration : MonoBehaviour
     public bool spawnInterior = false;
     [Range(0f, 1f)]
     public float windowChance = 0.3f;
+    public float doorHeight = 2.0f;
+    public float windowSillHeight = 0.8f;
+    public float windowTopHeight = 2.0f;
 
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
@@ -841,10 +844,10 @@ public class RoomGeneration : MonoBehaviour
                 if (floorDoors.Contains(edge))
                 {
                     // Randomly choose between a floor-to-ceiling archway or a framed doorway
-                    if (Random.value > 0.5f && wallHeight > 2f)
+                    if (Random.value > 0.5f && wallHeight > doorHeight) // was default 2f
                     {
-                        // Spawn a header above the doorway (starting at 2 units high)
-                        SpawnWall(pos, dir, parent, isInterior: true, 2f, wallHeight - 2f);
+                        // Spawn a header above the doorway
+                        SpawnWall(pos, dir, parent, isInterior: true, doorHeight, wallHeight - doorHeight);
                     }
 
                     // FUTURE: Add the interior door prefab here if needed
@@ -869,26 +872,23 @@ public class RoomGeneration : MonoBehaviour
             if (isMainDoor)
             {
                 // Spawn a header wall above the main door
-                if (wallHeight > 2f)
+                if (wallHeight > doorHeight)
                 {
-                    SpawnWall(pos, dir, parent, isInterior: false, 2f, wallHeight - 2f);
+                    SpawnWall(pos, dir, parent, isInterior: false, doorHeight, wallHeight - doorHeight);
                 }
 
-                // Apply the edge offset to the prefab so it perfectly aligns with the wall, not the floor center
+                // Spawns placeholder prefab from looking like a broken wall chunk in the floor
                 Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f);
-
                 GameObject doorPrefab = Resources.Load<GameObject>("Interior Prefabs/Door");
                 if (doorPrefab != null)
                 {
-                    Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
+                    //Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
                 }
+
                 continue; // Prevent standard full wall from spawning
             }
             else if (isWindow)
             {
-                float windowSillHeight = 0.8f;
-                float windowTopHeight = 2.0f;
-
                 // Spawn the wall below the window (the sill)
                 SpawnWall(pos, dir, parent, isInterior: false, 0f, windowSillHeight);
 
@@ -898,14 +898,14 @@ public class RoomGeneration : MonoBehaviour
                     SpawnWall(pos, dir, parent, isInterior: false, windowTopHeight, wallHeight - windowTopHeight);
                 }
 
-                // Apply the edge offset AND elevate the window to sit exactly on the sill
+                // Spawns placeholder prefab for window
                 Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, windowSillHeight, dir.y * 0.5f);
-
                 GameObject windowPrefab = Resources.Load<GameObject>("Interior Prefabs/Window");
                 if (windowPrefab != null)
                 {
-                    Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
+                    //Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent);
                 }
+
                 continue; // Prevent standard full wall from spawning
             }
             else
