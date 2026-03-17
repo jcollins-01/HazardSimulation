@@ -20,14 +20,47 @@ public class NetTargetsPoseDriver : NetworkBehaviour
 
     void Awake()
     {
-        netObj = GetComponentInParent<NetworkObject>();
+        netObj = GetComponent<NetworkObject>();
+    }
+
+    void Start()
+    {
+        TryAutoFindSources();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        TryAutoFindSources();
+    }
+
+    void TryAutoFindSources()
+    {
+        if (!IsOwner && netObj != null && netObj.IsSpawned) return;
+
+        if (headSource == null)
+        {
+            var t = GameObject.Find("Head VR Target");
+            if (t) headSource = t.transform;
+        }
+
+        if (leftHandSource == null)
+        {
+            var t = GameObject.Find("Left Hand VR Target");
+            if (t) leftHandSource = t.transform;
+        }
+
+        if (rightHandSource == null)
+        {
+            var t = GameObject.Find("Right Hand VR Target");
+            if (t) rightHandSource = t.transform;
+        }
     }
 
     bool ShouldDrive()
     {
-        if (netObj == null) return true;                 // not networked yet
+        if (netObj == null) return true;
         if (!netObj.IsSpawned) return driveWhenNotSpawned;
-        return netObj.IsOwner;                           // owner only
+        return netObj.IsOwner;
     }
 
     void LateUpdate()
