@@ -386,6 +386,37 @@ public class RoomGeneration : MonoBehaviour
         yard.transform.position = new Vector3(centerX, origin.y + 0.5f - wallHeight, centerZ);
         yard.transform.localScale = new Vector3(yardWidth, 0.1f, yardLength);
 
+        // Create a parent teleport area that owns the teleportation collider/logic
+        GameObject teleportArea = new GameObject("Teleport Area");
+        teleportArea.transform.SetParent(parent, worldPositionStays: true);
+        teleportArea.transform.position = yard.transform.position;
+        teleportArea.transform.rotation = yard.transform.rotation;
+        teleportArea.transform.localScale = Vector3.one;
+
+        if (teleportArea.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>() == null)
+            teleportArea.AddComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
+
+        // Move Yard underneath and keep its collider for teleportation raycasts
+        yard.transform.SetParent(teleportArea.transform, worldPositionStays: true);
+        yard.transform.localPosition = Vector3.zero;
+        yard.transform.localRotation = Quaternion.identity;
+        yard.transform.localScale = new Vector3(yardWidth, 0.1f, yardLength);
+
+        // Explicitly ensure the TeleportationArea component uses the Yard collider as its interaction collider
+        var yardCollider = yard.GetComponent<Collider>();
+        var teleportationArea = teleportArea.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
+        if (yardCollider != null && teleportationArea != null) {
+            teleportationArea.colliders.Clear();
+            teleportationArea.colliders.Add(yardCollider);
+
+            teleportationArea.interactionLayers = UnityEngine.XR.Interaction.Toolkit.InteractionLayerMask.GetMask("Teleport");
+
+            teleportationArea.selectMode = UnityEngine.XR.Interaction.Toolkit.Interactables.InteractableSelectMode.Multiple;
+
+            teleportationArea.matchDirectionalInput = true;
+        }
+
+
         // Apply the Yard Material
         if (yardMaterial != null)
             yard.GetComponent<MeshRenderer>().sharedMaterial = yardMaterial;
@@ -885,6 +916,10 @@ public class RoomGeneration : MonoBehaviour
         // Add colliders so that the house is walkable
         MeshCollider mc = parent.AddComponent<MeshCollider>();
         mc.sharedMesh = combinedMesh;
+
+        // Make Yard surface a teleportation target (XR Interaction Toolkit)
+        if (addTeleportationArea && parent.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>() == null)
+            parent.AddComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
 
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
