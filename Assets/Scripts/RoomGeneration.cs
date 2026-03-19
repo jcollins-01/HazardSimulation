@@ -28,7 +28,6 @@ public class RoomGeneration : MonoBehaviour
     public int maxYardPadding = 8;
 
     [Header("Interior Settings")]
-    public bool spawnInterior = false;
     [Range(0f, 1f)]
     public float windowChance = 0.3f;
     public float doorHeight = 2.0f;
@@ -389,7 +388,7 @@ public class RoomGeneration : MonoBehaviour
 
         // Decorate the house after it has been fully generated
         RoomDecoration decorator = GetComponent<RoomDecoration>();
-        if (decorator != null && spawnInterior)
+        if (decorator != null)
             decorator.DecorateRooms(allGeneratedRooms);
     }
 

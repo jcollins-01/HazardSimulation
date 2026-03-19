@@ -3,15 +3,29 @@ using UnityEngine;
 
 public class RoomDecoration : MonoBehaviour
 {
+    [Header("Decoration Settings")]
+    [Range(0f, 1f)]
+    public float clutterAmount = 0.1f;
+
     private string[] roomTypes = { "Generic", "Bedroom", "Bathroom", "Living Room" };
 
     public void DecorateRooms(List<RoomGeneration.RoomData> rooms)
     {
-        Debug.Log("Attempting to decorate rooms");
+        // If clutter is completely disabled, bypass the entire decoration loop
+        if (clutterAmount <= 0f) return;
+
         foreach (var room in rooms)
         {
-            // Assign a random room type
-            string assignedType = roomTypes[Random.Range(0, roomTypes.Length)];
+            string assignedType;
+
+            // Evaluate the shape. If it's a long, narrow strip, force it to be a Hallway
+            if (IsRoomHallway(room.Tiles))
+                assignedType = "Hallway";
+            else
+            {
+                // Otherwise, assign a random standard room type
+                assignedType = roomTypes[Random.Range(0, roomTypes.Length)];
+            }
 
             // Rename the GameObject so it is easily identifiable in the hierarchy
             room.RoomObject.name += $" [{assignedType}]";
@@ -54,16 +68,22 @@ public class RoomDecoration : MonoBehaviour
 
         if (edges.Count > 0 && bedPrefab != null)
         {
-            // Pick a random wall for the bed
+            // Pick a random wall for the bed to sit flush against
             var edge = edges[Random.Range(0, edges.Count)];
             SpawnFurniture(bedPrefab, edge.tile, edge.forward, room.RoomObject.transform);
 
-            // Spawn a nightstand next to it if we have one
-            if (nightstandPrefab != null)
+            // Use the clutter slider to decide if we spawn a nightstand
+            if (Random.value <= clutterAmount && nightstandPrefab != null)
             {
-                // This is a basic offset. In a robust system, you'd check if this adjacent tile is still in the room.
-                Vector2Int nightstandTile = edge.tile + new Vector2Int(Mathf.RoundToInt(edge.forward.z), Mathf.RoundToInt(-edge.forward.x));
-                SpawnFurniture(nightstandPrefab, nightstandTile, edge.forward, room.RoomObject.transform);
+                // Calculate the tile directly to the side of the bed
+                Vector2Int rightDir = new Vector2Int(Mathf.RoundToInt(edge.forward.z), Mathf.RoundToInt(-edge.forward.x));
+                Vector2Int nightstandTile = edge.tile + rightDir;
+
+                // Ensure we aren't spawning the nightstand outside the room boundaries
+                if (room.Tiles.Contains(nightstandTile))
+                {
+                    SpawnFurniture(nightstandPrefab, nightstandTile, edge.forward, room.RoomObject.transform);
+                }
             }
         }
     }
@@ -76,10 +96,17 @@ public class RoomDecoration : MonoBehaviour
 
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
-        if (edges.Count >= 2) // We need a few walls for a bathroom
+        // Standard placement for core bathroom fixtures
+        if (edges.Count >= 2)
         {
             if (tubPrefab != null) SpawnFurniture(tubPrefab, edges[0].tile, edges[0].forward, room.RoomObject.transform);
             if (toiletPrefab != null) SpawnFurniture(toiletPrefab, edges[1].tile, edges[1].forward, room.RoomObject.transform);
+        }
+
+        // Sink acts as the extra clutter item
+        if (edges.Count >= 3 && Random.value <= clutterAmount && sinkPrefab != null)
+        {
+            SpawnFurniture(sinkPrefab, edges[2].tile, edges[2].forward, room.RoomObject.transform);
         }
     }
 
@@ -89,21 +116,50 @@ public class RoomDecoration : MonoBehaviour
         GameObject tvPrefab = Resources.Load<GameObject>("Interior Prefabs/TV");
         GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
 
-        Vector2Int centerTile = GetRoomCenter(room.Tiles);
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
-        // Spawn Table in center
-        if (tablePrefab != null)
+        if (edges.Count > 0 && tvPrefab != null && couchPrefab != null)
         {
-            Vector3 centerPos = new Vector3(centerTile.x, 0, centerTile.y);
-            Instantiate(tablePrefab, centerPos, Quaternion.identity, room.RoomObject.transform);
-        }
+            // Pick a wall for the TV
+            var tvEdge = edges[Random.Range(0, edges.Count)];
+            SpawnFurniture(tvPrefab, tvEdge.tile, tvEdge.forward, room.RoomObject.transform);
 
-        // Spawn Couch against a wall
-        if (edges.Count > 0 && couchPrefab != null)
+            // Translate the Vector3 forward direction into a Vector2Int for tile math
+            Vector2Int tvDirection = new Vector2Int(Mathf.RoundToInt(tvEdge.forward.x), Mathf.RoundToInt(tvEdge.forward.z));
+
+            // Push the sofa 2 tiles away from the TV, into the center of the room
+            Vector2Int sofaTile = tvEdge.tile + (tvDirection * 2);
+
+            if (room.Tiles.Contains(sofaTile))
+            {
+                // Invert the TV's forward vector so the sofa faces back at it
+                Vector3 sofaForward = -tvEdge.forward;
+                SpawnFurniture(couchPrefab, sofaTile, sofaForward, room.RoomObject.transform);
+
+                // If clutter is high enough, place a coffee table between them
+                if (Random.value <= clutterAmount && tablePrefab != null)
+                {
+                    Vector2Int tableTile = tvEdge.tile + tvDirection; // 1 tile away from TV
+                    if (room.Tiles.Contains(tableTile))
+                    {
+                        Vector3 tablePos = new Vector3(tableTile.x, 0, tableTile.y);
+                        Instantiate(tablePrefab, tablePos, Quaternion.identity, room.RoomObject.transform);
+                    }
+                }
+            }
+        }
+    }
+
+    private void SpawnHallwayClutter(RoomGeneration.RoomData room)
+    {
+        GameObject shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
+        List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
+
+        // Hallways should only have items if clutter is very high, as they block pathing
+        if (Random.value <= (clutterAmount - 0.3f) && edges.Count > 0 && shelfPrefab != null)
         {
             var edge = edges[Random.Range(0, edges.Count)];
-            SpawnFurniture(couchPrefab, edge.tile, edge.forward, room.RoomObject.transform);
+            SpawnFurniture(shelfPrefab, edge.tile, edge.forward, room.RoomObject.transform);
         }
     }
 
@@ -112,6 +168,7 @@ public class RoomDecoration : MonoBehaviour
         GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
         GameObject shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
 
+        // Base spawn
         Vector2Int centerTile = GetRoomCenter(room.Tiles);
         if (tablePrefab != null)
         {
@@ -119,15 +176,40 @@ public class RoomDecoration : MonoBehaviour
             Instantiate(tablePrefab, centerPos, Quaternion.identity, room.RoomObject.transform);
         }
 
-        List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
-        if (edges.Count > 0 && shelfPrefab != null)
+        // Clutter spawn
+        if (Random.value <= clutterAmount)
         {
-            var edge = edges[Random.Range(0, edges.Count)];
-            SpawnFurniture(shelfPrefab, edge.tile, edge.forward, room.RoomObject.transform);
+            List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
+            if (edges.Count > 0 && shelfPrefab != null)
+            {
+                var edge = edges[Random.Range(0, edges.Count)];
+                SpawnFurniture(shelfPrefab, edge.tile, edge.forward, room.RoomObject.transform);
+            }
         }
     }
 
     // --- Utility Methods ---
+
+    // Calculates the bounding box to determine if the room is a narrow strip (a hallway)
+    private bool IsRoomHallway(HashSet<Vector2Int> roomTiles)
+    {
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+
+        foreach (var tile in roomTiles)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        int width = maxX - minX + 1;
+        int length = maxY - minY + 1;
+
+        // If the room is 2 tiles wide or less, but fairly long, it's a hallway - might change later to be more certain
+        return (width <= 2 && length >= 4) || (length <= 2 && width >= 4);
+    }
 
     private void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
     {

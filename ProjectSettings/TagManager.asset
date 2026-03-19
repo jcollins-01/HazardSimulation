@@ -8,6 +8,7 @@ TagManager:
   - Bedroom
   - Bathroom
   - Living Room
+  - Hallway
   layers:
   - Default
   - TransparentFX
