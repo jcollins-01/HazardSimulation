@@ -15,7 +15,8 @@ public class RoomGeneration : MonoBehaviour
     public bool twoStoryHouse = false;
     public bool skyscraper = false;
     public bool mansion = false;
-    public enum RoomType { Bedroom, Bathroom, LivingRoom, Hallway, Generic }
+
+    private string[] roomTypes = { "Generic", "Bedroom", "Bathroom", "Living Room" };
 
     [Header("Outbuilding Settings")]
     public bool chanceForOutbuilding = false;
@@ -321,11 +322,6 @@ public class RoomGeneration : MonoBehaviour
                 ? Random.Range(numberOfRooms, numberOfRooms + 3) // Some houses might have just one room (e.g., a warehouse) so minimum must always be numberOfRooms for now
                 : numberOfRooms; // Else, we stick to the universal/base num of rooms
 
-            // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
-            /*List<HashSet<Vector2Int>> floorRoomsOld = (!identicalFloors)
-                ? SubdivideHouse(houseLayout, roomsOnCurrentFloor)
-                : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors*/
-
             List<HashSet<Vector2Int>> floorRooms = new List<HashSet<Vector2Int>>();
 
             // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
@@ -374,9 +370,9 @@ public class RoomGeneration : MonoBehaviour
                 BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, stairwellTile, floorDoors);
 
                 // Randomly assign a room type (excluding Hallway for now, unless it's the hallway list)
-                RoomType randomType = (RoomType)Random.Range(0, 4);
+                //RoomType randomType = (RoomType)Random.Range(0, 4);
                 // After we build it, now we can decorate it according to its type!
-                DecorateRoom(floorRooms[i], floorParent.transform, randomType); 
+                DecorateRoom(floorRooms[i], floorParent.transform); //, randomType); 
             }
 
             // Get the highest point in all room roofs and build off that for the next floor
@@ -860,12 +856,12 @@ public class RoomGeneration : MonoBehaviour
                     }
 
                     // Spawn the actual interior door prefab
-                    Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f);
+                    Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f); // was dir.y * 0.5f
                     GameObject interiorDoorPrefab = Resources.Load<GameObject>("Interior Prefabs/Door_Interior");
 
                     if (interiorDoorPrefab != null)
                     {
-                        // Parent to parent.parent to escape the mesh combiner
+                        // Parent to parent.parent to escape the mesh combiner - prevents it from becoming the wall + same color/material as the wall
                         GameObject spawnedDoor = Instantiate(interiorDoorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
 
                         // Fit it to the hole. Depth is 0.15f to slightly overlap the 0.1f interior wall thickness
@@ -901,12 +897,13 @@ public class RoomGeneration : MonoBehaviour
                 // Spawns placeholder prefab from looking like a broken wall chunk in the floor
                 Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f); // pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f);
                 GameObject doorPrefab = Resources.Load<GameObject>("Interior Prefabs/Door");
+                
 
                 if (doorPrefab != null)
                 {
                     // Parent to parent.parent to escape the mesh combiner
                     GameObject spawnedDoor = Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
-
+                    spawnedDoor.tag = "Main Door";
                     // Width is 1 tile, Height is doorHeight, Depth is 0.25f (slightly thicker than the 0.2f wall to prevent texture z-fighting)
                     FitPrefabToHole(spawnedDoor, 1f, doorHeight, 0.25f, pos.y);
                 }
@@ -925,13 +922,23 @@ public class RoomGeneration : MonoBehaviour
                 }
 
                 // Spawns placeholder prefab for window
-                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, windowSillHeight, dir.y * 0.5f);
+
+                // Assuming the spawn point is at the center of the object's transform, we need to figure out HALF the object's height to account for starting at the center
                 GameObject windowPrefab = Resources.Load<GameObject>("Interior Prefabs/Window");
+                
+                // Need to fix the part where we position it with windowSillHeight - need to choose this based on sill height + an offset of where the prefab's pivot point is
+                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, windowSillHeight, dir.y * 0.5f);
+                
 
                 if (windowPrefab != null)
                 {
                     // Parent to parent.parent to escape the mesh combiner
-                    GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
+                    GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)));
+
+                    // Set the parent while telling Unity NOT to change the world position
+                    spawnedWindow.transform.SetParent(parent.parent, true);
+
+                    //GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
 
                     // Height is the gap between the sill and the top
                     float actualWindowHeight = windowTopHeight - windowSillHeight;
@@ -1069,8 +1076,62 @@ public class RoomGeneration : MonoBehaviour
         }
     }
 
+    // Very basic decorator that uses the same kind of layout for furniture (for now)
+    void DecorateRoom(HashSet<Vector2Int> roomTiles, Transform roomParent)
+    {
+        if (!spawnInterior) return;
+
+        Debug.Log("[COMMON EVENT: Spawned interior]");
+
+        // Load prefabs for interior objects
+        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
+        GameObject shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
+        GameObject interactablePrefab = Resources.Load<GameObject>("Interior Prefabs/Interactable");
+        GameObject couchPrefab = Resources.Load<GameObject>("Interior Prefabs/Couch");
+        GameObject lampPrefab = Resources.Load<GameObject>("Interior Prefabs/Lamp");
+
+        // Find the center of the room (for the table)
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+        foreach (var tile in roomTiles)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        Vector2Int centerTile = new Vector2Int(minX + (maxX - minX) / 2, minY + (maxY - minY) / 2);
+
+        // Spawn table at center
+        if (roomTiles.Contains(centerTile) && tablePrefab != null)
+        {
+            // Convert coordinate to world position
+            Vector3 centerPos = new Vector3(centerTile.x, 0, centerTile.y);
+            GameObject table = Instantiate(tablePrefab, centerPos, Quaternion.identity, roomParent);
+
+            // Spawn Interactable ON TOP of the table
+            if (interactablePrefab != null)
+            {
+                // We assume the table is roughly 1 unit tall - adjust the Y offset when we get an actual prefab
+                Vector3 topOfTablePos = centerPos + new Vector3(0, 1.0f, 0);
+                Instantiate(interactablePrefab, topOfTablePos, Quaternion.identity, roomParent);
+            }
+        }
+
+        // Spawn other objects in a random corner/edge
+        Vector2Int edgeTile = new Vector2Int(minX, minY);
+        if (roomTiles.Contains(edgeTile) && shelfPrefab != null)
+        {
+            Vector3 edgePos = new Vector3(edgeTile.x, 0, edgeTile.y);
+            Instantiate(shelfPrefab, edgePos, Quaternion.identity, roomParent);
+            Instantiate(couchPrefab, edgePos, Quaternion.identity, roomParent);
+            Instantiate(lampPrefab, edgePos, Quaternion.identity, roomParent);
+        }
+    }
+
     // Advanced decorator that uses the room type passed to define specific terms for spawning in prefabs
-    void DecorateRoom(HashSet<Vector2Int> roomTiles, Transform roomParent, RoomType type)
+    /*void DecorateRoom(HashSet<Vector2Int> roomTiles, Transform roomParent, RoomType type)
     {
         if (!spawnInterior) return;
 
@@ -1194,14 +1255,15 @@ public class RoomGeneration : MonoBehaviour
 
                         GameObject spawnedCouch = Instantiate(couchPrefab, cPos, Quaternion.LookRotation(facingDir), roomParent);
 
+                        // Correct the height so it sits ON the floor
+                        float yOffset = CalculateVerticalOffset(spawnedCouch);
+                        spawnedCouch.transform.position = new Vector3(cPos.x, yOffset, cPos.z);
+
                         // Clutter check - drop an interactable on the couch
                         if (Random.value < (clutterAmount * 1.5f) && interactablePrefab != null) // Higher chance in living room
                         {
-                            Vector3 topOfCouch = cPos + new Vector3(0, 0.6f, 0);
+                            Vector3 topOfCouch = cPos + new Vector3(0, yOffset + 0.6f, 0);
                             Instantiate(interactablePrefab, topOfCouch, Quaternion.identity, roomParent);
-
-                            // FUTURE: use the clutter decorator when objects have colliders to help them spawn on top of each other
-                            //PlaceClutterOnSurface(interactablePrefab, cPos, roomParent);
                         }
                     }
                 }
@@ -1224,15 +1286,15 @@ public class RoomGeneration : MonoBehaviour
                 occupiedTiles.Add(clutterSpot);
             }
         }
-    }
+    }*/
 
     // Decorator helper to spawn and align furniture
     void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
     {
-        Vector3 pos = new Vector3(tile.x, 0, tile.y);
+        Vector3 pos = new Vector3(tile.x, 2f, tile.y);
         GameObject instance = Instantiate(prefab, pos, Quaternion.LookRotation(forward), parent);
 
-        // Correct the height so it sits ON the floor (Y=0)
+        // Correct the height so it sits ON the floor (1 = size of floor tile?)
         float yOffset = CalculateVerticalOffset(instance);
         instance.transform.position = new Vector3(pos.x, yOffset, pos.z);
     }
@@ -1260,32 +1322,6 @@ public class RoomGeneration : MonoBehaviour
         return edges;
     }
 
-    // Decorator helper to help us figure out where the position points are to place clutter on top of other objects
-    void PlaceClutterOnSurface(GameObject clutterPrefab, Vector3 targetTilePos, Transform parent)
-    {
-        // Start the ray 5 units above the floor
-        Vector3 rayStart = new Vector3(targetTilePos.x, 5f, targetTilePos.z);
-
-        // Fire the ray downward
-        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, 10f))
-        {
-            // The 'hit.point' is the exact surface of the couch/table
-            GameObject clutter = Instantiate(clutterPrefab, hit.point, Quaternion.identity, parent);
-
-            // Randomly rotate it for a "haphazard" look
-            clutter.transform.Rotate(0, Random.Range(0, 360), 0);
-
-            // Apply the pivot correction so the clutter doesn't sink into the table
-            float yOffset = CalculateVerticalOffset(clutter);
-            clutter.transform.position += new Vector3(0, yOffset, 0);
-        }
-        else
-        {
-            // Just put it on the floor if nothing was hit
-            SpawnFurniture(clutterPrefab, new Vector2Int((int)targetTilePos.x, (int)targetTilePos.z), Vector3.forward, parent);
-        }
-    }
-
     // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
     GameObject SpawnPrimitive(PrimitiveType type, Transform parent, Vector3 localPos, Vector3 scale, string name)
     {
@@ -1300,15 +1336,13 @@ public class RoomGeneration : MonoBehaviour
     // A helper to look at where a prefabs pivot point is so we can better spawn it in place, not a little too low (use the bottom of the object for location)
     float CalculateVerticalOffset(GameObject instance)
     {
-        MeshFilter mf = instance.GetComponentInChildren<MeshFilter>();
-        if (mf == null) return 0f;
-
         // Get the local bottom of the mesh (distance from pivot to bottom)
-        // Bounds.min.y is the lowest point relative to the pivot
-        float localBottom = mf.sharedMesh.bounds.min.y;
+        float meshBottomY = instance.GetComponent<Renderer>().bounds.min.y;
+        // Get the pivot point at which the prefab is spawned/handled from
+        float pivotY = instance.transform.position.y;
 
-        // Multiply by the current local scale to get the actual world-space offset
-        return -localBottom * instance.transform.localScale.y;
+        // Return the distance from the pivot to the bottom with some funky math to make it spawn in just the right place
+        return (pivotY - (meshBottomY / 2)) * 2; // I have no earthly idea why this is the magic formula, but this fits doors + windows
     }
 
     void FitPrefabToHole(GameObject prefabInstance, float targetWidth, float targetHeight, float targetDepth, float groundY)
@@ -1316,6 +1350,8 @@ public class RoomGeneration : MonoBehaviour
         // Grab the mesh filter to get the raw, unscaled bounds of the model
         MeshFilter mf = prefabInstance.GetComponentInChildren<MeshFilter>();
         if (mf == null) return;
+
+        Debug.Log("Half height was " + prefabInstance.GetComponent<Renderer>().bounds.extents.y);
 
         Vector3 originalSize = mf.sharedMesh.bounds.size;
 
@@ -1327,8 +1363,12 @@ public class RoomGeneration : MonoBehaviour
         // Apply the new scale - local X is width, local Y is height, and local Z is depth (thickness)
         prefabInstance.transform.localScale = new Vector3(scaleX, scaleY, scaleZ);
 
+        float halfHeight = CalculateVerticalOffset(prefabInstance); // the size of the y from the center of its bounds to the very top/extent (half its height)
+        Debug.Log("Half height NOW is " + halfHeight + " and the windowsill is at " + windowSillHeight);
+
         // Move the object to groundY, then add the offset to bring the bottom up to the surface
-        float yOffset = CalculateVerticalOffset(prefabInstance);
+        float yOffset = CalculateVerticalOffset(prefabInstance); // Should find exact prefab pivot point
+
         prefabInstance.transform.position = new Vector3(
             prefabInstance.transform.position.x,
             groundY + yOffset,
@@ -1336,11 +1376,7 @@ public class RoomGeneration : MonoBehaviour
         );
     }
 
-    void CombineChildrenMeshes(
-        GameObject parent,
-        Material targetMaterial,
-        bool addCollider = false,
-        bool addTeleportationArea = false)
+    void CombineChildrenMeshes(GameObject parent, Material targetMaterial, bool addCollider = false,  bool addTeleportationArea = false)
     {
         MeshFilter[] meshFilters = parent.GetComponentsInChildren<MeshFilter>();
         CombineInstance[] combine = new CombineInstance[meshFilters.Length];
