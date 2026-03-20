@@ -7,15 +7,30 @@ public class RoomDecoration : MonoBehaviour
     [Range(0f, 1f)]
     public float clutterAmount = 0.1f;
 
+    private float lastClutterAmount; // Used to check if the slider was changed in the editor
+
     private string[] roomTypes = { "Generic", "Bedroom", "Bathroom", "Living Room" };
 
     public void DecorateRooms(List<RoomGeneration.RoomData> rooms)
     {
-        // If clutter is completely disabled, bypass the entire decoration loop
-        if (clutterAmount <= 0f) return;
+        // If the list has no rooms in it, return
+        if (rooms == null || rooms.Count == 0) return;
+
+        // If clutter is completely disabled, bypass the decoration loop and clear any interior from the last generation
+        if (clutterAmount <= 0f)
+        {
+            ClearAllDecoration(rooms);
+            return;
+        }
+
+        // Clear old interior before placing new furniture/clutter to avoid stacking
+        ClearAllDecoration(rooms);
 
         foreach (var room in rooms)
         {
+            // If the room was deleted, skip it
+            if (room.RoomObject == null) continue;
+
             string assignedType;
 
             // Evaluate the shape. If it's a long, narrow strip, force it to be a Hallway
@@ -35,6 +50,32 @@ public class RoomDecoration : MonoBehaviour
 
             // Decorate based on type
             DecorateSpecificRoom(room, assignedType);
+        }
+    }
+
+    private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
+    {
+        foreach (var room in rooms)
+        {
+            if (room.RoomObject == null) continue;
+
+            // Look through the room and its sub-containers to find all the possible clutter objects
+            Transform[] allChildren = room.RoomObject.GetComponentsInChildren<Transform>();
+
+            // We loop backwards to safely destroy children in the editor
+            for (int i = allChildren.Length - 1; i >= 0; i--)
+            {
+                GameObject child = allChildren[i].gameObject;
+
+                if (child.name.Contains("(Clone)"))
+                {
+                    // Check if the name contains "Window" or "Door" to protect them
+                    if (child.name.Contains("Window") || child.name.Contains("Door"))
+                        continue; // Skip this one, it's structural and should be here no matter what interior settings we're on!
+
+                    DestroyImmediate(child);
+                }
+            }
         }
     }
 
@@ -150,6 +191,7 @@ public class RoomDecoration : MonoBehaviour
         }
     }
 
+    // FUTURE: Incorporate special hallway clutter
     private void SpawnHallwayClutter(RoomGeneration.RoomData room)
     {
         GameObject shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
@@ -270,5 +312,21 @@ public class RoomDecoration : MonoBehaviour
             return (pivotY - (meshBottomY / 2)) * 2;
         }
         return 0f;
+    }
+
+    // This allows the slider to work in the Inspector
+    private void OnValidate()
+    {
+        if (!Application.isPlaying && clutterAmount != lastClutterAmount)
+        {
+            lastClutterAmount = clutterAmount;
+
+            // Get the rooms currently held by the generator
+            RoomGeneration gen = GetComponent<RoomGeneration>();
+            if (gen != null && gen.allGeneratedRooms != null)
+            {
+                DecorateRooms(gen.allGeneratedRooms);
+            }
+        }
     }
 }

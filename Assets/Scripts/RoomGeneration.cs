@@ -268,6 +268,8 @@ public class RoomGeneration : MonoBehaviour
         // Reset map of occupied tiles/placed rooms
         allHouseOccupiedTiles.Clear();
         placedRooms.Clear();
+        // Clear the internal list of rooms used by the decorator
+        allGeneratedRooms.Clear();
 
         // Ensure the RoomGeneration object is set to the original transform values (in case it was accidentally moved)
         RestoreGeneratorTransform();
@@ -863,6 +865,7 @@ public class RoomGeneration : MonoBehaviour
 
                     if (interiorDoorPrefab != null)
                     {
+                        Debug.Log("Should try to spawn interior door");
                         // Parent to parent.parent to escape the mesh combiner - prevents it from becoming the wall + same color/material as the wall
                         GameObject spawnedDoor = Instantiate(interiorDoorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
 
@@ -905,7 +908,7 @@ public class RoomGeneration : MonoBehaviour
                 {
                     // Parent to parent.parent to escape the mesh combiner
                     GameObject spawnedDoor = Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
-                    spawnedDoor.tag = "Main Door";
+                    Debug.Log("Should try to spawn main door");
                     // Width is 1 tile, Height is doorHeight, Depth is 0.25f (slightly thicker than the 0.2f wall to prevent texture z-fighting)
                     FitPrefabToHole(spawnedDoor, 1f, doorHeight, 0.25f, pos.y);
                 }
@@ -936,6 +939,7 @@ public class RoomGeneration : MonoBehaviour
                 {
                     // Parent to parent.parent to escape the mesh combiner
                     GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)));
+                    Debug.Log("Should try to spawn window");
 
                     // Set the parent while telling Unity NOT to change the world position
                     spawnedWindow.transform.SetParent(parent.parent, true);
