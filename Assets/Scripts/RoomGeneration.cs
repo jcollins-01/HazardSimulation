@@ -84,14 +84,6 @@ public class RoomGeneration : MonoBehaviour
         public Vector2Int size;
     }
 
-    private void Start()
-    {
-        // Generate houses
-        GenerateAllRooms();
-
-        // FUTURE: Include an array of Material slots later to randomly assign materials
-    }
-
     private void CheckPresetLayouts()
     {
         if (dormitory)
@@ -386,42 +378,29 @@ public class RoomGeneration : MonoBehaviour
         yard.transform.position = new Vector3(centerX, origin.y + 0.5f - wallHeight, centerZ);
         yard.transform.localScale = new Vector3(yardWidth, 0.1f, yardLength);
 
-        // Create a parent teleport area that owns the teleportation collider/logic
-        GameObject teleportArea = new GameObject("Teleport Area");
-        teleportArea.transform.SetParent(parent, worldPositionStays: true);
-        teleportArea.transform.position = yard.transform.position;
-        teleportArea.transform.rotation = yard.transform.rotation;
-        teleportArea.transform.localScale = Vector3.one;
-
-        if (teleportArea.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>() == null)
-            teleportArea.AddComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
-
-        // Move Yard underneath and keep its collider for teleportation raycasts
-        yard.transform.SetParent(teleportArea.transform, worldPositionStays: true);
-        yard.transform.localPosition = Vector3.zero;
-        yard.transform.localRotation = Quaternion.identity;
-        yard.transform.localScale = new Vector3(yardWidth, 0.1f, yardLength);
-
-        // Explicitly ensure the TeleportationArea component uses the Yard collider as its interaction collider
-        var yardCollider = yard.GetComponent<Collider>();
-        var teleportationArea = teleportArea.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
-        if (yardCollider != null && teleportationArea != null) {
-            teleportationArea.colliders.Clear();
-            teleportationArea.colliders.Add(yardCollider);
-
-            teleportationArea.interactionLayers = UnityEngine.XR.Interaction.Toolkit.InteractionLayerMask.GetMask("Teleport");
-
-            teleportationArea.selectMode = UnityEngine.XR.Interaction.Toolkit.Interactables.InteractableSelectMode.Multiple;
-
-            teleportationArea.matchDirectionalInput = true;
-        }
-
-
         // Apply the Yard Material
         if (yardMaterial != null)
             yard.GetComponent<MeshRenderer>().sharedMaterial = yardMaterial;
         else
             yard.GetComponent<MeshRenderer>().sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+
+        // LINGERING ISSUE: Yard teleport area child is still being spawned HUGE for some reason, though position is fine - need to work on matching it to the yard size
+        // Load in new prefab variant - variant is set with the same settings as the working Teleport Areas, so no need to manually set below
+        GameObject teleportPrefab = Resources.Load<GameObject>("Locomotion/Teleport Area Invisible");
+        if (teleportPrefab != null)
+        {
+            GameObject teleportInstance = Instantiate(teleportPrefab, yard.transform);
+            teleportInstance.name = "Teleport Area Invisible";
+
+            // By making the prefab a child and setting its local scale to Vector3.one, it should inherit the exact size and position of the Yard
+            teleportInstance.transform.localPosition = Vector3.zero;
+            teleportInstance.transform.localRotation = Quaternion.identity;
+            teleportInstance.transform.localScale = Vector3.one;
+        }
+        else
+        {
+            Debug.LogWarning("Prefab not found at Resources/Locomotion/Teleport Area Invisible.prefab");
+        }
     }
 
     // Creates the basic outline of a house, with nooks and complexity as determined by our vars
@@ -917,9 +896,43 @@ public class RoomGeneration : MonoBehaviour
         MeshCollider mc = parent.AddComponent<MeshCollider>();
         mc.sharedMesh = combinedMesh;
 
-        // Make Yard surface a teleportation target (XR Interaction Toolkit)
-        if (addTeleportationArea && parent.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>() == null)
-            parent.AddComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
+        // LINGERING ISSUE: floor teleport area variant is not spawning in for some reason
+        // Load the new teleport prefab variant
+        if (addTeleportationArea)
+        {
+            Debug.Log("Trying to add Floors teleport area");
+            GameObject teleportPrefab = Resources.Load<GameObject>("Locomotion/Teleport Area Invisible");
+            if (teleportPrefab != null)
+            {
+                GameObject teleportInstance = Instantiate(teleportPrefab, parent.transform);
+                teleportInstance.name = "Teleport Area Invisible";
+
+                // Keep the prefab's scale and position at 0/1 so it perfectly overlays the parent
+                teleportInstance.transform.localPosition = Vector3.zero;
+                teleportInstance.transform.localRotation = Quaternion.identity;
+                teleportInstance.transform.localScale = Vector3.one;
+
+                // Destroy any default colliders on the prefab so they don't create phantom boundaries
+                Collider[] defaultColliders = teleportInstance.GetComponents<Collider>();
+                foreach (Collider col in defaultColliders)
+                    DestroyImmediate(col);
+
+                // Link the XR Teleportation Area to the custom Floor MeshCollider
+                var teleportationArea = teleportInstance.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
+                if (teleportationArea != null)
+                {
+                    teleportationArea.colliders.Clear();
+                    teleportationArea.colliders.Add(mc); // Use the matching MeshCollider shape we made above
+
+                    // Ensure it's on the right interaction layer
+                    teleportationArea.interactionLayers = UnityEngine.XR.Interaction.Toolkit.InteractionLayerMask.GetMask("Teleport");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("Prefab not found at Resources/Locomotion/Teleport Area Invisible.prefab");
+            }
+        }
 
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
