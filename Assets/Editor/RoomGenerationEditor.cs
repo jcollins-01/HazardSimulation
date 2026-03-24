@@ -11,9 +11,11 @@ public class RoomGeneratorEditor : Editor
         RoomGeneration generator = (RoomGeneration)target;
         GUILayout.Space(10);
 
+        EditorGUI.BeginDisabledGroup(EditorApplication.isPlaying);
         if (GUILayout.Button("Generate Rooms", GUILayout.Height(40)))
         {
             generator.GenerateAllRooms();
         }
+        EditorGUI.EndDisabledGroup();
     }
 }
