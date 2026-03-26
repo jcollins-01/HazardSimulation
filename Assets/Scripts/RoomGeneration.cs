@@ -61,9 +61,12 @@ public class RoomGeneration : MonoBehaviour
     public int wallHeight = 3;
 
     [Header("Shape Complexity")]
-    [Tooltip("How many rectangles to combine to make a single room shape.")]
+    [Tooltip("How many rectangles to combine to make a single room shape. If void spaces are not allowed, then these complex shapes are required to follow minimum viable dimensions.")]
     public int minComplexity = 1;
     public int maxComplexity = 3;
+    public bool allowVoidSpaces = false;
+    public int minViableWidth = 2;
+    public int minViableLength = 2;
 
     [Header("All Materials")]
     public Material floorMaterial;
@@ -670,6 +673,10 @@ public class RoomGeneration : MonoBehaviour
 
                     if (cubbyA.Count > 0 && cubbyB.Count > 0)
                     {
+                        // If we are preventing void spaces, validate the cubbies before adding them
+                        if (!IsRoomViable(cubbyA) || !IsRoomViable(cubbyB))
+                            continue;
+
                         roomsToRemove.Add(room);
                         newCubbies.Add(cubbyA);
                         newCubbies.Add(cubbyB);
@@ -764,11 +771,84 @@ public class RoomGeneration : MonoBehaviour
             }
         }
 
-        // Because the house layout is irregular, a straight slice might occasionally catch an empty corner and make an empty room.
-        // If that happens, reject the split.
+        // Because the house layout is irregular, a straight slice might occasionally catch an empty corner and make an empty room
+        // If that happens, reject the split
         if (roomA.Count == 0 || roomB.Count == 0) return false;
 
+        // Apply strict validation to both newly generated spaces to prevent void spaces (will return immediately if we are allowing void spaces)
+        if (!IsRoomViable(roomA) || !IsRoomViable(roomB)) return false;
+
         return true;
+    }
+
+    bool IsRoomViable(HashSet<Vector2Int> room)
+    {
+        // If void spaces are allowed, bypass the strict check
+        if (allowVoidSpaces) return true;
+
+        // Failsafe for completely empty rooms
+        if (room.Count == 0) return false;
+
+        // Check tile count to prevent chunks that have almost no floor off the bat
+        if (room.Count < (minViableWidth * minViableLength))
+        {
+            Debug.Log($"Rejected: Tile count in the room was less than the possible {minViableWidth} x {minViableLength} viable spaces we're checking.");
+            return false;
+        }
+
+        // Ensure EVERY tile belongs to at least one valid block of minimum dimensions
+        foreach (Vector2Int tile in room)
+        {
+            if (!IsTileInViableBlock(tile, room))
+            {
+                Debug.Log($"Rejected: Found a narrow nook or void space at local tile {tile}.");
+                return false;
+            }
+        }
+
+        Debug.Log("Accepted: Room chunk passed all strict viability checks.");
+        return true;
+    }
+
+    // Checks if a specific tile is part of at least one valid WxL or LxW block inside the room
+    bool IsTileInViableBlock(Vector2Int tile, HashSet<Vector2Int> room)
+    {
+        // Check both orientations to allow for horizontal and vertical rooms/hallways
+        return CheckBlockAtTile(tile, room, minViableWidth, minViableLength) ||
+               CheckBlockAtTile(tile, room, minViableLength, minViableWidth);
+    }
+
+    // Validates if a rectangle of size w x l containing the target tile exists entirely within the room (i.e., turning it into a rectangle does NOT overlap with other rooms/empty space outside the room)
+    bool CheckBlockAtTile(Vector2Int tile, HashSet<Vector2Int> room, int w, int l)
+    {
+        // Iterate through every possible starting position for a w x l block that contains tile
+        for (int startX = tile.x - w + 1; startX <= tile.x; startX++)
+        {
+            for (int startY = tile.y - l + 1; startY <= tile.y; startY++)
+            {
+                bool isValidBlock = true;
+
+                // Verify if this specific theoretical block is entirely contained within the actual room footprint
+                for (int x = 0; x < w; x++)
+                {
+                    for (int y = 0; y < l; y++)
+                    {
+                        if (!room.Contains(new Vector2Int(startX + x, startY + y)))
+                        {
+                            isValidBlock = false;
+                            break; // Break the inner Y loop
+                        }
+                    }
+                    if (!isValidBlock) break; // Break the inner X loop
+                }
+
+                // If we found even one valid block that fits perfectly, this tile is safe!
+                if (isValidBlock) return true;
+            }
+        }
+
+        // If we checked all possible blocks and none fit, this tile is an unviable nook/void space
+        return false;
     }
 
     GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
@@ -883,7 +963,7 @@ public class RoomGeneration : MonoBehaviour
 
                     if (interiorDoorPrefab != null)
                     {
-                        Debug.Log("Should try to spawn interior door");
+                        //Debug.Log("Should try to spawn interior door");
                         // Parent to parent.parent to escape the mesh combiner - prevents it from becoming the wall + same color/material as the wall
                         GameObject spawnedDoor = Instantiate(interiorDoorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
 
@@ -926,7 +1006,7 @@ public class RoomGeneration : MonoBehaviour
                 {
                     // Parent to parent.parent to escape the mesh combiner
                     GameObject spawnedDoor = Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
-                    Debug.Log("Should try to spawn main door");
+                    //Debug.Log("Should try to spawn main door");
                     // Width is 1 tile, Height is doorHeight, Depth is 0.25f (slightly thicker than the 0.2f wall to prevent texture z-fighting)
                     FitPrefabToHole(spawnedDoor, 1f, doorHeight, 0.25f, pos.y);
                 }
@@ -957,7 +1037,7 @@ public class RoomGeneration : MonoBehaviour
                 {
                     // Parent to parent.parent to escape the mesh combiner
                     GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)));
-                    Debug.Log("Should try to spawn window");
+                    //Debug.Log("Should try to spawn window");
 
                     // Set the parent while telling Unity NOT to change the world position
                     spawnedWindow.transform.SetParent(parent.parent, true);
@@ -1191,7 +1271,7 @@ public class RoomGeneration : MonoBehaviour
         // Load the new teleport prefab variant
         if (addTeleportationArea)
         {
-            Debug.Log("Trying to add Floors teleport area");
+            //Debug.Log("Trying to add Floors teleport area");
             GameObject teleportPrefab = Resources.Load<GameObject>("Locomotion/Teleport Area Invisible");
             if (teleportPrefab != null)
             {
