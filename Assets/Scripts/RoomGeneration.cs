@@ -569,6 +569,13 @@ public class RoomGeneration : MonoBehaviour
                 else chunkB.Add(tile); // Top side
             }
         }
+        Debug.Log("Checking hallway for viability");
+        // Validate that the hallway didn't leave behind unviable slivers
+        if (!IsRoomViable(chunkA) || !IsRoomViable(chunkB))
+        {
+            Debug.Log("Hallway cut rejected: Resulting chunks were too narrow or irregular.");
+            return false;
+        }
 
         return true;
     }
