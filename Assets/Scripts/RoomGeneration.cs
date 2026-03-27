@@ -8,6 +8,7 @@ using UnityEditor;
 
 public class RoomGeneration : MonoBehaviour
 {
+    #region Variables and Classes
     [Header("Preset Generation Settings")]
     public bool dormitory = false;
     public bool warehouse = false;
@@ -109,6 +110,9 @@ public class RoomGeneration : MonoBehaviour
     [HideInInspector]
     public List<RoomData> allGeneratedRooms = new List<RoomData>();
 
+    #endregion
+
+    #region Presets and Restorations
     private void CheckPresetLayouts()
     {
         if (dormitory)
@@ -256,6 +260,49 @@ public class RoomGeneration : MonoBehaviour
         this.gameObject.transform.localScale = new Vector3(1.4419f, 1.4419f, 1.4419f);
     }
 
+    private void OnValidate()
+    {
+        // Check for any preset values we want to follow
+        CheckPresetLayouts();
+
+        // Only run this if the bool actually changed, to save performance
+        if (roomRoofsTransparent != lastTransparencyState)
+        {
+            lastTransparencyState = roomRoofsTransparent;
+            ToggleRoofTransparency();
+        }
+    }
+
+    public void ToggleRoofTransparency()
+    {
+        Material transMat = Resources.Load<Material>("Materials/transparent");
+
+        foreach (GameObject roof in allRoomRoofs)
+        {
+            if (roof == null) continue; // Safety check in case a room was deleted
+
+            MeshRenderer renderer = roof.GetComponent<MeshRenderer>();
+            RoofData data = roof.GetComponent<RoofData>();
+
+            if (roomRoofsTransparent)
+            {
+                // If the current material is not transparent, save what it is then swap out the material with transparent
+                if (renderer.sharedMaterial != transMat)
+                    data.originalMaterial = renderer.sharedMaterial;
+
+                if (transMat != null) renderer.sharedMaterial = transMat;
+            }
+            else
+            {
+                // Switch the material back to its original one
+                if (data != null && data.originalMaterial != null)
+                    renderer.sharedMaterial = data.originalMaterial;
+            }
+        }
+    }
+    #endregion
+
+    #region Main Method
     public void GenerateAllRooms()
     {
         // Clear previous generation (optional, if calling multiple times)
@@ -396,7 +443,9 @@ public class RoomGeneration : MonoBehaviour
         if (decorator != null)
             decorator.DecorateRooms(allGeneratedRooms);
     }
+    #endregion
 
+    #region Layout Generation Callers
     void GenerateOutbuilding(Transform parent)
     {
         // Set up the parent container
@@ -586,6 +635,70 @@ public class RoomGeneration : MonoBehaviour
         return true;
     }
 
+    // Finds all adjacent rooms on a floor and creates a REALISTIC path through the house using a minimum spanning tree method for procedural generation
+    // (considers each room in the layout as one node, generates a map of all the routes necessary to have each node connected, WITHOUT drawing every possible line between them)
+    HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms)
+    {
+        HashSet<string> doors = new HashSet<string>();
+        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        // Gather all possible shared walls between all rooms (key: "room A index, room B index" , value: list of shared edge keys)
+        Dictionary<string, List<string>> roomConnections = new Dictionary<string, List<string>>();
+
+        // Compare every room against every other room
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            for (int j = i + 1; j < rooms.Count; j++)
+            {
+                // Check every tile in Room A to see if it touches Room B
+                List<string> shared = GetSharedEdges(rooms[i], rooms[j]);
+
+                if (shared.Count > 0)
+                {
+                    roomConnections.Add($"{i}_{j}", shared);
+                }
+            }
+        }
+
+        // Use a union to find all connected rooms (groups of rooms sharing the same walls) and ensure connections via MINIMUM necessary doors
+        int[] parents = Enumerable.Range(0, rooms.Count).ToArray();
+        int Find(int i) => parents[i] == i ? i : parents[i] = Find(parents[i]);
+
+        // Shuffle the connections so the house layout feels random and organic
+        var connectionKeys = roomConnections.Keys.OrderBy(x => Random.value).ToList();
+
+        // Connect the rooms in their new paths
+        foreach (var key in connectionKeys)
+        {
+            string[] parts = key.Split('_');
+            int r1 = int.Parse(parts[0]);
+            int r2 = int.Parse(parts[1]);
+
+            List<string> possibleEdges = roomConnections[key];
+
+            if (Find(r1) != Find(r2))
+            {
+                // Pick exactly one edge from the shared list to connect them
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+                parents[Find(r1)] = Find(r2);
+            }
+            // If they are already connected and the mansion bool is on, have a large chance (60%) to create realistic, maze-like loops
+            else if (Random.value < 0.6f && heightenedNooks)
+            {
+                Debug.Log("[MANSION EVENT]: Added a natural loop!");
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+            }
+            // If they are ALREADY connected (indirectly through other rooms), have a random 5% chance to add a door anyway to create a realistic loop
+            else if (Random.value < 0.05f)
+            {
+                Debug.Log("[RARE EVENT]: Added a natural loop!");
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+            }
+        }
+
+        return doors;
+    }
+
     // Creates the basic outline of a house, with nooks and complexity as determined by our vars
     HashSet<Vector2Int> GenerateHouseLayout()
     {
@@ -612,7 +725,9 @@ public class RoomGeneration : MonoBehaviour
         }
         return coords;
     }
+    #endregion
 
+    #region Room Division
     // The looping logic to continuously call for splitting the space in the house
     List<HashSet<Vector2Int>> SubdivideHouse(HashSet<Vector2Int> layout, int targetRoomCount)
     {
@@ -863,7 +978,9 @@ public class RoomGeneration : MonoBehaviour
         // If we checked all possible blocks and none fit, this tile is an unviable nook/void space
         return false;
     }
+    #endregion
 
+    #region Core Building Callers
     GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
     {
         // Create the Parent GameObject
@@ -1072,7 +1189,9 @@ public class RoomGeneration : MonoBehaviour
             }
         }
     }
+    #endregion
 
+    #region Spawning Helpers
     void SpawnWall(Vector3 tilePos, Vector2Int dir, Transform parent, bool isInterior, float startHeight = 0f, float customHeight = -1f)
     {
         // If no custom height is provided, use the default wallHeight
@@ -1100,32 +1219,6 @@ public class RoomGeneration : MonoBehaviour
         if (!isInterior && exteriorWallMaterial != null) 
             wall.GetComponent<MeshRenderer>().material = exteriorWallMaterial;
         */
-    }
-
-    Vector2Int FindStairwellTile (HashSet<Vector2Int> houseLayout)
-    {
-        // Find a valid stairwell location with enough "runway" behind it
-        // Convert HashSet to List to shuffle and find a spot
-        var possibleTiles = houseLayout.OrderBy(t => Random.value).ToList();
-
-        foreach (var tile in possibleTiles)
-        {
-            bool runwayClear = true;
-            for (int i = 0; i < stairDepth; i++)
-            {
-                // Check if the tiles behind this one (where the ramp will be) exist in the house
-                if (!houseLayout.Contains(new Vector2Int(tile.x, tile.y - i)))
-                {
-                    runwayClear = false;
-                    break;
-                }
-            }
-
-            if (runwayClear) return tile;
-        }
-
-        // Fallback if the house is too small/complex for a 4-tile ramp
-        return houseLayout.First();
     }
 
     void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
@@ -1163,6 +1256,56 @@ public class RoomGeneration : MonoBehaviour
             ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
     }
 
+    // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
+    GameObject SpawnPrimitive(PrimitiveType type, Transform parent, Vector3 localPos, Vector3 scale, string name)
+    {
+        GameObject obj = GameObject.CreatePrimitive(type);
+        obj.name = name;
+        obj.transform.SetParent(parent);
+        obj.transform.localPosition = localPos;
+        obj.transform.localScale = scale;
+        return obj;
+    }
+    #endregion
+
+    #region House Landmark Determination Helpers
+    Vector2Int FindStairwellTile (HashSet<Vector2Int> houseLayout)
+    {
+        // Find a valid stairwell location with enough "runway" behind it
+        // Convert HashSet to List to shuffle and find a spot
+        var possibleTiles = houseLayout.OrderBy(t => Random.value).ToList();
+
+        foreach (var tile in possibleTiles)
+        {
+            bool runwayClear = true;
+            for (int i = 0; i < stairDepth; i++)
+            {
+                // Check if the tiles behind this one (where the ramp will be) exist in the house
+                if (!houseLayout.Contains(new Vector2Int(tile.x, tile.y - i)))
+                {
+                    runwayClear = false;
+                    break;
+                }
+            }
+
+            if (runwayClear) return tile;
+        }
+
+        // Fallback if the house is too small/complex for a 4-tile ramp
+        return houseLayout.First();
+    }
+
+    // Check if a tile is part of the stairwell layout
+    bool IsInStairwell(Vector2Int coord, Vector2Int topTile, int depth)
+    {
+        // If X doesn't match, it's not the stairwell
+        if (coord.x != topTile.x) return false;
+
+        // The hole starts at the topTile and goes BACKWARDS for 'depth' tiles
+        // Example: Top is 10, Depth is 4. Hole is 10, 9, 8, 7.
+        return (coord.y <= topTile.y && coord.y > topTile.y - depth);
+    }
+
     void DetermineMainDoor(List<HashSet<Vector2Int>> groundFloorRooms)
     {
         List<(Vector2Int tile, string dir)> validExteriorWalls = new List<(Vector2Int, string)>();
@@ -1192,18 +1335,9 @@ public class RoomGeneration : MonoBehaviour
             //Debug.Log("Chose a door");
         }
     }
+    #endregion
 
-    // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
-    GameObject SpawnPrimitive(PrimitiveType type, Transform parent, Vector3 localPos, Vector3 scale, string name)
-    {
-        GameObject obj = GameObject.CreatePrimitive(type);
-        obj.name = name;
-        obj.transform.SetParent(parent);
-        obj.transform.localPosition = localPos;
-        obj.transform.localScale = scale;
-        return obj;
-    }
-
+    #region Prefab + Mesh Helpers
     // A helper to look at where a prefabs pivot point is so we can better spawn it in place, not a little too low (use the bottom of the object for location)
     float CalculateVerticalOffset(GameObject instance)
     {
@@ -1322,7 +1456,9 @@ public class RoomGeneration : MonoBehaviour
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(parent.transform.GetChild(i).gameObject);
     }
+    #endregion
 
+    #region Edge Determination Helpers
     // Helper class to get the highest roof in the floor layouts we make
     // Done like this instead of using wallHeight in case we build irregular roofs in the future
     float GetHighestRoofPoint()
@@ -1348,81 +1484,6 @@ public class RoomGeneration : MonoBehaviour
             return $"{b.x},{b.y}_{a.x},{a.y}";
     }
 
-    // Finds all adjacent rooms on a floor and creates a REALISTIC path through the house using a minimum spanning tree method for procedural generation
-    // (considers each room in the layout as one node, generates a map of all the routes necessary to have each node connected, WITHOUT drawing every possible line between them)
-    HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms)
-    {
-        HashSet<string> doors = new HashSet<string>();
-        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-
-        // Gather all possible shared walls between all rooms (key: "room A index, room B index" , value: list of shared edge keys)
-        Dictionary<string, List<string>> roomConnections = new Dictionary<string, List<string>>();
-
-        // Compare every room against every other room
-        for (int i = 0; i < rooms.Count; i++)
-        {
-            for (int j = i + 1; j < rooms.Count; j++)
-            {
-                // Check every tile in Room A to see if it touches Room B
-                List<string> shared = GetSharedEdges(rooms[i], rooms[j]);
-
-                if (shared.Count > 0)
-                {
-                    roomConnections.Add($"{i}_{j}", shared);
-                }
-            }
-        }
-
-        // Use a union to find all connected rooms (groups of rooms sharing the same walls) and ensure connections via MINIMUM necessary doors
-        int[] parents = Enumerable.Range(0, rooms.Count).ToArray();
-        int Find(int i) => parents[i] == i ? i : parents[i] = Find(parents[i]);
-
-        // Shuffle the connections so the house layout feels random and organic
-        var connectionKeys = roomConnections.Keys.OrderBy(x => Random.value).ToList();
-
-        // Connect the rooms in their new paths
-        foreach (var key in connectionKeys)
-        {
-            string[] parts = key.Split('_');
-            int r1 = int.Parse(parts[0]);
-            int r2 = int.Parse(parts[1]);
-
-            List<string> possibleEdges = roomConnections[key];
-
-            if (Find(r1) != Find(r2))
-            {
-                // Pick exactly one edge from the shared list to connect them
-                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
-                parents[Find(r1)] = Find(r2);
-            }
-            // If they are already connected and the mansion bool is on, have a large chance (60%) to create realistic, maze-like loops
-            else if (Random.value < 0.6f && heightenedNooks)
-            {
-                Debug.Log("[MANSION EVENT]: Added a natural loop!");
-                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
-            }
-            // If they are ALREADY connected (indirectly through other rooms), have a random 5% chance to add a door anyway to create a realistic loop
-            else if (Random.value < 0.05f)
-            {
-                Debug.Log("[RARE EVENT]: Added a natural loop!");   
-                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
-            }
-        }
-
-        return doors;
-    }
-
-    // Check if a tile is part of the stairwell layout
-    bool IsInStairwell(Vector2Int coord, Vector2Int topTile, int depth)
-    {
-        // If X doesn't match, it's not the stairwell
-        if (coord.x != topTile.x) return false;
-
-        // The hole starts at the topTile and goes BACKWARDS for 'depth' tiles
-        // Example: Top is 10, Depth is 4. Hole is 10, 9, 8, 7.
-        return (coord.y <= topTile.y && coord.y > topTile.y - depth);
-    }
-
     // Helper to find where the rooms are touching
     List<string> GetSharedEdges(HashSet<Vector2Int> roomA, HashSet<Vector2Int> roomB)
     {
@@ -1436,45 +1497,6 @@ public class RoomGeneration : MonoBehaviour
         }
         return edges;
     }
+    #endregion
 
-    private void OnValidate()
-    {
-        // Check for any preset values we want to follow
-        CheckPresetLayouts();
-
-        // Only run this if the bool actually changed, to save performance
-        if (roomRoofsTransparent != lastTransparencyState)
-        {
-            lastTransparencyState = roomRoofsTransparent;
-            ToggleRoofTransparency();
-        }
-    }
-
-    public void ToggleRoofTransparency()
-    {
-        Material transMat = Resources.Load<Material>("Materials/transparent");
-
-        foreach (GameObject roof in allRoomRoofs)
-        {
-            if (roof == null) continue; // Safety check in case a room was deleted
-
-            MeshRenderer renderer = roof.GetComponent<MeshRenderer>();
-            RoofData data = roof.GetComponent<RoofData>();
-
-            if (roomRoofsTransparent)
-            {
-                // If the current material is not transparent, save what it is then swap out the material with transparent
-                if (renderer.sharedMaterial != transMat)
-                    data.originalMaterial = renderer.sharedMaterial;
-
-                if (transMat != null) renderer.sharedMaterial = transMat;
-            }
-            else
-            {
-                // Switch the material back to its original one
-                if (data != null && data.originalMaterial != null)
-                    renderer.sharedMaterial = data.originalMaterial;
-            }
-        }
-    }
 }
