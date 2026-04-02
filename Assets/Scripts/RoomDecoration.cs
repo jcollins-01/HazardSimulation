@@ -7,6 +7,11 @@ public class RoomDecoration : MonoBehaviour
     [Range(0f, 1f)]
     public float clutterAmount = 0.1f;
 
+    [Header("Floor Materials")]
+    public Material tileMaterial;
+    public Material woodMaterial;
+    public Material carpetMaterial;
+
     private float lastClutterAmount; // Used to check if the slider was changed in the editor
 
     private string[] roomTypes = { "Generic", "Bedroom", "Bathroom", "Living Room" };
@@ -26,6 +31,10 @@ public class RoomDecoration : MonoBehaviour
         // Clear old interior before placing new furniture/clutter to avoid stacking
         ClearAllDecoration(rooms);
 
+        // Variables for rule-based room logic
+        int bathCount = 0;
+        int bedCount = 0;
+
         foreach (var room in rooms)
         {
             // If the room was deleted, skip it
@@ -33,14 +42,40 @@ public class RoomDecoration : MonoBehaviour
 
             string assignedType;
 
-            // Evaluate the shape. If it's a long, narrow strip, force it to be a Hallway
+            // Evaluate the shape - if it's a long narrow strip, force it to be a Hallway
             if (IsRoomHallway(room.Tiles))
+            {
                 assignedType = "Hallway";
+                continue;
+            }
+
+            // Room code logic - maintain 2:1 ratio (Max 2 Baths, Max 4 Beds)
+            if (bathCount < 2 && bedCount == bathCount * 2)
+            {
+                // Time for a bathroom (e.g., Bed=0/Bath=0, or Bed=2/Bath=1)
+                assignedType = "Bathroom";
+                bathCount++;
+            }
+            else if (bedCount < 4 && bedCount < (bathCount + 1) * 2)
+            {
+                // Time for a bedroom to catch up to the ratio
+                assignedType = "Bedroom";
+                bedCount++;
+            }
             else
             {
-                // Otherwise, assign a random standard room type
-                assignedType = roomTypes[Random.Range(0, roomTypes.Length)];
+                // Cap is reached. Assign a random room type from the array.
+                // Use a do-while loop to ensure it doesn't accidentally pick Bed/Bath
+                // if those exist in your roomTypes array.
+                do
+                {
+                    assignedType = roomTypes[Random.Range(0, roomTypes.Length)];
+                }
+                while (assignedType == "Bedroom" || assignedType == "Bathroom" || assignedType == "Hallway");
             }
+
+            // Apply floor materials based on the assigned type
+            ApplyFloorMaterial(room, assignedType);
 
             // Rename the GameObject so it is easily identifiable in the hierarchy
             room.RoomObject.name += $" [{assignedType}]";
@@ -299,19 +334,40 @@ public class RoomDecoration : MonoBehaviour
 
     private float CalculateVerticalOffset(GameObject instance)
     {
-        Renderer renderer = instance.GetComponent<Renderer>();
-        if (renderer == null)
-        {
-            renderer = instance.GetComponentInChildren<Renderer>();
-        }
+        // Get the local bottom of the mesh (distance from pivot to bottom)
+        float meshBottomY = instance.GetComponent<Renderer>().bounds.min.y;
+        // Get the pivot point at which the prefab is spawned/handled from
+        float pivotY = instance.transform.position.y;
 
-        if (renderer != null)
+        // Return the distance from the pivot to the bottom with some funky math to make it spawn in just the right place
+        return pivotY - meshBottomY;
+    }
+
+    private void ApplyFloorMaterial(RoomGeneration.RoomData room, string assignedType)
+    {
+        // Find the Floors game object
+        Transform floorTransform = room.RoomObject.transform.Find("Floors");
+        if (floorTransform == null) return;
+
+        MeshRenderer renderer = floorTransform.GetComponent<MeshRenderer>();
+        if (renderer == null) return;
+
+        switch (assignedType)
         {
-            float meshBottomY = renderer.bounds.min.y;
-            float pivotY = instance.transform.position.y;
-            return (pivotY - (meshBottomY / 2)) * 2;
+            case "Bathroom":
+                renderer.material = tileMaterial;
+                break;
+            case "Living Room":
+                // Randomly choose between Wood and Carpet
+                renderer.material = Random.value > 0.5f ? woodMaterial : carpetMaterial;
+                break;
+            case "Bedroom":
+                renderer.material = carpetMaterial;
+                break;
+            default:
+                renderer.material = woodMaterial;
+                break;
         }
-        return 0f;
     }
 
     // This allows the slider to work in the Inspector
