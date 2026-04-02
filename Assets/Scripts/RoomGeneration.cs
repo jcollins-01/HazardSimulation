@@ -1116,8 +1116,11 @@ public class RoomGeneration : MonoBehaviour
             // Check if THIS specific wall segment is the designated Main Door
             bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
 
-            // It can be a window if it's NOT a door
-            bool isWindow = !isMainDoor && (Random.value <= windowChance);
+            // Check if this is a safe, centered spot for a window
+            bool safeFromCorners = IsValidWindowLocation(localCoord, dir, roomTiles); 
+
+            // It can be a window if it's NOT a door and NOT up against an interior wall/exterior corner
+            bool isWindow = !isMainDoor && (Random.value <= windowChance) && safeFromCorners; 
 
             if (isMainDoor)
             {
@@ -1171,8 +1174,6 @@ public class RoomGeneration : MonoBehaviour
 
                     // Set the parent while telling Unity NOT to change the world position
                     spawnedWindow.transform.SetParent(parent.parent, true);
-
-                    //GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
 
                     // Height is the gap between the sill and the top
                     float actualWindowHeight = windowTopHeight - windowSillHeight;
@@ -1337,6 +1338,21 @@ public class RoomGeneration : MonoBehaviour
             //Debug.Log("Chose a door");
         }
     }
+
+    // Checks if the tile has valid room tiles on both sides along the wall axis
+    bool IsValidWindowLocation(Vector2Int tile, Vector2Int wallDir, HashSet<Vector2Int> roomTiles)
+    {
+        // Find the perpendicular directions to the wall
+        Vector2Int left = new Vector2Int(-wallDir.y, wallDir.x);
+        Vector2Int right = new Vector2Int(wallDir.y, -wallDir.x);
+
+        // Check if the adjacent tiles along the wall are part of this SAME room
+        bool leftInRoom = roomTiles.Contains(tile + left);
+        bool rightInRoom = roomTiles.Contains(tile + right);
+
+        // If both sides are in the room, it's not a corner or an edge!
+        return leftInRoom && rightInRoom;
+    }
     #endregion
 
     #region Prefab + Mesh Helpers
@@ -1350,7 +1366,6 @@ public class RoomGeneration : MonoBehaviour
 
         // Return the distance from the pivot to the bottom with some funky math to make it spawn in just the right place
         return pivotY - meshBottomY;
-        //return (pivotY - (meshBottomY / 2)) * 2; // I have no earthly idea why this is the magic formula, but this fits doors + windows
     }
 
     void FitPrefabToHole(GameObject prefabInstance, float targetWidth, float targetHeight, float targetDepth, float groundY)
@@ -1369,13 +1384,10 @@ public class RoomGeneration : MonoBehaviour
         // Apply the new scale - local X is width, local Y is height, and local Z is depth (thickness)
         prefabInstance.transform.localScale = new Vector3(scaleX, scaleY, scaleZ);
 
-        //float halfHeight = CalculateVerticalOffset(prefabInstance); // the size of the y from the center of its bounds to the very top/extent (half its height)
-
         // Move the object to groundY, then add the offset to bring the bottom up to the surface
         float yOffset = CalculateVerticalOffset(prefabInstance); // Should find exact prefab pivot point
         
-        // Set the world position. 
-        // groundY is the floor. We add yOffset so the bottom of the mesh perfectly kisses the floor.
+        // Set the world position - groundY is the floor, yOffset is the adjustment needed to make it flush depending on if it's a window/door
         prefabInstance.transform.position = new Vector3(
             prefabInstance.transform.position.x,
             groundY + yOffset,
