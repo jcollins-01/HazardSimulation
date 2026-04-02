@@ -17,6 +17,14 @@ public class RoomGeneration : MonoBehaviour
     public bool skyscraper = false;
     public bool mansion = false;
 
+    // These vars specifically pass to RoomDecoration without being changed back...I don't know about this...
+    //[HideInInspector] public bool dormitory = false;
+    //[HideInInspector] public bool warehouse = false;
+    [HideInInspector] public bool isSmallHouse = false;
+    [HideInInspector] public bool isTwoStoryHouse = false;
+    //[HideInInspector] public bool skyscraper = false;
+    //[HideInInspector] public bool mansion = false;
+
     [Header("Outbuilding Settings")]
     public bool chanceForOutbuilding = false;
     [Range(0f, 1f)]
@@ -180,6 +188,7 @@ public class RoomGeneration : MonoBehaviour
             hallwayWidth = 1; // Very thin hallway?
 
             smallHouse = false;
+            isSmallHouse = true;
         }
 
         if (twoStoryHouse)
@@ -203,6 +212,7 @@ public class RoomGeneration : MonoBehaviour
             hallwayWidth = 2;
 
             twoStoryHouse = false;
+            isTwoStoryHouse = true;
         }
 
         if (skyscraper)

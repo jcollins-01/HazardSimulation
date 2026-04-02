@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 public class RoomDecoration : MonoBehaviour
 {
@@ -11,6 +12,7 @@ public class RoomDecoration : MonoBehaviour
     public Material tileMaterial;
     public Material woodMaterial;
     public Material carpetMaterial;
+    public Material concreteMaterial;
 
     private float lastClutterAmount; // Used to check if the slider was changed in the editor
 
@@ -31,47 +33,138 @@ public class RoomDecoration : MonoBehaviour
         // Clear old interior before placing new furniture/clutter to avoid stacking
         ClearAllDecoration(rooms);
 
-        // Variables for rule-based room logic
-        int bathCount = 0;
-        int bedCount = 0;
+        // Here's where we start decorating
+        Debug.Log("Looking for generator");
+        RoomGeneration generator = GetComponent<RoomGeneration>();
+        if (generator == null) return;
+        Debug.Log("Found the generator");
 
-        foreach (var room in rooms)
+        // Group the rooms by their floor level by reading the parent object's name
+        var roomsByFloor = rooms.GroupBy(r => GetFloorLevel(r)).ToDictionary(g => g.Key, g => g.ToList());
+
+        // Route the assignment logic based on the active preset
+        if (generator.isSmallHouse) AssignSmallHouseLogic(roomsByFloor); // was smallHouse
+        else if (generator.isTwoStoryHouse) AssignTwoStoryLogic(roomsByFloor); // was twoStoryHouse
+        else if (generator.mansion) AssignMansionLogic(roomsByFloor);
+        else if (generator.dormitory) AssignDormitoryLogic(roomsByFloor);
+        else if (generator.warehouse) AssignWarehouseLogic(roomsByFloor);
+        else if (generator.skyscraper) AssignSkyscraperLogic(roomsByFloor);
+        else AssignCustomLogic(roomsByFloor); // Fallback if no preset is checked
+    }
+
+    #region Room Type Assignment
+    private int GetFloorLevel(RoomGeneration.RoomData room)
+    {
+        Debug.Log("Grabbing floor level");
+        // Expecting the parent to be named "Floor_0", "Floor_1", etc.
+        if (room.RoomObject != null && room.RoomObject.transform.parent != null)
         {
-            // If the room was deleted, skip it
-            if (room.RoomObject == null) continue;
-
-            string assignedType;
-
-            // Evaluate the shape - if it's a long narrow strip, force it to be a Hallway
-            if (IsRoomHallway(room.Tiles))
+            string parentName = room.RoomObject.transform.parent.name;
+            if (parentName.StartsWith("Floor_") && int.TryParse(parentName.Split('_')[1], out int floorNum))
             {
-                assignedType = "Hallway";
-                continue;
+                Debug.Log("Found a room on floor " + floorNum);
+                return floorNum;
             }
+        }
+        return 0; // Default to ground floor
+    }
 
-            // Room code logic - maintain 2:1 ratio (Max 2 Baths, Max 4 Beds)
-            if (bathCount < 2 && bedCount == bathCount * 2)
+    private void AssignSmallHouseLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor)
+    {
+        Debug.Log("Assigning a small house");
+        // Small houses are 1 floor so all rooms should be on floor 0 - if they're not, return
+        if (!roomsByFloor.TryGetValue(0, out List<RoomGeneration.RoomData> groundRooms)) return;
+
+        Debug.Log("Getting the possible rooms for the small house");
+        // Essential rooms that every small house MUST have
+        List<string> requiredRooms = new List<string> { "Kitchen", "Living Room", "Bathroom", "Bedroom" };
+        // Small house is always set to 4 rooms, so these will never be accessed
+        List<string> optionalRooms = new List<string> { "Office", "Dining Room", "Guest Room", "Storage" };
+
+        AssignRoomsFromLists(groundRooms, requiredRooms, optionalRooms);
+    }
+
+    private void AssignTwoStoryLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor)
+    {
+        // Ground Floor
+        if (roomsByFloor.TryGetValue(0, out List<RoomGeneration.RoomData> groundRooms))
+        {
+            List<string> groundRequired = new List<string> { "Kitchen", "Living Room", "Dining Room" };
+            List<string> groundOptional = new List<string> { "Half-Bath", "Office", "Mudroom", "Library" };
+            AssignRoomsFromLists(groundRooms, groundRequired, groundOptional);
+        }
+
+        // Upper Floor
+        if (roomsByFloor.TryGetValue(1, out List<RoomGeneration.RoomData> upperRooms))
+        {
+            AssignBedroomsAndBathrooms(upperRooms);
+        }
+    }
+
+    private void AssignMansionLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor)
+    {
+        foreach (var kvp in roomsByFloor)
+        {
+            int floor = kvp.Key;
+            List<RoomGeneration.RoomData> rooms = kvp.Value;
+
+            if (floor == 0)
             {
-                // Time for a bathroom (e.g., Bed=0/Bath=0, or Bed=2/Bath=1)
-                assignedType = "Bathroom";
-                bathCount++;
+                // Ground floor: Grand public spaces
+                List<string> req = new List<string> { "Grand Foyer", "Kitchen", "Formal Dining", "Ballroom", "Library" };
+                List<string> opt = new List<string> { "Conservatory", "Billiards Room", "Half-Bath", "Staff Quarters" };
+                AssignRoomsFromLists(rooms, req, opt);
             }
-            else if (bedCount < 4 && bedCount < (bathCount + 1) * 2)
+            else if (floor == roomsByFloor.Keys.Max()) // Top floor
             {
-                // Time for a bedroom to catch up to the ratio
-                assignedType = "Bedroom";
-                bedCount++;
+                // Top floor: Storage, Theater, Servants
+                List<string> req = new List<string> { "Home Theater", "Storage" };
+                List<string> opt = new List<string> { "Guest Suite", "Observatory", "Attic" };
+                AssignRoomsFromLists(rooms, req, opt);
             }
             else
             {
-                // Cap is reached. Assign a random room type from the array.
-                // Use a do-while loop to ensure it doesn't accidentally pick Bed/Bath
-                // if those exist in your roomTypes array.
-                do
-                {
-                    assignedType = roomTypes[Random.Range(0, roomTypes.Length)];
-                }
-                while (assignedType == "Bedroom" || assignedType == "Bathroom" || assignedType == "Hallway");
+                // Middle floors: Suites and Bedrooms/Bathrooms
+                // AssignRoomsFromLists(rooms, new List<string> { "Master Suite", "Master Bath" }, new List<string> { "Bedroom", "Bathroom", "Sitting Room" });
+                AssignBedroomsAndBathrooms(rooms);
+            }
+        }
+    }
+
+    // You can build out standard assignments for Warehouse, Skyscraper, and Dormitory here
+    private void AssignWarehouseLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+    private void AssignDormitoryLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+    private void AssignSkyscraperLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+    private void AssignCustomLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+
+    // A special method to call for floors with bedrooms and bathrooms to ensure they spawn in a decent ratio to each other
+    private void AssignBedroomsAndBathrooms(List<RoomGeneration.RoomData> bedAndBathRooms)
+    {
+        // Ensure at least one master bed and bath, fill the rest with beds/baths
+        int roomCount = bedAndBathRooms.Count;
+        int bathTarget = Mathf.Max(1, roomCount / 3); // 1 bath per 3 rooms, max
+
+        int bathsAssigned = 0;
+
+        // Since we have very strict rules for keeping only bedrooms and bathrooms on the upper floor
+        string assignedType = "";
+
+        foreach (var room in bedAndBathRooms)
+        {
+            if (IsRoomHallway(room.Tiles))
+            {
+                assignedType = "Hallway"; // Assuming Type is a property in RoomData
+                continue;
+            }
+
+            if (bathsAssigned < bathTarget)
+            {
+                assignedType = "Bathroom";
+                bathsAssigned++;
+            }
+            else
+            {
+                assignedType = "Bedroom";
             }
 
             // Apply floor materials based on the assigned type
@@ -80,15 +173,65 @@ public class RoomDecoration : MonoBehaviour
             // Rename the GameObject so it is easily identifiable in the hierarchy
             room.RoomObject.name += $" [{assignedType}]";
 
-            // Available rooms: "Generic", "Bedroom", "Bathroom", and "Living Room" 
-            room.RoomObject.tag = assignedType;
+            // Decorate based on type
+            DecorateSpecificRoom(room, assignedType);
+        }
+    }
+
+    private void AssignRoomsFromLists(List<RoomGeneration.RoomData> floorRooms, List<string> required, List<string> optional)
+    {
+        Debug.Log("Assigning room");
+        // Shuffle the physical rooms so the layout feels random
+        var availableRooms = floorRooms.OrderBy(r => Random.value).ToList();
+
+        int reqIndex = 0;
+
+        string assignedType = "";
+
+        foreach (var room in availableRooms)
+        {
+            // Always tag long, thin rooms as hallways immediately
+            if (IsRoomHallway(room.Tiles))
+            {
+                Debug.Log("Assigning room as hallway");
+                assignedType = "Hallway";
+                continue;
+            }
+
+            // Fulfill the required rooms list first
+            if (reqIndex < required.Count)
+            {
+                Debug.Log($"Assigning room as {required[reqIndex]}");
+                assignedType = required[reqIndex];
+                reqIndex++;
+            }
+            // Once required rooms are placed, pull randomly from the optional list
+            else if (optional.Count > 0)
+            {
+                Debug.Log($"Assigning room as {optional[Random.Range(0, optional.Count)]}");
+                assignedType = optional[Random.Range(0, optional.Count)];
+            }
+            else
+            {
+                // Failsafe
+                Debug.Log("Assigning room as empty");
+                assignedType = "Empty Room"; 
+            }
+
+            // Apply floor materials based on the assigned type
+            ApplyFloorMaterial(room, assignedType);
+
+            // Rename the GameObject so it is easily identifiable in the hierarchy
+            room.RoomObject.name += $" [{assignedType}]";
 
             // Decorate based on type
             DecorateSpecificRoom(room, assignedType);
         }
     }
 
-    private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
+#endregion
+
+private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
     {
         foreach (var room in rooms)
         {
@@ -116,6 +259,7 @@ public class RoomDecoration : MonoBehaviour
 
     private void DecorateSpecificRoom(RoomGeneration.RoomData room, string type)
     {
+        Debug.Log("Should try to decorate room based on its type");
         // Load prefabs based on the room type to save memory (only load what we need)
         switch (type)
         {
@@ -345,6 +489,7 @@ public class RoomDecoration : MonoBehaviour
 
     private void ApplyFloorMaterial(RoomGeneration.RoomData room, string assignedType)
     {
+        Debug.Log("Should try to apply floor material");
         // Find the Floors game object
         Transform floorTransform = room.RoomObject.transform.Find("Floors");
         if (floorTransform == null) return;
