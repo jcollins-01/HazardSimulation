@@ -34,10 +34,8 @@ public class RoomDecoration : MonoBehaviour
         ClearAllDecoration(rooms);
 
         // Here's where we start decorating
-        Debug.Log("Looking for generator");
         RoomGeneration generator = GetComponent<RoomGeneration>();
         if (generator == null) return;
-        Debug.Log("Found the generator");
 
         // Group the rooms by their floor level by reading the parent object's name
         var roomsByFloor = rooms.GroupBy(r => GetFloorLevel(r)).ToDictionary(g => g.Key, g => g.ToList());
@@ -50,19 +48,21 @@ public class RoomDecoration : MonoBehaviour
         else if (generator.warehouse) AssignWarehouseLogic(roomsByFloor);
         else if (generator.skyscraper) AssignSkyscraperLogic(roomsByFloor);
         else AssignCustomLogic(roomsByFloor); // Fallback if no preset is checked
+
+        // After rooms are assigned, reset the generator variables ourselves
+        generator.isSmallHouse = false;
+        generator.isTwoStoryHouse = false;
     }
 
     #region Room Type Assignment
     private int GetFloorLevel(RoomGeneration.RoomData room)
     {
-        Debug.Log("Grabbing floor level");
         // Expecting the parent to be named "Floor_0", "Floor_1", etc.
         if (room.RoomObject != null && room.RoomObject.transform.parent != null)
         {
             string parentName = room.RoomObject.transform.parent.name;
             if (parentName.StartsWith("Floor_") && int.TryParse(parentName.Split('_')[1], out int floorNum))
             {
-                Debug.Log("Found a room on floor " + floorNum);
                 return floorNum;
             }
         }
@@ -75,7 +75,6 @@ public class RoomDecoration : MonoBehaviour
         // Small houses are 1 floor so all rooms should be on floor 0 - if they're not, return
         if (!roomsByFloor.TryGetValue(0, out List<RoomGeneration.RoomData> groundRooms)) return;
 
-        Debug.Log("Getting the possible rooms for the small house");
         // Essential rooms that every small house MUST have
         List<string> requiredRooms = new List<string> { "Kitchen", "Living Room", "Bathroom", "Bedroom" };
         // Small house is always set to 4 rooms, so these will never be accessed
@@ -86,6 +85,7 @@ public class RoomDecoration : MonoBehaviour
 
     private void AssignTwoStoryLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor)
     {
+        Debug.Log("Assigning a two story");
         // Ground Floor
         if (roomsByFloor.TryGetValue(0, out List<RoomGeneration.RoomData> groundRooms))
         {
@@ -140,6 +140,7 @@ public class RoomDecoration : MonoBehaviour
     // A special method to call for floors with bedrooms and bathrooms to ensure they spawn in a decent ratio to each other
     private void AssignBedroomsAndBathrooms(List<RoomGeneration.RoomData> bedAndBathRooms)
     {
+        Debug.Log("Assigning portioned bedrooms and bathrooms");
         // Ensure at least one master bed and bath, fill the rest with beds/baths
         int roomCount = bedAndBathRooms.Count;
         int bathTarget = Mathf.Max(1, roomCount / 3); // 1 bath per 3 rooms, max
@@ -180,7 +181,7 @@ public class RoomDecoration : MonoBehaviour
 
     private void AssignRoomsFromLists(List<RoomGeneration.RoomData> floorRooms, List<string> required, List<string> optional)
     {
-        Debug.Log("Assigning room");
+        Debug.Log("Assigning room from standard list");
         // Shuffle the physical rooms so the layout feels random
         var availableRooms = floorRooms.OrderBy(r => Random.value).ToList();
 
@@ -193,7 +194,6 @@ public class RoomDecoration : MonoBehaviour
             // Always tag long, thin rooms as hallways immediately
             if (IsRoomHallway(room.Tiles))
             {
-                Debug.Log("Assigning room as hallway");
                 assignedType = "Hallway";
                 continue;
             }
@@ -201,20 +201,17 @@ public class RoomDecoration : MonoBehaviour
             // Fulfill the required rooms list first
             if (reqIndex < required.Count)
             {
-                Debug.Log($"Assigning room as {required[reqIndex]}");
                 assignedType = required[reqIndex];
                 reqIndex++;
             }
             // Once required rooms are placed, pull randomly from the optional list
             else if (optional.Count > 0)
             {
-                Debug.Log($"Assigning room as {optional[Random.Range(0, optional.Count)]}");
                 assignedType = optional[Random.Range(0, optional.Count)];
             }
             else
             {
                 // Failsafe
-                Debug.Log("Assigning room as empty");
                 assignedType = "Empty Room"; 
             }
 
