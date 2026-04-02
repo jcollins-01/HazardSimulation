@@ -572,7 +572,7 @@ public class RoomGeneration : MonoBehaviour
 
     bool GenerateHallway(HashSet<Vector2Int> footprint, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
     {
-        Debug.Log("[COMMON EVENT: Attempting to generate hallway");
+        //Debug.Log("[COMMON EVENT]: Attempting to generate hallway");
 
         hallway = new HashSet<Vector2Int>();
         // The chunks are the two separate sides of the house that the hallway connects
@@ -597,7 +597,7 @@ public class RoomGeneration : MonoBehaviour
         // I.e., there need to be at least 4 tiles worth of rooms next to the hallway, and 4 tiles worth of space for the hallway to stretch down + our width
         if (width < hallwayWidth + 4 || length < hallwayWidth + 4)
         {
-            Debug.Log("Aborted hallway attempt");
+            //Debug.Log("Aborted hallway attempt");
             return false; // was &&
         }
 
@@ -632,7 +632,7 @@ public class RoomGeneration : MonoBehaviour
         // Validate that the hallway didn't leave behind unviable slivers
         if (!IsRoomViable(hallway) || !IsRoomViable(chunkA) || !IsRoomViable(chunkB))
         {
-            Debug.Log("Hallway cut rejected: Resulting chunks were too narrow or irregular.");
+            //Debug.Log("Hallway cut rejected: Resulting chunks were too narrow or irregular.");
 
             // Clear the sets to ensure no partial data is left behind
             hallway.Clear();
@@ -695,7 +695,7 @@ public class RoomGeneration : MonoBehaviour
             // If they are already connected and the mansion bool is on, have a large chance (60%) to create realistic, maze-like loops
             else if (Random.value < 0.6f && heightenedNooks)
             {
-                Debug.Log("[MANSION EVENT]: Added a natural loop!");
+                //Debug.Log("[MANSION EVENT]: Added a natural loop!");
                 doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
             }
             // If they are ALREADY connected (indirectly through other rooms), have a random 5% chance to add a door anyway to create a realistic loop
@@ -794,7 +794,7 @@ public class RoomGeneration : MonoBehaviour
             {
                 if (Random.value < 0.7f) // 70% chance to chop it up
                 {
-                    Debug.Log("[MANSION EVENT: Chopped up a nook!");
+                    //Debug.Log("[MANSION EVENT: Chopped up a nook!");
                     HashSet<Vector2Int> cubbyA = new HashSet<Vector2Int>();
                     HashSet<Vector2Int> cubbyB = new HashSet<Vector2Int>();
 
@@ -858,7 +858,7 @@ public class RoomGeneration : MonoBehaviour
         if (heightenedNooks && Random.value < 0.6f) // 60% chance for a nook when splitting
         {
             // Force the slice to be extremely narrow (1 or 2 tiles wide)
-            Debug.Log("[MANSION EVENT]: Added a narrow slice/nook!");
+            //Debug.Log("[MANSION EVENT]: Added a narrow slice/nook!");
             currentMinWidth = Random.Range(1, 3);
             currentMinLength = Random.Range(1, 3);
         }
@@ -930,7 +930,7 @@ public class RoomGeneration : MonoBehaviour
         // Check tile count to prevent chunks that have almost no floor off the bat
         if (room.Count < (minViableWidth * minViableLength))
         {
-            Debug.Log($"Rejected: Tile count in the room was less than the possible {minViableWidth} x {minViableLength} viable spaces we're checking.");
+            //Debug.Log($"Rejected: Tile count in the room was less than the possible {minViableWidth} x {minViableLength} viable spaces we're checking.");
             return false;
         }
 
@@ -939,7 +939,7 @@ public class RoomGeneration : MonoBehaviour
         {
             if (!IsTileInViableBlock(tile, room))
             {
-                Debug.Log($"Rejected: Found a narrow nook or void space at local tile {tile}.");
+                //Debug.Log($"Rejected: Found a narrow nook or void space at local tile {tile}.");
                 return false;
             }
         }

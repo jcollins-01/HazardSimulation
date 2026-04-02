@@ -256,7 +256,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void DecorateSpecificRoom(RoomGeneration.RoomData room, string type)
     {
-        Debug.Log("Should try to decorate room based on its type");
         // Load prefabs based on the room type to save memory (only load what we need)
         switch (type)
         {
@@ -486,7 +485,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void ApplyFloorMaterial(RoomGeneration.RoomData room, string assignedType)
     {
-        Debug.Log("Should try to apply floor material");
         // Find the Floors game object
         Transform floorTransform = room.RoomObject.transform.Find("Floors");
         if (floorTransform == null) return;
