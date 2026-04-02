@@ -618,7 +618,7 @@ public class RoomGeneration : MonoBehaviour
                 else chunkB.Add(tile); // Top side
             }
         }
-        Debug.Log("Checking hallway for viability");
+
         // Validate that the hallway didn't leave behind unviable slivers
         if (!IsRoomViable(hallway) || !IsRoomViable(chunkA) || !IsRoomViable(chunkB))
         {
@@ -934,7 +934,7 @@ public class RoomGeneration : MonoBehaviour
             }
         }
 
-        Debug.Log("Accepted: Room chunk passed all strict viability checks.");
+        //Debug.Log("Accepted: Room chunk passed all strict viability checks.");
         return true;
     }
 
@@ -1176,7 +1176,9 @@ public class RoomGeneration : MonoBehaviour
 
                     // Height is the gap between the sill and the top
                     float actualWindowHeight = windowTopHeight - windowSillHeight;
-                    FitPrefabToHole(spawnedWindow, 1f, actualWindowHeight, 0.25f, pos.y);
+
+                    // Pass the sill height as the "ground" level for the window to rest on! If we pass pos.y, it will try to rest on the floor and mesh with the lower wall
+                    FitPrefabToHole(spawnedWindow, 1f, actualWindowHeight, 0.25f, pos.y + windowSillHeight);
                 }
 
                 continue; // Prevent standard full wall from spawning
@@ -1347,7 +1349,8 @@ public class RoomGeneration : MonoBehaviour
         float pivotY = instance.transform.position.y;
 
         // Return the distance from the pivot to the bottom with some funky math to make it spawn in just the right place
-        return (pivotY - (meshBottomY / 2)) * 2; // I have no earthly idea why this is the magic formula, but this fits doors + windows
+        return pivotY - meshBottomY;
+        //return (pivotY - (meshBottomY / 2)) * 2; // I have no earthly idea why this is the magic formula, but this fits doors + windows
     }
 
     void FitPrefabToHole(GameObject prefabInstance, float targetWidth, float targetHeight, float targetDepth, float groundY)
@@ -1366,11 +1369,13 @@ public class RoomGeneration : MonoBehaviour
         // Apply the new scale - local X is width, local Y is height, and local Z is depth (thickness)
         prefabInstance.transform.localScale = new Vector3(scaleX, scaleY, scaleZ);
 
-        float halfHeight = CalculateVerticalOffset(prefabInstance); // the size of the y from the center of its bounds to the very top/extent (half its height)
+        //float halfHeight = CalculateVerticalOffset(prefabInstance); // the size of the y from the center of its bounds to the very top/extent (half its height)
 
         // Move the object to groundY, then add the offset to bring the bottom up to the surface
         float yOffset = CalculateVerticalOffset(prefabInstance); // Should find exact prefab pivot point
-
+        
+        // Set the world position. 
+        // groundY is the floor. We add yOffset so the bottom of the mesh perfectly kisses the floor.
         prefabInstance.transform.position = new Vector3(
             prefabInstance.transform.position.x,
             groundY + yOffset,
