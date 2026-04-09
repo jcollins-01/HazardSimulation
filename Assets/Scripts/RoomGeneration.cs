@@ -21,14 +21,20 @@ public class RoomGeneration : MonoBehaviour
     [Header("Outbuilding Settings")]
     public bool chanceForOutbuilding = false;
     [Range(0f, 1f)]
-    [Tooltip("0.0 is 0%, 1.0 is 100% chance")]
     public float outbuildingSpawnChance = 0.5f;
     public int outbuildingOffset = 5;
 
     [Header("Yard Settings")]
-    public bool generateYard = true;
+    public bool generateYard = true; // Generally, always generate a yard (except for when we are making non-explorable houses)
     public int minYardPadding = 2;
     public int maxYardPadding = 8;
+
+    [Header("Interior Settings")]
+    [Range(0f, 1f)]
+    public float windowChance = 0.3f;
+    public float doorHeight = 2.0f;
+    public float windowSillHeight = 0.8f;
+    public float windowTopHeight = 2.0f;
 
     [Header("Custom Generation Settings")]
     public int numberOfRooms = 5;
@@ -36,6 +42,12 @@ public class RoomGeneration : MonoBehaviour
     public bool identicalFloors = false;
     public bool roomAmountsDifferPerFloor = false;
     public bool heightenedNooks = false;
+    public bool generateHallways = true;
+    [Range(0f, 1f)]
+    public float hallwayChance = 0.6f;
+    public int hallwayWidth = 2;
+
+    [Header("Editor View Settings")]
     public bool destroyPreviousGeneration = true;
     public bool roomRoofsTransparent = false;
 
@@ -86,6 +98,16 @@ public class RoomGeneration : MonoBehaviour
         public Vector2Int size;
     }
 
+    // Class to track rooms that will be passed to the decorator
+    public class RoomData
+    {
+        public HashSet<Vector2Int> Tiles;
+        public GameObject RoomObject;
+    }
+
+    [HideInInspector]
+    public List<RoomData> allGeneratedRooms = new List<RoomData>();
+
     private void CheckPresetLayouts()
     {
         if (dormitory)
@@ -104,6 +126,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 3;
+            generateHallways = true;
+            hallwayChance = 95; // nearly all dorm-style buildings should have hallways
+            hallwayWidth = 2;
 
             dormitory = false; // Turn off so we can manually tweak values afterward
         }
@@ -124,11 +149,12 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 6;
             minComplexity = 1;
             maxComplexity = 1;
+            generateHallways = false;
 
             warehouse = false;
         }
 
-        if (smallHouse)
+        if (smallHouse) // Essentially like a cottage - very slim chance of having a hallway to connect the rooms
         {
             numberOfRooms = 4;
             numberOfFloors = 1;
@@ -144,6 +170,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 4;
+            generateHallways = true;
+            hallwayChance = 5;
+            hallwayWidth = 1; // Very thin hallway?
 
             smallHouse = false;
         }
@@ -164,6 +193,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 4;
+            generateHallways = true;
+            hallwayChance = 60; // Average chance for the floor to have a hallway or not
+            hallwayWidth = 2;
 
             twoStoryHouse = false;
         }
@@ -184,6 +216,9 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 3;
             minComplexity = 1;
             maxComplexity = 2;
+            generateHallways = true;
+            hallwayChance = 95; // Most skyscrapers should have hallways as well
+            hallwayWidth = 3;
 
             skyscraper = false;
         }
@@ -204,9 +239,20 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 5;
             minComplexity = 6;
             maxComplexity = 10;
+            generateHallways = true;
+            hallwayChance = 80; // Higher chance for hallways due to the large amount of rooms, but some layouts may be more maze-like
+            hallwayWidth = 3;
 
             mansion = false;
         }
+    }
+
+    // Copied in the values that the spawning logic is based around so we can preserve positioning if script object was moved
+    public void RestoreGeneratorTransform()
+    {
+        this.gameObject.transform.position = new Vector3(-0.05f, 2.071f, 2.0136f);
+        this.gameObject.transform.rotation = new Quaternion(0f, 0f, 0f, 0f);
+        this.gameObject.transform.localScale = new Vector3(1.4419f, 1.4419f, 1.4419f);
     }
 
     public void GenerateAllRooms()
@@ -230,6 +276,11 @@ public class RoomGeneration : MonoBehaviour
         // Reset map of occupied tiles/placed rooms
         allHouseOccupiedTiles.Clear();
         placedRooms.Clear();
+        // Clear the internal list of rooms used by the decorator
+        allGeneratedRooms.Clear();
+
+        // Ensure the RoomGeneration object is set to the original transform values (in case it was accidentally moved)
+        RestoreGeneratorTransform();
 
         // Create a master House parent to hold the layout in
         GameObject houseParent = new GameObject("House");
@@ -244,8 +295,24 @@ public class RoomGeneration : MonoBehaviour
         //Vector2Int stairwellTile = houseLayout.ElementAt(Random.Range(0, houseLayout.Count));
         Vector2Int stairwellTile = FindStairwellTile(houseLayout);
 
+        // Create a new floorplan and allow us to try generating a hallway on floor one
+        List<HashSet<Vector2Int>> rooms = new List<HashSet<Vector2Int>>();
+
         // Subdivide the house layout into the desired num of rooms
-        List <HashSet<Vector2Int>> rooms = SubdivideHouse(houseLayout, numberOfRooms);
+        if (generateHallways && Random.value <= hallwayChance && GenerateHallway(houseLayout, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB))
+        {
+            rooms.Add(hallway);
+
+            // Subdivide the remaining halves independently, splitting the target room count
+            int halfRooms = Mathf.Max(1, numberOfRooms / 2);
+
+            rooms.AddRange(SubdivideHouse(chunkA, halfRooms));
+            rooms.AddRange(SubdivideHouse(chunkB, halfRooms));
+        }
+        else
+        {
+            rooms = SubdivideHouse(houseLayout, numberOfRooms); // Else, just subdivide the house in the standard fashion
+        }
 
         // Start the base roof height at 0 (global 0)
         float roofHeight = 0;
@@ -262,10 +329,33 @@ public class RoomGeneration : MonoBehaviour
                 ? Random.Range(numberOfRooms, numberOfRooms + 3) // Some houses might have just one room (e.g., a warehouse) so minimum must always be numberOfRooms for now
                 : numberOfRooms; // Else, we stick to the universal/base num of rooms
 
+            List<HashSet<Vector2Int>> floorRooms = new List<HashSet<Vector2Int>>();
+
             // Need to subdivide houseLayout differently to get different room arrangements - otherwise, we'll have identical floors
-            List<HashSet<Vector2Int>> floorRooms = (!identicalFloors)
-                ? SubdivideHouse(houseLayout, roomsOnCurrentFloor)
-                : rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
+            if (!identicalFloors)
+            {
+                // Attempt to carve out a hallway on this floor if the chance threshold was reached
+                if(generateHallways && Random.value <= hallwayChance && GenerateHallway(houseLayout, out HashSet<Vector2Int> currentHallway, out HashSet<Vector2Int> currentChunkA, out HashSet<Vector2Int> currentChunkB))
+                {
+                    // Add the hallway to our final room list
+                    floorRooms.Add(currentHallway);
+
+                    // Subdivide the remaining halves independently, splitting the target room count
+                    int halfRooms = Mathf.Max(1, roomsOnCurrentFloor / 2);
+
+                    floorRooms.AddRange(SubdivideHouse(currentChunkA, halfRooms));
+                    floorRooms.AddRange(SubdivideHouse(currentChunkB, halfRooms));
+                }
+                else
+                {
+                    // Standard generation if the hallway fails or is toggled off
+                    floorRooms = SubdivideHouse(houseLayout, roomsOnCurrentFloor);
+                }
+            }
+            else
+            {
+                floorRooms = rooms; // If identicalFloors is true, we skip new subdivision so the layout remains the same on all floors
+            }
 
             // If we had created slim long hallways, chop them up into nooks
             if (heightenedNooks)
@@ -283,7 +373,12 @@ public class RoomGeneration : MonoBehaviour
 
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
-                BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, stairwellTile, floorDoors); // Offset is now 0 because the house layout is already globally placed, height is 0 at first since we start on ground level
+            {
+                GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, stairwellTile, floorDoors);
+
+                // Add the room to our list of generated rooms so we can pass it to the decorator later
+                allGeneratedRooms.Add(new RoomData { Tiles = floorRooms[i], RoomObject = builtRoom });
+            }
 
             // Get the highest point in all room roofs and build off that for the next floor
             roofHeight = GetHighestRoofPoint();
@@ -300,6 +395,11 @@ public class RoomGeneration : MonoBehaviour
         // Check transparency toggle after rooms are made and automatically toggle transparency if necessary
         lastTransparencyState = roomRoofsTransparent;
         ToggleRoofTransparency();
+
+        // Decorate the house after it has been fully generated
+        RoomDecoration decorator = GetComponent<RoomDecoration>();
+        if (decorator != null)
+            decorator.DecorateRooms(allGeneratedRooms);
     }
 
     void GenerateOutbuilding(Transform parent)
@@ -360,14 +460,19 @@ public class RoomGeneration : MonoBehaviour
             if (tile.y > maxY) maxY = tile.y;
         }
 
-        // Add random padding to make it look like a varied property lot
-        int paddingX = Random.Range(minYardPadding, maxYardPadding + 1);
-        int paddingY = Random.Range(minYardPadding, maxYardPadding + 1);
+        // Force a guaranteed minimum of 3 tiles of walking space
+        int minWalkableSpace = 3;
 
-        minX -= paddingX;
-        maxX += paddingX;
-        minY -= paddingY;
-        maxY += paddingY;
+        // Overall, padding is still variable so it looks like a random property lot (not a generic square yard)
+        int paddingLeft = Random.Range(minWalkableSpace, maxYardPadding + 1);
+        int paddingRight = Random.Range(minWalkableSpace, maxYardPadding + 1);
+        int paddingTop = Random.Range(minWalkableSpace, maxYardPadding + 1);
+        int paddingBottom = Random.Range(minWalkableSpace, maxYardPadding + 1);
+
+        minX -= paddingLeft;
+        maxX += paddingRight;
+        minY -= paddingBottom;
+        maxY += paddingTop;
 
         float yardWidth = (maxX - minX) + 1;
         float yardLength = (maxY - minY) + 1;
@@ -423,6 +528,68 @@ public class RoomGeneration : MonoBehaviour
         {
             Debug.LogWarning("Prefab not found at Resources/Locomotion/Teleport Area Invisible.prefab");
         }
+    }
+
+    bool GenerateHallway(HashSet<Vector2Int> footprint, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
+    {
+        Debug.Log("[COMMON EVENT: Attempting to generate hallway");
+
+        hallway = new HashSet<Vector2Int>();
+        // The chunks are the two separate sides of the house that the hallway connects
+        chunkA = new HashSet<Vector2Int>();
+        chunkB = new HashSet<Vector2Int>();
+
+        // Find the bounding box of the footprint
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+        foreach (var tile in footprint)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        int width = maxX - minX + 1;
+        int length = maxY - minY + 1;
+
+        // If the house is too small, abort the hallway carve - needs to be at least four additional tiles on either side + the minimum width of our hallway
+        // I.e., there need to be at least 4 tiles worth of rooms next to the hallway, and 4 tiles worth of space for the hallway to stretch down + our width
+        if (width < hallwayWidth + 4 || length < hallwayWidth + 4)
+        {
+            Debug.Log("Aborted hallway attempt");
+            return false; // was &&
+        }
+
+        // Slice along the longest axis
+        bool carveVertical = width > length;
+
+        if (carveVertical)
+        {
+            int splitXStart = minX + (width / 2) - (hallwayWidth / 2); // Find the middle X in our hallway zone (space needed for a hallway of our width)
+            int splitXEnd = splitXStart + hallwayWidth - 1;
+
+            foreach (var tile in footprint)
+            {
+                if (tile.x >= splitXStart && tile.x <= splitXEnd) hallway.Add(tile); // Middle line is the hallway
+                else if (tile.x < splitXStart) chunkA.Add(tile); // Left side
+                else chunkB.Add(tile); // Right side (you are king)
+            }
+        }
+        else
+        {
+            int splitYStart = minY + (length / 2) - (hallwayWidth / 2); // Find the middle Y
+            int splitYEnd = splitYStart + hallwayWidth - 1; 
+
+            foreach (var tile in footprint)
+            {
+                if (tile.y >= splitYStart && tile.y <= splitYEnd) hallway.Add(tile); // Middle line is the hallway
+                else if (tile.y < splitYStart) chunkA.Add(tile); // Bottom side
+                else chunkB.Add(tile); // Top side
+            }
+        }
+
+        return true;
     }
 
     // Creates the basic outline of a house, with nooks and complexity as determined by our vars
@@ -626,7 +793,7 @@ public class RoomGeneration : MonoBehaviour
         return true;
     }
 
-    void BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
+    GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
     {
         // Create the Parent GameObject
         GameObject roomParent = new GameObject($"Room_{id}");
@@ -687,6 +854,8 @@ public class RoomGeneration : MonoBehaviour
         RoofData data = ceilingGroup.AddComponent<RoofData>();
         data.originalMaterial = ceilingGroup.GetComponent<MeshRenderer>().sharedMaterial;
         allRoomRoofs.Add(ceilingGroup);
+
+        return roomParent;
     }
 
     // Placing walls on the floors of generated rooms
@@ -720,8 +889,31 @@ public class RoomGeneration : MonoBehaviour
                 string edge = GetEdgeKey(localCoord, neighbor);
                 if (floorDoors.Contains(edge))
                 {
-                    // FUTURE: Add the door prefab that we want to spawn later
-                    continue; // Skip spawning the wall since this is a door
+                    float actualDoorHeight = wallHeight;
+
+                    // Randomly choose between a floor-to-ceiling archway or a framed doorway
+                    if (Random.value > 0.5f && wallHeight > doorHeight)
+                    {
+                        // Spawn a header above the doorway
+                        SpawnWall(pos, dir, parent, isInterior: true, doorHeight, wallHeight - doorHeight);
+                        actualDoorHeight = doorHeight;
+                    }
+
+                    // Spawn the actual interior door prefab
+                    Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f); // was dir.y * 0.5f
+                    GameObject interiorDoorPrefab = Resources.Load<GameObject>("Interior Prefabs/Door_Interior");
+
+                    if (interiorDoorPrefab != null)
+                    {
+                        Debug.Log("Should try to spawn interior door");
+                        // Parent to parent.parent to escape the mesh combiner - prevents it from becoming the wall + same color/material as the wall
+                        GameObject spawnedDoor = Instantiate(interiorDoorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
+
+                        // Fit it to the hole. Depth is 0.15f to slightly overlap the 0.1f interior wall thickness
+                        FitPrefabToHole(spawnedDoor, 1f, actualDoorHeight, 0.15f, pos.y);
+                    }
+
+                    continue; // Skip the standard wall spawn
                 }
             }
 
@@ -736,10 +928,70 @@ public class RoomGeneration : MonoBehaviour
             // Check if THIS specific wall segment is the designated Main Door
             bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
 
+            // It can be a window if it's NOT a door
+            bool isWindow = !isMainDoor && (Random.value <= windowChance);
+
             if (isMainDoor)
             {
-                // FUTURE: Spawn a special Door Frame prefab here
-                //Debug.Log("Carving out the main entrance!");
+                // Spawn a header wall above the main door
+                if (wallHeight > doorHeight)
+                {
+                    SpawnWall(pos, dir, parent, isInterior: false, doorHeight, wallHeight - doorHeight);
+                }
+
+                // Spawns placeholder prefab from looking like a broken wall chunk in the floor
+                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f); // pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f);
+                GameObject doorPrefab = Resources.Load<GameObject>("Interior Prefabs/Door");
+                
+
+                if (doorPrefab != null)
+                {
+                    // Parent to parent.parent to escape the mesh combiner
+                    GameObject spawnedDoor = Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
+                    Debug.Log("Should try to spawn main door");
+                    // Width is 1 tile, Height is doorHeight, Depth is 0.25f (slightly thicker than the 0.2f wall to prevent texture z-fighting)
+                    FitPrefabToHole(spawnedDoor, 1f, doorHeight, 0.25f, pos.y);
+                }
+
+                continue; // Prevent standard full wall from spawning
+            }
+            else if (isWindow)
+            {
+                // Spawn the wall below the window (the sill)
+                SpawnWall(pos, dir, parent, isInterior: false, 0f, windowSillHeight);
+
+                // Spawn the wall above the window (the header)
+                if (wallHeight > windowTopHeight)
+                {
+                    SpawnWall(pos, dir, parent, isInterior: false, windowTopHeight, wallHeight - windowTopHeight);
+                }
+
+                // Spawns placeholder prefab for window
+
+                // Assuming the spawn point is at the center of the object's transform, we need to figure out HALF the object's height to account for starting at the center
+                GameObject windowPrefab = Resources.Load<GameObject>("Interior Prefabs/Window");
+                
+                // Need to fix the part where we position it with windowSillHeight - need to choose this based on sill height + an offset of where the prefab's pivot point is
+                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, windowSillHeight, dir.y * 0.5f);
+                
+
+                if (windowPrefab != null)
+                {
+                    // Parent to parent.parent to escape the mesh combiner
+                    GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)));
+                    Debug.Log("Should try to spawn window");
+
+                    // Set the parent while telling Unity NOT to change the world position
+                    spawnedWindow.transform.SetParent(parent.parent, true);
+
+                    //GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
+
+                    // Height is the gap between the sill and the top
+                    float actualWindowHeight = windowTopHeight - windowSillHeight;
+                    FitPrefabToHole(spawnedWindow, 1f, actualWindowHeight, 0.25f, pos.y);
+                }
+
+                continue; // Prevent standard full wall from spawning
             }
             else
             {
@@ -750,20 +1002,23 @@ public class RoomGeneration : MonoBehaviour
         }
     }
 
-    void SpawnWall(Vector3 tilePos, Vector2Int dir, Transform parent, bool isInterior)
+    void SpawnWall(Vector3 tilePos, Vector2Int dir, Transform parent, bool isInterior, float startHeight = 0f, float customHeight = -1f)
     {
-        // Calculate wall position (offset by 0.5 towards the empty space so it is offset to the tile)
-        Vector3 wallPos = tilePos + new Vector3(dir.x * 0.5f, wallHeight / 2f, dir.y * 0.5f);
+        // If no custom height is provided, use the default wallHeight
+        float actualHeight = customHeight < 0 ? wallHeight : customHeight;
 
-        // Check which direction we're facing to determine which way the wall stretches
-        // (walls are thin on one axis and long on another - we can make exterior walls a bit beefier (0.2) and interior walls thinner (0.1) on the thinner axis
+        // Calculate the center point on the Y axis for this specific wall chunk
+        float centerHeight = startHeight + (actualHeight / 2f);
+
+        // Apply the directional offset so the wall sits on the edge of the tile, not the center
+        Vector3 wallPos = tilePos + new Vector3(dir.x * 0.5f, centerHeight, dir.y * 0.5f);
+
         float thickness = isInterior ? 0.1f : 0.2f;
 
-        // Stretch the wall based on which direction it is facing
         Vector3 wallScale = new Vector3(
-            Mathf.Abs(dir.y) + (Mathf.Abs(dir.x) * thickness), // If dir is X, make wall thin on X
-            wallHeight,
-            Mathf.Abs(dir.x) + (Mathf.Abs(dir.y) * thickness) // If dir is Y, make wall thin on Y
+            Mathf.Abs(dir.y) + (Mathf.Abs(dir.x) * thickness),
+            actualHeight,
+            Mathf.Abs(dir.x) + (Mathf.Abs(dir.y) * thickness)
         );
 
         string wallName = isInterior ? "Interior_Wall" : "Exterior_Wall";
@@ -878,11 +1133,47 @@ public class RoomGeneration : MonoBehaviour
         return obj;
     }
 
-    void CombineChildrenMeshes(
-        GameObject parent,
-        Material targetMaterial,
-        bool addCollider = false,
-        bool addTeleportationArea = false)
+    // A helper to look at where a prefabs pivot point is so we can better spawn it in place, not a little too low (use the bottom of the object for location)
+    float CalculateVerticalOffset(GameObject instance)
+    {
+        // Get the local bottom of the mesh (distance from pivot to bottom)
+        float meshBottomY = instance.GetComponent<Renderer>().bounds.min.y;
+        // Get the pivot point at which the prefab is spawned/handled from
+        float pivotY = instance.transform.position.y;
+
+        // Return the distance from the pivot to the bottom with some funky math to make it spawn in just the right place
+        return (pivotY - (meshBottomY / 2)) * 2; // I have no earthly idea why this is the magic formula, but this fits doors + windows
+    }
+
+    void FitPrefabToHole(GameObject prefabInstance, float targetWidth, float targetHeight, float targetDepth, float groundY)
+    {
+        // Grab the mesh filter to get the raw, unscaled bounds of the model
+        MeshFilter mf = prefabInstance.GetComponentInChildren<MeshFilter>();
+        if (mf == null) return;
+
+        Vector3 originalSize = mf.sharedMesh.bounds.size;
+
+        // Calculate the scale multiplier needed to reach the target dimensions
+        float scaleX = targetWidth / originalSize.x;
+        float scaleY = targetHeight / originalSize.y;
+        float scaleZ = targetDepth / originalSize.z;
+
+        // Apply the new scale - local X is width, local Y is height, and local Z is depth (thickness)
+        prefabInstance.transform.localScale = new Vector3(scaleX, scaleY, scaleZ);
+
+        float halfHeight = CalculateVerticalOffset(prefabInstance); // the size of the y from the center of its bounds to the very top/extent (half its height)
+
+        // Move the object to groundY, then add the offset to bring the bottom up to the surface
+        float yOffset = CalculateVerticalOffset(prefabInstance); // Should find exact prefab pivot point
+
+        prefabInstance.transform.position = new Vector3(
+            prefabInstance.transform.position.x,
+            groundY + yOffset,
+            prefabInstance.transform.position.z
+        );
+    }
+
+    void CombineChildrenMeshes(GameObject parent, Material targetMaterial, bool addCollider = false,  bool addTeleportationArea = false)
     {
         MeshFilter[] meshFilters = parent.GetComponentsInChildren<MeshFilter>();
         CombineInstance[] combine = new CombineInstance[meshFilters.Length];

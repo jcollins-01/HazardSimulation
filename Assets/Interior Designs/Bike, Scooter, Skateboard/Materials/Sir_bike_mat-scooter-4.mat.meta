@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b4a5cd5d278809f40b551ed1f00b127a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 170056
+  packageName: Bicycle, scooter, skateboard
+  packageVersion: 1.0
+  assetPath: Assets/Sir_bike/Materials/Sir_bike_mat-scooter-4.mat
+  uploadId: 371400

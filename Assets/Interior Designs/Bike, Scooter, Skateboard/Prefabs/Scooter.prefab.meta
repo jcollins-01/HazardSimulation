@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8feab831b19068b4783db0783483dc14
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 170056
+  packageName: Bicycle, scooter, skateboard
+  packageVersion: 1.0
+  assetPath: Assets/Sir_bike/Prefabs/Scooter.prefab
+  uploadId: 371400
