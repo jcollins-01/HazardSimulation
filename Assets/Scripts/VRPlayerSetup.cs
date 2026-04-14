@@ -1,7 +1,7 @@
 using Photon.Pun;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.XR;
+using UnityEngine.XR.Interaction.Toolkit.Inputs;
 
 /// <summary>
 /// Turns off local XR control for remote PUN player instances while leaving the
