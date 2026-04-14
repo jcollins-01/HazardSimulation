@@ -16,9 +16,11 @@ public class VRPlayerSetup : MonoBehaviourPun
         {
             // Keep the owning player's XR rig unchanged so teleport locomotion
             // can continue using the existing CharacterController-backed setup.
+            Debug.Log($"[VRPlayerSetup] Local player rig active for actor {photonView.OwnerActorNr}.");
             return;
         }
 
+        Debug.Log($"[VRPlayerSetup] Disabling local XR control on remote rig owned by actor {photonView.OwnerActorNr}.");
         DisableRemoteRigControl();
     }
 

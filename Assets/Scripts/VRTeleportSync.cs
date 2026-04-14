@@ -17,6 +17,7 @@ public class VRTeleportSync : MonoBehaviourPun
     private void Awake()
     {
         GetComponentsInChildren(true, teleportInteractables);
+        Debug.Log($"[VRTeleportSync] Registered {teleportInteractables.Count} teleport interactable(s) on actor {photonView.OwnerActorNr}.");
     }
 
     private void OnEnable()
@@ -42,6 +43,7 @@ public class VRTeleportSync : MonoBehaviourPun
             return;
         }
 
+        Debug.Log($"[VRTeleportSync] Local teleport queued for actor {photonView.OwnerActorNr}.");
         StartCoroutine(BroadcastTeleportAfterFrame());
     }
 

@@ -7,6 +7,11 @@ using UnityEngine;
 /// Handles the initial PUN connection flow for the firefighter training scene.
 /// Player instantiation is split into a dedicated method so later steps can add
 /// the actual networked VR rig spawn without changing the room lifecycle.
+///
+/// Local two-player test:
+/// 1. Open this scene in the Unity Editor and press Play.
+/// 2. Launch a second peer using a built player, or a second Unity instance if your workflow supports it.
+/// 3. Confirm both peers connect to the same room and each spawns exactly one owned rig.
 /// </summary>
 public class NetworkManager : MonoBehaviourPunCallbacks
 {
@@ -26,6 +31,8 @@ public class NetworkManager : MonoBehaviourPunCallbacks
             bootstrapRig = FindBootstrapRig();
         }
 
+        Debug.Log($"[NetworkManager] Bootstrap rig lookup result: {(bootstrapRig != null ? bootstrapRig.name : "not found")}.");
+
         if (PhotonNetwork.IsConnected)
         {
             Debug.Log("[NetworkManager] Photon is already connected.");
@@ -40,13 +47,14 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     public override void OnConnectedToMaster()
     {
-        Debug.Log("[NetworkManager] Connected to Photon Master Server.");
+        Debug.Log($"[NetworkManager] Connected to Photon Master Server as actor {PhotonNetwork.LocalPlayer?.ActorNumber}.");
 
         RoomOptions roomOptions = new RoomOptions
         {
             MaxPlayers = MaxPlayersPerRoom
         };
 
+        Debug.Log($"[NetworkManager] Joining or creating room '{RoomName}' with max {MaxPlayersPerRoom} players.");
         PhotonNetwork.JoinOrCreateRoom(RoomName, roomOptions, TypedLobby.Default);
     }
 
@@ -76,6 +84,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         {
             spawnPosition = bootstrapRig.position;
             spawnRotation = bootstrapRig.rotation;
+            Debug.Log($"[NetworkManager] Using bootstrap rig '{bootstrapRig.name}' as spawn point at {spawnPosition}.");
             bootstrapRig.gameObject.SetActive(false);
         }
         else
@@ -92,12 +101,14 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         GameObject xrRig = GameObject.Find("XR Origin (XR Rig)");
         if (xrRig != null)
         {
+            Debug.Log("[NetworkManager] Found bootstrap rig named 'XR Origin (XR Rig)'.");
             return xrRig.transform;
         }
 
         GameObject vrOrigin = GameObject.Find("XR Origin (VR)");
         if (vrOrigin != null)
         {
+            Debug.Log("[NetworkManager] Found bootstrap rig named 'XR Origin (VR)'.");
             return vrOrigin.transform;
         }
 
