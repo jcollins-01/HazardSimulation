@@ -1,7 +1,17 @@
 ﻿<Solution>
+  <Project Path="PhotonRealtime.csproj" />
+  <Project Path="PhotonUnityNetworking.Editor.csproj" />
+  <Project Path="PhotonUnityNetworking.csproj" />
+  <Project Path="PhotonUnityNetworking.Demos.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="PhotonUnityNetworking.Utilities.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Samples.StarterAssets.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Samples.DeviceSimulator.csproj" />
+  <Project Path="PunDemos.DemoHubEditor.csproj" />
+  <Project Path="PunDemos.DemoSlotcarEditor.csproj" />
+  <Project Path="PhotonChat.csproj" />
   <Project Path="Unity.XR.Interaction.Toolkit.Samples.StarterAssets.Editor.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="PhotonUnityNetworking.Utilities.PhotonPlayer.Editor.csproj" />
+  <Project Path="PhotonUnityNetworking.Utilities.Culling.Editor.csproj" />
 </Solution>
