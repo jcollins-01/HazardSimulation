@@ -11,10 +11,21 @@ using UnityEngine;
 public class NetworkManager : MonoBehaviourPunCallbacks
 {
     private const string RoomName = "FireTrainingRoom";
+    private const string PlayerPrefabName = "NetworkedVRPlayer";
     private const byte MaxPlayersPerRoom = 8;
+
+    [SerializeField]
+    private Transform bootstrapRig;
+
+    private GameObject localPlayerInstance;
 
     private void Start()
     {
+        if (bootstrapRig == null)
+        {
+            bootstrapRig = FindBootstrapRig();
+        }
+
         if (PhotonNetwork.IsConnected)
         {
             Debug.Log("[NetworkManager] Photon is already connected.");
@@ -52,7 +63,44 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     private void TriggerPlayerSpawn()
     {
-        // Step 3 will replace this placeholder with PhotonNetwork.Instantiate.
-        Debug.Log("[NetworkManager] Player spawn trigger reached.");
+        if (localPlayerInstance != null)
+        {
+            Debug.Log("[NetworkManager] Local player is already spawned for this client.");
+            return;
+        }
+
+        Vector3 spawnPosition = Vector3.zero;
+        Quaternion spawnRotation = Quaternion.identity;
+
+        if (bootstrapRig != null)
+        {
+            spawnPosition = bootstrapRig.position;
+            spawnRotation = bootstrapRig.rotation;
+            bootstrapRig.gameObject.SetActive(false);
+        }
+        else
+        {
+            Debug.LogWarning("[NetworkManager] No bootstrap XR rig found. Spawning player at world origin.");
+        }
+
+        localPlayerInstance = PhotonNetwork.Instantiate(PlayerPrefabName, spawnPosition, spawnRotation);
+        Debug.Log($"[NetworkManager] Spawned local player instance '{localPlayerInstance.name}' for actor {PhotonNetwork.LocalPlayer.ActorNumber}.");
+    }
+
+    private Transform FindBootstrapRig()
+    {
+        GameObject xrRig = GameObject.Find("XR Origin (XR Rig)");
+        if (xrRig != null)
+        {
+            return xrRig.transform;
+        }
+
+        GameObject vrOrigin = GameObject.Find("XR Origin (VR)");
+        if (vrOrigin != null)
+        {
+            return vrOrigin.transform;
+        }
+
+        return null;
     }
 }
