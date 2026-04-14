@@ -14,18 +14,9 @@ public class VRTeleportSync : MonoBehaviourPun
     private readonly List<BaseTeleportationInteractable> teleportInteractables = new List<BaseTeleportationInteractable>();
     private bool teleportBroadcastPending;
 
-    private void Awake()
+    private void Start()
     {
-        GetComponentsInChildren(true, teleportInteractables);
-        Debug.Log($"[VRTeleportSync] Registered {teleportInteractables.Count} teleport interactable(s) on actor {photonView.OwnerActorNr}.");
-    }
-
-    private void OnEnable()
-    {
-        foreach (BaseTeleportationInteractable teleportInteractable in teleportInteractables)
-        {
-            teleportInteractable.teleporting.AddListener(OnTeleportQueued);
-        }
+        StartCoroutine(RegisterTeleportInteractables());
     }
 
     private void OnDisable()
@@ -34,6 +25,27 @@ public class VRTeleportSync : MonoBehaviourPun
         {
             teleportInteractable.teleporting.RemoveListener(OnTeleportQueued);
         }
+    }
+
+    private IEnumerator RegisterTeleportInteractables()
+    {
+        BaseTeleportationInteractable[] interactables;
+        do
+        {
+            yield return new WaitForSeconds(0.5f);
+            interactables = FindObjectsByType<BaseTeleportationInteractable>(FindObjectsSortMode.None);
+        }
+        while (interactables.Length == 0);
+
+        teleportInteractables.Clear();
+        teleportInteractables.AddRange(interactables);
+
+        foreach (BaseTeleportationInteractable interactable in teleportInteractables)
+        {
+            interactable.teleporting.AddListener(OnTeleportQueued);
+        }
+
+        Debug.Log($"[VRTeleportSync] Registered {interactables.Length} teleport interactable(s).");
     }
 
     private void OnTeleportQueued(TeleportingEventArgs args)
