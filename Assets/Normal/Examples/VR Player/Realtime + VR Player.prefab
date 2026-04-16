@@ -49,7 +49,7 @@ MonoBehaviour:
   _obsoleteAppKey: 
   _normcoreAppSettings: {fileID: 11400000, guid: 954f678f2dcc9fc439161a57ce0564ce, type: 2}
   _joinRoomOnStartOptions:
-    _enabled: 1
+    _enabled: 0
     _mode: 0
     _roomName: HazardSimulation
     _roomGroupName: hazard-sim

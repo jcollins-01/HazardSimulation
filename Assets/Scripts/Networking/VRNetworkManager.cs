@@ -22,13 +22,11 @@ public class VRNetworkManager : MonoBehaviour
     [Tooltip("All players on the same room name will see each other")]
     [SerializeField] private string _roomName = "HazardSimulation";
 
-    [Tooltip("Maximum players per room (Normcore free tier allows 4)")]
-    [SerializeField] private int _roomCapacity = 4;
-
     [Header("Debug")]
     [SerializeField] private bool _logConnectionEvents = true;
 
     private Realtime _realtime;
+    private RealtimeAvatarManager _avatarManager;
 
     public bool IsConnected => _realtime != null && _realtime.connected;
     public string RoomName => _roomName;
@@ -36,8 +34,9 @@ public class VRNetworkManager : MonoBehaviour
     private void Awake()
     {
         _realtime = GetComponent<Realtime>();
+        _avatarManager = GetComponent<RealtimeAvatarManager>();
 
-        _realtime.didConnectToRoom    += OnConnected;
+        _realtime.didConnectToRoom      += OnConnected;
         _realtime.didDisconnectFromRoom += OnDisconnected;
     }
 
@@ -59,7 +58,7 @@ public class VRNetworkManager : MonoBehaviour
         if (_realtime.connected)
         {
             if (_logConnectionEvents)
-                Debug.Log($"[VRNetworkManager] Already connected to '{_realtime.room.name}'.");
+                Debug.Log($"[VRNetworkManager] Already connected to '{_roomName}'.");
             return;
         }
 
@@ -82,10 +81,12 @@ public class VRNetworkManager : MonoBehaviour
 
     private void OnConnected(Realtime realtime)
     {
-        if (_logConnectionEvents)
-            Debug.Log($"[VRNetworkManager] Connected to room '{realtime.room.name}' " +
-                      $"as client #{realtime.clientID}. " +
-                      $"Players in room: {realtime.room.connectionCount}");
+        if (!_logConnectionEvents) return;
+
+        int playerCount = _avatarManager != null ? _avatarManager.avatars.Count : 0;
+        Debug.Log($"[VRNetworkManager] Connected to room '{_roomName}' " +
+                  $"as client #{realtime.clientID}. " +
+                  $"Players in room: {playerCount}");
     }
 
     private void OnDisconnected(Realtime realtime)

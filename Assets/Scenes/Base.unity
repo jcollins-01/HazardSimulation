@@ -429,7 +429,7 @@ AudioListener:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 961739749}
-  m_Enabled: 1
+  m_Enabled: 0
 --- !u!20 &961739752
 Camera:
   m_ObjectHideFlags: 0
@@ -657,8 +657,12 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114226563030493824, guid: cec929e6874b9f34a8ff954244b7e748, type: 3}
       propertyPath: _normcoreAppSettings
-      value: 
+      value:
       objectReference: {fileID: 11400000, guid: 954f678f2dcc9fc439161a57ce0564ce, type: 2}
+    - target: {fileID: 114226563030493824, guid: cec929e6874b9f34a8ff954244b7e748, type: 3}
+      propertyPath: _joinRoomOnStartOptions._enabled
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
