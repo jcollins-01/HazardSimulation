@@ -286,6 +286,7 @@ GameObject:
   - component: {fileID: 114879240156072798}
   - component: {fileID: 114800176784454794}
   - component: {fileID: 114272718057082298}
+  - component: {fileID: 114999888777001}
   m_Layer: 0
   m_Name: VR Player
   m_TagString: Untagged
@@ -370,8 +371,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: -1029778088, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   _interpolate: 1
   _syncPosition: 1
   _syncRotation: 1
@@ -379,6 +380,25 @@ MonoBehaviour:
   _syncVelocity: 1
   _maintainOwnershipWhileSleeping: 0
   _autoRequestOwnership: 0
+--- !u!114 &114999888777001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1435502846325602}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b4f1f3d48a74810be5590300105c6bb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _headRenderers:
+  - {fileID: 23123477684580134}
+  - {fileID: 23943565217316042}
+  _handRenderers:
+  - {fileID: 23915046626809702}
+  - {fileID: 23206906674170422}
+  _hideHandsLocally: 0
 --- !u!1 &1573471737031190
 GameObject:
   m_ObjectHideFlags: 0

@@ -666,6 +666,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1531957029821202, guid: cec929e6874b9f34a8ff954244b7e748, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1689781208}
+    - targetCorrespondingSourceObject: {fileID: 1531957029821202, guid: cec929e6874b9f34a8ff954244b7e748, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2089781001}
   m_SourcePrefab: {fileID: 100100000, guid: cec929e6874b9f34a8ff954244b7e748, type: 3}
 --- !u!4 &1418277511 stripped
 Transform:
@@ -695,6 +698,21 @@ MonoBehaviour:
     head: {fileID: 1725571345}
     leftHand: {fileID: 565031284}
     rightHand: {fileID: 1418277511}
+--- !u!114 &2089781001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1689781204}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70d76081d1e54e40858211225826bef1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  _roomName: HazardSimulation
+  _roomCapacity: 4
+  _logConnectionEvents: 1
 --- !u!4 &1725571345 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 626383949555203232, guid: 5e1191668c1e04fa297d0096c5d976e1, type: 3}
