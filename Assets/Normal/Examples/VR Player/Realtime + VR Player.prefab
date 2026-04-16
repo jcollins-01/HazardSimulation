@@ -51,8 +51,8 @@ MonoBehaviour:
   _joinRoomOnStartOptions:
     _enabled: 1
     _mode: 0
-    _roomName: Test Room
-    _roomGroupName: test-group
+    _roomName: HazardSimulation
+    _roomGroupName: hazard-sim
     _roomCapacity: 4
     _roomServerConfiguration: 
   _serializedVersion: 1
