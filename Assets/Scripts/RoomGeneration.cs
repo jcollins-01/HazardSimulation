@@ -9,6 +9,8 @@ using UnityEditor;
 public class RoomGeneration : MonoBehaviour
 {
     #region Variables and Classes
+    [Header("Rapid Generation Vars")]
+
     [Header("Preset Generation Settings")]
     public bool dormitory = false;
     public bool warehouse = false;
@@ -17,6 +19,11 @@ public class RoomGeneration : MonoBehaviour
     public bool skyscraper = false;
     public bool mansion = false;
 
+    [Header("Code Violations")]
+    public bool breakMinimumRoomWidths = false; // rooms cannot be under 7 feet (2.1336f) in any plan dimension
+    public bool breakMinimumKitchenWalkway = false; // kitchens must have 3 feet (0.9144f) of walking space between appliances/counters/walls and whatever is opposite them
+    public bool breakMinimumCeilingHeight = false; // ceilings of habitable spaces cannot be lower than 7.5 feet (2.286f), 7 feet for kitchens, bathrooms, etc.
+
     // These vars specifically pass to RoomDecoration without being changed back...I don't know about this...
     //[HideInInspector] public bool dormitory = false;
     //[HideInInspector] public bool warehouse = false;
@@ -24,39 +31,9 @@ public class RoomGeneration : MonoBehaviour
     [HideInInspector] public bool isTwoStoryHouse = false;
     //[HideInInspector] public bool skyscraper = false;
     //[HideInInspector] public bool mansion = false;
+    [HideInInspector] public bool shrinkKitchenPassageway = false; // set to value of breakMinimumKitchenWalkway
 
-    [Header("Outbuilding Settings")]
-    public bool chanceForOutbuilding = false;
-    [Range(0f, 1f)]
-    public float outbuildingSpawnChance = 0.5f;
-    public int outbuildingOffset = 5;
-
-    [Header("Yard Settings")]
-    public bool generateYard = true; // Generally, always generate a yard (except for when we are making non-explorable houses)
-    public int minYardPadding = 2;
-    public int maxYardPadding = 8;
-
-    [Header("Interior Settings")]
-    [Range(0f, 1f)]
-    public float windowChance = 0.3f;
-    public float doorHeight = 2.0f;
-    public float windowSillHeight = 0.8f;
-    public float windowTopHeight = 2.0f;
-
-    [Header("Custom Generation Settings")]
-    public int numberOfRooms = 5;
-    public int numberOfFloors = 2;
-    public bool identicalFloors = false;
-    public bool roomAmountsDifferPerFloor = false;
-    public bool heightenedNooks = false;
-    public bool generateHallways = true;
-    [Range(0f, 1f)]
-    public float hallwayChance = 0.6f;
-    public int hallwayWidth = 2;
-
-    [Header("Editor View Settings")]
-    public bool destroyPreviousGeneration = true;
-    public bool roomRoofsTransparent = false;
+    [Header("Customized Generation Vars")]
 
     [Header("House Dimensions")]
     public int maxHouseWidth = 20;
@@ -67,15 +44,44 @@ public class RoomGeneration : MonoBehaviour
     public int maxRoomWidth = 10;
     public int minRoomLength = 4;
     public int maxRoomLength = 10;
-    public int wallHeight = 3;
+    public int wallHeight = 4;
+
+    [Header("Layout Complexity")]
+    public int numberOfRooms = 5;
+    public int numberOfFloors = 2;
+    public bool identicalFloors = false;
+    public bool roomAmountsDifferPerFloor = false;
+    public bool heightenedNooks = false;
+    public bool generateHallways = true;
+    [Range(0f, 1f)]
+    public float hallwayChance = 0.6f;
+    public int hallwayWidth = 2;
 
     [Header("Shape Complexity")]
     [Tooltip("How many rectangles to combine to make a single room shape. If void spaces are not allowed, then these complex shapes are required to follow minimum viable dimensions.")]
     public int minComplexity = 1;
     public int maxComplexity = 3;
     public bool allowVoidSpaces = false;
-    public int minViableWidth = 2;
-    public int minViableLength = 2;
+    public int minViableWidth = 3; // was 2, adjusted to 3 since 2.1336 is the minimum room dimension for habitable spaces
+    public int minViableLength = 3;
+
+    [Header("Doors and Windows")]
+    [Range(0f, 1f)]
+    public float windowChance = 0.3f;
+    public float doorHeight = 2.0f;
+    public float windowSillHeight = 0.8f;
+    public float windowTopHeight = 2.0f;
+
+    [Header("Yard")]
+    public bool generateYard = true; // Generally, always generate a yard (except for when we are making non-explorable houses)
+    public int minYardPadding = 2;
+    public int maxYardPadding = 8;
+
+    [Header("Outbuilding")]
+    public bool chanceForOutbuilding = false;
+    [Range(0f, 1f)]
+    public float outbuildingSpawnChance = 0.5f;
+    public int outbuildingOffset = 5;
 
     [Header("All Materials")]
     public Material floorMaterial;
@@ -86,6 +92,10 @@ public class RoomGeneration : MonoBehaviour
     [Header("XR Locomotion")]
     public bool addCollidersToCombinedGeometry = true;
     public bool enableTeleportationOnFloors = true;
+
+    [Header("Editor View Settings")]
+    public bool destroyPreviousGeneration = true;
+    public bool roomRoofsTransparent = false;
 
     // Tracks EVERY tile in the entire house to prevent overlaps
     private HashSet<Vector2Int> allHouseOccupiedTiles = new HashSet<Vector2Int>();
@@ -262,6 +272,20 @@ public class RoomGeneration : MonoBehaviour
         }
     }
 
+    private void CheckIntentionalCodeViolations()
+    {
+        if (breakMinimumRoomWidths)
+        {
+            minViableWidth = 1; // 2.1336 is the minimum standard
+            minViableLength = 1;
+        }
+
+        if (breakMinimumCeilingHeight)
+        {
+            wallHeight = 2; // 2.286 is the minimum
+        }
+    }
+
     // Copied in the values that the spawning logic is based around so we can preserve positioning if script object was moved
     public void RestoreGeneratorTransform()
     {
@@ -274,6 +298,7 @@ public class RoomGeneration : MonoBehaviour
     {
         // Check for any preset values we want to follow
         CheckPresetLayouts();
+        CheckIntentionalCodeViolations();
 
         // Only run this if the bool actually changed, to save performance
         if (roomRoofsTransparent != lastTransparencyState)
