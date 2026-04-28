@@ -24,6 +24,7 @@ public class RoomGeneration : MonoBehaviour
     public bool breakMinimumRoomWidths = false; // rooms cannot be under 7 feet (2.1336f) in any plan dimension
     public bool breakMinimumKitchenWalkway = false; // kitchens must have 3 feet (0.9144f) of walking space between appliances/counters/walls and whatever is opposite them
     public bool breakMinimumCeilingHeight = false; // ceilings of habitable spaces cannot be lower than 7.5 feet (2.286f), 7 feet for kitchens, bathrooms, etc.
+    public bool breakMinimumUnitSize = false; // dwellings must have minimum of 190 square feet (17.65f) of habitable space
 
     // These vars specifically pass to RoomDecoration without being changed back...I don't know about this...
     //[HideInInspector] public bool dormitory = false;
@@ -185,8 +186,8 @@ public class RoomGeneration : MonoBehaviour
             identicalFloors = false;
             roomAmountsDifferPerFloor = false;
             heightenedNooks = false;
-            maxHouseWidth = 15;
-            maxHouseLength = 15;
+            maxHouseWidth = 20;
+            maxHouseLength = 20;
             minRoomWidth = 4;
             maxRoomWidth = 10;
             minRoomLength = 4;
@@ -209,8 +210,8 @@ public class RoomGeneration : MonoBehaviour
             identicalFloors = false;
             roomAmountsDifferPerFloor = true;
             heightenedNooks = false;
-            maxHouseWidth = 15;
-            maxHouseLength = 15;
+            maxHouseWidth = 20;
+            maxHouseLength = 20;
             minRoomWidth = 4;
             maxRoomWidth = 10;
             minRoomLength = 4;
@@ -294,6 +295,14 @@ public class RoomGeneration : MonoBehaviour
             wallHeight = 2; // 2.286 is the minimum
 
             breakMinimumCeilingHeight = false;
+        }
+
+        if (breakMinimumUnitSize)
+        {
+            maxHouseLength = 15; // 17.65 is the minimum square footage
+            maxHouseWidth = 15;
+
+            breakMinimumUnitSize = false;
         }
     }
 
