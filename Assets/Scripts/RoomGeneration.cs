@@ -19,6 +19,7 @@ public class RoomGeneration : MonoBehaviour
     public bool skyscraper = false;
     public bool mansion = false;
 
+    [Tooltip("You must re-click the preset generation setting above to stop generating code-breaking structures after clicking these settings.")]
     [Header("Code Violations")]
     public bool breakMinimumRoomWidths = false; // rooms cannot be under 7 feet (2.1336f) in any plan dimension
     public bool breakMinimumKitchenWalkway = false; // kitchens must have 3 feet (0.9144f) of walking space between appliances/counters/walls and whatever is opposite them
@@ -44,7 +45,7 @@ public class RoomGeneration : MonoBehaviour
     public int maxRoomWidth = 10;
     public int minRoomLength = 4;
     public int maxRoomLength = 10;
-    public int wallHeight = 4;
+    public int wallHeight = 3;
 
     [Header("Layout Complexity")]
     public int numberOfRooms = 5;
@@ -146,7 +147,7 @@ public class RoomGeneration : MonoBehaviour
             maxRoomWidth = 10;
             minRoomLength = 4;
             maxRoomLength = 10;
-            wallHeight = 3;
+            wallHeight = 4;
             minComplexity = 1;
             maxComplexity = 3;
             generateHallways = true;
@@ -238,7 +239,7 @@ public class RoomGeneration : MonoBehaviour
             maxRoomWidth = 6;
             minRoomLength = 6;
             maxRoomLength = 6;
-            wallHeight = 3;
+            wallHeight = 4;
             minComplexity = 1;
             maxComplexity = 2;
             generateHallways = true;
@@ -261,7 +262,7 @@ public class RoomGeneration : MonoBehaviour
             maxRoomWidth = 20;
             minRoomLength = 10;
             maxRoomLength = 20;
-            wallHeight = 5;
+            wallHeight = 6;
             minComplexity = 6;
             maxComplexity = 10;
             generateHallways = true;
@@ -278,11 +279,21 @@ public class RoomGeneration : MonoBehaviour
         {
             minViableWidth = 1; // 2.1336 is the minimum standard
             minViableLength = 1;
+
+            breakMinimumRoomWidths = false;
+        }
+        else
+        {
+            // Need to set the minViable here since they are universal / not customized to other building presets after each reset
+            minViableWidth = 3; // 2.1336 is the minimum standard
+            minViableLength = 3;
         }
 
         if (breakMinimumCeilingHeight)
         {
             wallHeight = 2; // 2.286 is the minimum
+
+            breakMinimumCeilingHeight = false;
         }
     }
 
@@ -567,7 +578,17 @@ public class RoomGeneration : MonoBehaviour
         yard.transform.SetParent(parent);
 
         // FORCE the World Position to be slightly below the house origin
-        yard.transform.position = new Vector3(centerX, origin.y + 0.5f - wallHeight, centerZ);
+        MeshRenderer houseRenderer = parent.GetComponentInChildren<MeshRenderer>();
+        float bottomY;
+
+        // Get exact bottom point of the house generated
+        if (houseRenderer != null)
+            bottomY = houseRenderer.bounds.min.y;
+        else
+            bottomY = origin.y - (wallHeight / 2f);
+
+        float yardThickness = 0.1f;
+        yard.transform.position = new Vector3(centerX, bottomY - (yardThickness / 2f), centerZ);
         yard.transform.localScale = new Vector3(yardWidth, 0.1f, yardLength);
 
         // Apply the Yard Material
