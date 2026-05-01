@@ -527,6 +527,14 @@ public class RoomGeneration : MonoBehaviour
             // Determine the main door tile in the layout
             DetermineMainDoor(floorRooms);
 
+            // Validation step for egress door access condition
+            if (!ValidateEgressPath(floorRooms, floorDoors, mainDoorTile))
+            {
+                Debug.LogWarning("Generation failed to create unobstructed egress door. Restarting generation.");
+                GenerateAllRooms(); // Recursive restart
+                return;
+            }
+
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
             {
@@ -1472,6 +1480,60 @@ public class RoomGeneration : MonoBehaviour
             mainDoorDirection = chosen.dir;
             //Debug.Log("Chose a door");
         }
+    }
+
+    // Validates if the path to the main egress door is continuous and unobstructed
+    bool ValidateEgressPath(List<HashSet<Vector2Int>> rooms, HashSet<string> doors, Vector2Int egressDoorTile)
+    {
+        HashSet<Vector2Int> walkableTiles = new HashSet<Vector2Int>();
+        foreach (var room in rooms) walkableTiles.UnionWith(room);
+
+        HashSet<Vector2Int> visited = new HashSet<Vector2Int>();
+        Queue<Vector2Int> queue = new Queue<Vector2Int>();
+
+        // Start the pathfinding at the egress door
+        queue.Enqueue(egressDoorTile);
+        visited.Add(egressDoorTile);
+
+        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        while (queue.Count > 0)
+        {
+            Vector2Int current = queue.Dequeue();
+
+            foreach (Vector2Int dir in dirs)
+            {
+                Vector2Int neighbor = current + dir;
+
+                if (walkableTiles.Contains(neighbor) && !visited.Contains(neighbor))
+                {
+                    // If they are in the same room, it's a clear path
+                    bool sameRoom = IsInSameRoom(current, neighbor, rooms);
+
+                    // If they are in different rooms, check if a door exists between them
+                    bool hasDoor = doors.Contains(GetEdgeKey(current, neighbor));
+
+                    if (sameRoom || hasDoor)
+                    {
+                        visited.Add(neighbor);
+                        queue.Enqueue(neighbor);
+                    }
+                }
+            }
+        }
+
+        // If the visited tiles equal the total walkable tiles, egress is guaranteed from every point
+        return visited.Count == walkableTiles.Count;
+    }
+
+    // Helper method
+    bool IsInSameRoom(Vector2Int a, Vector2Int b, List<HashSet<Vector2Int>> rooms)
+    {
+        foreach (var room in rooms)
+        {
+            if (room.Contains(a) && room.Contains(b)) return true;
+        }
+        return false;
     }
 
     // Checks if the tile has valid room tiles on both sides along the wall axis
