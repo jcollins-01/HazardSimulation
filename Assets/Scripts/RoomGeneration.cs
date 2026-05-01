@@ -27,6 +27,8 @@ public class RoomGeneration : MonoBehaviour
     public bool breakMinimumUnitSize = false; // dwellings must have minimum of 190 square feet (17.65f) of habitable space
     public bool breakMinimumMainSpaceSize = false; // dwellings must have one room of 120 square feet (3.048 x 3.6576) minimum
     public bool breakMinimumBedroomSpaceSize = false; // bedrooms must be 70 square feet, about (2.4384 x 2.7432) or (2.1336 x 3.048) minimum
+    public bool breakHallwayWidth = false; // hallways must be 3 feet (0.9144f) wide 
+
 
     // These vars specifically pass to RoomDecoration without being changed back...I don't know about this...
     //[HideInInspector] public bool dormitory = false;
@@ -199,7 +201,7 @@ public class RoomGeneration : MonoBehaviour
             maxComplexity = 4;
             generateHallways = true;
             hallwayChance = 5;
-            hallwayWidth = 1; // Very thin hallway?
+            hallwayWidth = 2; 
 
             smallHouse = false;
             isSmallHouse = true;
@@ -321,6 +323,13 @@ public class RoomGeneration : MonoBehaviour
             minRoomLength = 2;
 
             breakMinimumMainSpaceSize = false;
+        }
+
+        if (breakHallwayWidth)
+        {
+            hallwayWidth = 1; // about 0.9144f minimum, this is the closest we'll get in int, which already feels quite tight
+
+            breakHallwayWidth = false;
         }
     }
 
