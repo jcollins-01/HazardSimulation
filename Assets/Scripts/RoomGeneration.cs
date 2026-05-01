@@ -485,6 +485,27 @@ public class RoomGeneration : MonoBehaviour
             if (heightenedNooks)
                 SubdivideNooks(floorRooms);
 
+            // Validation step for minimumz main space size
+            /*if (!breakMinimumMainSpaceSize)
+            {
+                bool hasMainSpace = false;
+                foreach (var room in floorRooms)
+                {
+                    if (room.Count >= 12) // 12 tiles = 12 m² = ~129 sq ft
+                    {
+                        hasMainSpace = true;
+                        break;
+                    }
+                }
+
+                if (!hasMainSpace)
+                {
+                    Debug.LogWarning("Generation failed Main Space code. Restarting generation.");
+                    GenerateAllRooms(); // Recursive restart
+                    return;
+                }
+            }*/
+
             // Generate doorways for this specific floor layout (now that we have the full layout)
             HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
 
@@ -815,6 +836,17 @@ public class RoomGeneration : MonoBehaviour
                 }
             }
         }
+
+        // Validation step for minimum unit size
+        int areaSqMeters = coords.Count;
+        float areaSqFeet = areaSqMeters * 10.764f; // one square meter is 10.764 square feet
+
+        if (!breakMinimumUnitSize && areaSqFeet < 190f)
+        {
+            // Footprint is too small for code, run it again
+            return GenerateHouseLayout();
+        }
+
         return coords;
     }
     #endregion
