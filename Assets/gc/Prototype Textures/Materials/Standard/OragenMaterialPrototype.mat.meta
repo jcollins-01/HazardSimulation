@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a1a3b945c150b924bb8bb70638e890a8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 325862
+  packageName: Prototype Textures
+  packageVersion: 1.0
+  assetPath: Assets/gc/Prototype Textures/Materials/Standard/OragenMaterialPrototype.mat
+  uploadId: 771020

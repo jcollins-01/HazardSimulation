@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a9b2ef6187e7dbe40902a4c18f9e4178
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 325862
+  packageName: Prototype Textures
+  packageVersion: 1.0
+  assetPath: Assets/gc/Prototype Textures/Materials/URP/PurpleMaterialPrototype.mat
+  uploadId: 771020

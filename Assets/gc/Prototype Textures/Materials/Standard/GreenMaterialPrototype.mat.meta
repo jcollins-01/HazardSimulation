@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 915f959a9e17b574e8a391ac9ff4c081
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 325862
+  packageName: Prototype Textures
+  packageVersion: 1.0
+  assetPath: Assets/gc/Prototype Textures/Materials/Standard/GreenMaterialPrototype.mat
+  uploadId: 771020

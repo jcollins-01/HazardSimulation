@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 80435d64b0fa8a14ab34498598716bd4
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 325862
+  packageName: Prototype Textures
+  packageVersion: 1.0
+  assetPath: Assets/gc/Prototype Textures/Materials/URP/YellowMaterialPrototype.mat
+  uploadId: 771020
