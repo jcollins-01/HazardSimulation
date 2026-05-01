@@ -28,7 +28,7 @@ public class RoomGeneration : MonoBehaviour
     public bool breakMinimumMainSpaceSize = false; // dwellings must have one room of 120 square feet (3.048 x 3.6576) minimum
     public bool breakMinimumBedroomSpaceSize = false; // bedrooms must be 70 square feet, about (2.4384 x 2.7432) or (2.1336 x 3.048) minimum
     public bool breakHallwayWidth = false; // hallways must be 3 feet (0.9144f) wide 
-
+    public bool breakEgressDoorDimensions = false; // egress door must be 32 inches wide (0.81f) and 78 inches tall (1.98f)
 
     // These vars specifically pass to RoomDecoration without being changed back...I don't know about this...
     //[HideInInspector] public bool dormitory = false;
@@ -294,6 +294,17 @@ public class RoomGeneration : MonoBehaviour
             minViableLength = 3;
         }
 
+        if (breakEgressDoorDimensions)
+        {
+            doorHeight = 1.5f; // egress door must be 32 inches wide (0.81f) and 78 inches tall (1.98f)
+
+            breakEgressDoorDimensions = false;
+        }
+        else
+        {
+            doorHeight = 2f;
+        }
+
         if (breakMinimumCeilingHeight)
         {
             wallHeight = 2; // 2.286 is the minimum
@@ -486,7 +497,7 @@ public class RoomGeneration : MonoBehaviour
                 SubdivideNooks(floorRooms);
 
             // Validation step for minimumz main space size
-            /*if (!breakMinimumMainSpaceSize)
+            if (!breakMinimumMainSpaceSize)
             {
                 bool hasMainSpace = false;
                 foreach (var room in floorRooms)
@@ -504,7 +515,7 @@ public class RoomGeneration : MonoBehaviour
                     GenerateAllRooms(); // Recursive restart
                     return;
                 }
-            }*/
+            }
 
             // Generate doorways for this specific floor layout (now that we have the full layout)
             HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
