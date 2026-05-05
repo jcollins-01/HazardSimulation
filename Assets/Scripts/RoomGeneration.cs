@@ -996,60 +996,93 @@ public class RoomGeneration : MonoBehaviour
             currentMinLength = Random.Range(1, 3);
         }
 
-        // Decide split direction. We generally want to split the longest axis to avoid thin hallways.
-        bool splitVertical = width > length;
+        // Constrain aspect ratio (balancing length and width of cut rooms to be more realistic)
+        float maxAspectRatio = 2.0f;
 
-        // Add a bit of randomness so it isn't completely predictable, provided both sides are big enough
-        if (width >= currentMinWidth * 2 && length >= currentMinLength * 2)
-        {
-            splitVertical = Random.value > 0.5f;
-        }
-
-        // Perform the slice
-        if (splitVertical)
-        {
-            // Calculate valid range for the slice to ensure minRoomWidth is respected on both sides
-            int minSplit = minX + currentMinWidth;
-            int maxSplit = maxX - currentMinWidth + 1;
-
-            // If the room is too small to split, cancel it - we'll have a larger, open space/room as a result
-            if (minSplit > maxSplit) return false;
-
-            // Pick a random line to draw the knife through
-            int splitLine = Random.Range(minSplit, maxSplit);
-
-            // Sort tiles into Room A or Room B based on the line
-            foreach (var tile in currentRoom)
-            {
-                if (tile.x < splitLine) roomA.Add(tile);
-                else roomB.Add(tile);
-            }
-        }
+        // Decide split direction - cut on the longest axis to make a square shape more likely
+        bool splitVertical;
+        if (width > length)
+            splitVertical = true;
+        else if (length > width)
+            splitVertical = false;
         else
+            splitVertical = Random.value > 0.5f; // make it a 50-50 random split if the axes are the exact same length
+
+        // Try the preferred split direction first and fall back to the other
+        for (int attempt = 0; attempt < 2; attempt++)
         {
-            // Same logic, but slicing horizontally along the Y axis
-            int minSplit = minY + currentMinLength;
-            int maxSplit = maxY - currentMinLength + 1;
+            roomA = new HashSet<Vector2Int>();
+            roomB = new HashSet<Vector2Int>();
 
-            if (minSplit > maxSplit) return false;
-
-            int splitLine = Random.Range(minSplit, maxSplit);
-
-            foreach (var tile in currentRoom)
+            if (splitVertical)
             {
-                if (tile.y < splitLine) roomA.Add(tile);
-                else roomB.Add(tile);
+                // Calculate valid range for the slice to ensure minRoomWidth is respected on both sides
+                int minSplit = minX + currentMinWidth;
+                int maxSplit = maxX - currentMinWidth + 1;
+                if (minSplit > maxSplit) { splitVertical = !splitVertical; continue; }
+
+                // Bias the split toward the center: pick from the middle third of valid range
+                int rangeSize = maxSplit - minSplit;
+                int centerBias = rangeSize / 3;
+                int biasedMin = minSplit + centerBias;
+                int biasedMax = maxSplit - centerBias;
+                if (biasedMin > biasedMax) { biasedMin = minSplit; biasedMax = maxSplit; }
+
+                // Pick a random line to draw the knife through
+                int splitLine = Random.Range(biasedMin, biasedMax + 1);
+
+                // Sort tiles into Room A or Room B based on the line
+                foreach (var tile in currentRoom)
+                {
+                    if (tile.x < splitLine) roomA.Add(tile);
+                    else roomB.Add(tile);
+                }
+
+                // Reject if either resulting room is too sliver-like
+                int aWidth = splitLine - minX;
+                int bWidth = maxX - splitLine + 1;
+                if ((float)length / aWidth > maxAspectRatio || (float)length / bWidth > maxAspectRatio)
+                { splitVertical = !splitVertical; continue; }
             }
+            else
+            {
+                // Same logic, but slicing horizontally along the Y axis
+                int minSplit = minY + currentMinLength;
+                int maxSplit = maxY - currentMinLength + 1;
+                if (minSplit > maxSplit) { splitVertical = !splitVertical; continue; }
+
+                int rangeSize = maxSplit - minSplit;
+                int centerBias = rangeSize / 3;
+                int biasedMin = minSplit + centerBias;
+                int biasedMax = maxSplit - centerBias;
+                if (biasedMin > biasedMax) { biasedMin = minSplit; biasedMax = maxSplit; }
+
+                int splitLine = Random.Range(biasedMin, biasedMax + 1);
+
+                foreach (var tile in currentRoom)
+                {
+                    if (tile.y < splitLine) roomA.Add(tile);
+                    else roomB.Add(tile);
+                }
+
+                // Reject if either resulting room is too sliver-like
+                int aLength = splitLine - minY;
+                int bLength = maxY - splitLine + 1;
+                if ((float)width / aLength > maxAspectRatio || (float)width / bLength > maxAspectRatio)
+                { splitVertical = !splitVertical; continue; }
+            }
+
+            // Because the house layout is irregular, a straight slice might occasionally catch an empty corner and make an empty room
+            // If that happens, reject the split
+            if (roomA.Count == 0 || roomB.Count == 0) { splitVertical = !splitVertical; continue; }
+
+            // Apply strict validation to both newly generated spaces to prevent void spaces (will return immediately if we are allowing void spaces)
+            if (!IsRoomViable(roomA) || !IsRoomViable(roomB)) { splitVertical = !splitVertical; continue; }
+
+            return true;
         }
 
-        // Because the house layout is irregular, a straight slice might occasionally catch an empty corner and make an empty room
-        // If that happens, reject the split
-        if (roomA.Count == 0 || roomB.Count == 0) return false;
-
-        // Apply strict validation to both newly generated spaces to prevent void spaces (will return immediately if we are allowing void spaces)
-        if (!IsRoomViable(roomA) || !IsRoomViable(roomB)) return false;
-
-        return true;
+        return false;
     }
 
     bool IsRoomViable(HashSet<Vector2Int> room)
