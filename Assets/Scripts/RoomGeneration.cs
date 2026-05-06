@@ -1502,7 +1502,7 @@ public class RoomGeneration : MonoBehaviour
         // Figure out the horizontal bounds of the ramp
         // The hole ends at topTile.y - the ramp starts 'depth' tiles back. To center it perfectly, we find the middle of the 'run'.
         float run = (float)depth;
-        float centerZ = (float)topTile.y - (run - 1f); // was (float)topTile.y - (run / 2f) + 0.5f;
+        float centerZ = (float)topTile.y - (run - 1f);   // was (float)topTile.y - (run / 2f) + 0.5f - 1.0f;
 
         // Geometry to determine the angle of the ramp
         float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
@@ -1566,6 +1566,8 @@ public class RoomGeneration : MonoBehaviour
         footprint = null;
         stairTile = new Vector2Int(-999, -999);
         int width = 2; // stairwellWidth
+        // We increase this to 7: (1 tile bottom landing + 5 tiles ramp + 1 tile top landing)
+        int totalLength = stairDepth + 2;
 
         // Scan from top to bottom, left to right
         var possibleTiles = layout.OrderByDescending(t => t.y).ThenBy(t => t.x).ToList();
@@ -1577,7 +1579,7 @@ public class RoomGeneration : MonoBehaviour
 
             for (int x = 0; x < width; x++)
             {
-                for (int y = 0; y < stairDepth; y++)
+                for (int y = 0; y < totalLength; y++) // was y < stairDepth
                 {
                     Vector2Int checkTile = new Vector2Int(tile.x + x, tile.y - y);
                     if (!layout.Contains(checkTile))
@@ -1628,7 +1630,7 @@ public class RoomGeneration : MonoBehaviour
 
         if (floor == 0) // Ground floor: entrance MUST be at the bottom of the stairs
         {
-            landingTile = new Vector2Int(topTile.x, topTile.y - stairDepth + 1);
+            landingTile = new Vector2Int(topTile.x, topTile.y - (stairDepth + 1));
             searchDirs = new Vector2Int[] { Vector2Int.down, Vector2Int.left, Vector2Int.right };
         }
         else // Upper floors: entrance MUST be at the top of the stairs
