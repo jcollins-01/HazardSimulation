@@ -1502,7 +1502,7 @@ public class RoomGeneration : MonoBehaviour
         // Figure out the horizontal bounds of the ramp
         // The hole ends at topTile.y - the ramp starts 'depth' tiles back. To center it perfectly, we find the middle of the 'run'.
         float run = (float)depth;
-        float centerZ = (float)topTile.y - (run / 2f) + 0.5f; // was (float)topTile.y - (run - 1f);
+        float centerZ = (float)topTile.y - (run - 1f); // was (float)topTile.y - (run / 2f) + 0.5f;
 
         // Geometry to determine the angle of the ramp
         float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
@@ -1513,7 +1513,7 @@ public class RoomGeneration : MonoBehaviour
         float thickness = 0.2f;
         float centerY = ((surfaceBottom + surfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
 
-        float centerX = topTile.x + 0.5f; // 0.5f offsets to the center of a 2-tile-wide well
+        float centerX = topTile.x + 0.5f; // 0.5f offsets to the center of a 2-tile-wide well 
 
         // Spawn the ramp - X must be exactly topTile.x to align with the hole
         Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
