@@ -16,7 +16,7 @@ public class RoomDecoration : MonoBehaviour
 
     private float lastClutterAmount; // Used to check if the slider was changed in the editor
 
-    private string[] roomTypes = { "Generic", "Bedroom", "Bathroom", "Living Room" };
+    //private string[] roomTypes = { "Generic", "Bedroom", "Bathroom", "Living Room" };
 
     public void DecorateRooms(List<RoomGeneration.RoomData> rooms)
     {
@@ -33,10 +33,17 @@ public class RoomDecoration : MonoBehaviour
         // Clear old interior before placing new furniture/clutter to avoid stacking
         ClearAllDecoration(rooms);
 
-        // Here's where we start decorating
-        RoomGeneration generator = GetComponent<RoomGeneration>();
-        if (generator == null) return;
+        // Because RoomGeneration already determined what these rooms are, we just loop through and decorate them immediately
+        foreach (var room in rooms)
+        {
+            if (room.RoomType == "Stairwell" || room.RoomType == "Closet")
+                continue; // Skip rooms that don't need furniture
 
+            ApplyFloorMaterial(room, room.RoomType);
+            DecorateSpecificRoom(room, room.RoomType);
+        }
+
+        /*
         // Group the rooms by their floor level by reading the parent object's name
         var roomsByFloor = rooms.GroupBy(r => GetFloorLevel(r)).ToDictionary(g => g.Key, g => g.ToList());
 
@@ -48,13 +55,15 @@ public class RoomDecoration : MonoBehaviour
         else if (generator.warehouse) AssignWarehouseLogic(roomsByFloor);
         else if (generator.skyscraper) AssignSkyscraperLogic(roomsByFloor);
         else AssignCustomLogic(roomsByFloor); // Fallback if no preset is checked
+        */
 
         // After rooms are assigned, reset the generator variables ourselves
-        generator.isSmallHouse = false;
-        generator.isTwoStoryHouse = false;
+        //generator.isSmallHouse = false;
+        //generator.isTwoStoryHouse = false;
     }
 
     #region Room Type Assignment
+    /*
     private int GetFloorLevel(RoomGeneration.RoomData room)
     {
         // Expecting the parent to be named "Floor_0", "Floor_1", etc.
@@ -67,9 +76,9 @@ public class RoomDecoration : MonoBehaviour
             }
         }
         return 0; // Default to ground floor
-    }
+    }*/
 
-    private void AssignSmallHouseLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor)
+    /*private void AssignSmallHouseLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor)
     {
         Debug.Log("Assigning a small house");
         // Small houses are 1 floor so all rooms should be on floor 0 - if they're not, return
@@ -130,13 +139,14 @@ public class RoomDecoration : MonoBehaviour
             }
         }
     }
-
+    */
     // You can build out standard assignments for Warehouse, Skyscraper, and Dormitory here
-    private void AssignWarehouseLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
-    private void AssignDormitoryLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
-    private void AssignSkyscraperLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
-    private void AssignCustomLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
-
+    //private void AssignWarehouseLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+    //private void AssignDormitoryLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+    //private void AssignSkyscraperLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+    //private void AssignCustomLogic(Dictionary<int, List<RoomGeneration.RoomData>> roomsByFloor) { /* ... */ }
+    
+    /*
     // A special method to call for floors with bedrooms and bathrooms to ensure they spawn in a decent ratio to each other
     private void AssignBedroomsAndBathrooms(List<RoomGeneration.RoomData> bedAndBathRooms)
     {
@@ -224,7 +234,7 @@ public class RoomDecoration : MonoBehaviour
             // Decorate based on type
             DecorateSpecificRoom(room, assignedType);
         }
-    }
+    }*/
 
 #endregion
 
@@ -408,7 +418,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
     // --- Utility Methods ---
 
     // Calculates the bounding box to determine if the room is a narrow strip (a hallway)
-    private bool IsRoomHallway(HashSet<Vector2Int> roomTiles)
+    /*private bool IsRoomHallway(HashSet<Vector2Int> roomTiles)
     {
         int minX = int.MaxValue, maxX = int.MinValue;
         int minY = int.MaxValue, maxY = int.MinValue;
@@ -426,7 +436,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
         // If the room is 2 tiles wide or less, but fairly long, it's a hallway - might change later to be more certain
         return (width <= 2 && length >= 4) || (length <= 2 && width >= 4);
-    }
+    }*/
 
     private void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
     {

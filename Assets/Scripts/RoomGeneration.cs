@@ -133,6 +133,7 @@ public class RoomGeneration : MonoBehaviour
     {
         public HashSet<Vector2Int> Tiles;
         public GameObject RoomObject;
+        public string RoomType;
     }
 
     [HideInInspector]
@@ -189,7 +190,7 @@ public class RoomGeneration : MonoBehaviour
 
         if (smallHouse) // Essentially like a cottage - very slim chance of having a hallway to connect the rooms
         {
-            numberOfRooms = 4;
+            numberOfRooms = 5;
             numberOfFloors = 1;
             identicalFloors = false;
             roomAmountsDifferPerFloor = false;
@@ -564,13 +565,22 @@ public class RoomGeneration : MonoBehaviour
                 return;
             }
 
+            // Determine room types before building them out
+            Dictionary<HashSet<Vector2Int>, string> roomTypes = AssignRoomTypesBySize(floorRooms, floor, stairwellRoom);
+
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
             {
+                // Fetch the assigned type
+                string assignedType = roomTypes[floorRooms[i]];
+
                 GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, globalStairTile, floorDoors, stairwellRoom);
 
+                // Rename object for easy hierarchy reading
+                builtRoom.name = $"Room_{i} [{assignedType}]";
+
                 // Add the room to our list of generated rooms so we can pass it to the decorator later
-                allGeneratedRooms.Add(new RoomData { Tiles = floorRooms[i], RoomObject = builtRoom });
+                allGeneratedRooms.Add(new RoomData { Tiles = floorRooms[i], RoomObject = builtRoom, RoomType = assignedType });
             }
 
             // Get the highest point in all room roofs and build off that for the next floor
@@ -1529,93 +1539,25 @@ public class RoomGeneration : MonoBehaviour
     #endregion
 
     #region House Landmark Determination Helpers
-    // Picks a room to serve as a stairwell landing room
-    bool CarveStairwellFromRooms(List<HashSet<Vector2Int>> rooms, ref HashSet<Vector2Int> stairwellFootprint, out Vector2Int stairTile, out HashSet<Vector2Int> stairwellRoomOut)
+    // Calculates the bounding box to determine if the room is a narrow strip (a hallway)
+    private bool IsRoomHallway(HashSet<Vector2Int> roomTiles)
     {
-        stairTile = new Vector2Int(-999, -999);
-        stairwellRoomOut = null;
-        int stairwellWidth = 2;
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
 
-        // ── FLOOR 0: choose and commit a footprint ──────────────────────────────
-        if (stairwellFootprint == null)
+        foreach (var tile in roomTiles)
         {
-            var candidates = rooms
-                .Where(r => {
-                    int w = r.Max(t => t.x) - r.Min(t => t.x) + 1;
-                    int l = r.Max(t => t.y) - r.Min(t => t.y) + 1;
-                    return w >= stairwellWidth + minViableWidth && l >= stairDepth + minViableLength;
-                })
-                .OrderByDescending(r => r.Count)
-                .ToList();
-
-            if (candidates.Count == 0)
-            {
-                Debug.LogWarning("Stairwell: no donor room large enough.");
-                return false;
-            }
-
-            foreach (var donor in candidates)
-            {
-                int dMinX = donor.Min(t => t.x), dMaxX = donor.Max(t => t.x);
-                int dMinY = donor.Min(t => t.y), dMaxY = donor.Max(t => t.y);
-                int donorW = dMaxX - dMinX + 1;
-
-                // Anchor to the high-Y edge so the ramp always descends toward low-Y
-                int startX = dMinX + Random.Range(0, donorW - stairwellWidth + 1);
-                int startY = dMaxY - stairDepth + 1;
-
-                // Build candidate footprint, verifying every tile is actually in donor
-                HashSet<Vector2Int> fp = new HashSet<Vector2Int>();
-                for (int x = startX; x < startX + stairwellWidth; x++)
-                    for (int y = startY; y <= dMaxY; y++)
-                        fp.Add(new Vector2Int(x, y));
-
-                // All tiles must exist in the donor (guards against L-shaped rooms)
-                if (!fp.IsSubsetOf(donor)) continue;
-
-                HashSet<Vector2Int> remainder = new HashSet<Vector2Int>(donor);
-                remainder.ExceptWith(fp);
-                if (!IsRoomViable(remainder)) continue;
-
-                // Commit
-                donor.ExceptWith(fp);
-                // fp is the live object we add to rooms — capture it as the footprint AND the room ref
-                rooms.Add(fp);
-                stairwellFootprint = fp;        // canonical coordinate set (coords never change)
-                stairwellRoomOut = fp;        // the actual object in floorRooms this floor
-                stairTile = new Vector2Int(startX, dMaxY);
-                return true;
-            }
-
-            Debug.LogWarning("Stairwell: could not carve a viable footprint.");
-            return false;
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
         }
 
-        // ── UPPER FLOORS: carve the same coordinates from whatever rooms own them ─
-        // Find all rooms that contain any stairwell tile and strip those tiles out.
-        // Keep track of which room owned the majority so we can preserve door connectivity.
-        HashSet<Vector2Int> newRoom = new HashSet<Vector2Int>(stairwellFootprint);
+        int width = maxX - minX + 1;
+        int length = maxY - minY + 1;
 
-        // Validate all footprint tiles exist somewhere in this floor's rooms
-        HashSet<Vector2Int> allTilesOnFloor = new HashSet<Vector2Int>();
-        foreach (var r in rooms) allTilesOnFloor.UnionWith(r);
-        if (!stairwellFootprint.IsSubsetOf(allTilesOnFloor))
-        {
-            Debug.LogWarning("Stairwell footprint doesn't fit on this floor's layout — skipping upper carve.");
-            // Still return true with a sentinel so SpawnStairs is skipped but generation continues
-            stairTile = new Vector2Int(-999, -999);
-            return false;
-        }
-
-        foreach (var room in rooms)
-            room.ExceptWith(newRoom);
-
-        rooms.RemoveAll(r => r.Count == 0);
-        rooms.Add(newRoom);
-
-        stairwellRoomOut = newRoom;   // the live object in THIS floor's floorRooms
-        stairTile = newRoom.OrderByDescending(t => t.y).First();
-        return true;
+        // If the room is 2 tiles wide or less, but fairly long, it's a hallway - might change later to be more certain
+        return (width <= 2 && length >= 4) || (length <= 2 && width >= 4);
     }
 
     // Finds a guaranteed stairwell footprint from the master layout before subdivision
@@ -1858,6 +1800,148 @@ public class RoomGeneration : MonoBehaviour
 
         // If both sides are in the room, it's not a corner or an edge!
         return leftInRoom && rightInRoom;
+    }
+    #endregion
+
+    #region Room Assignment Logic
+    private Dictionary<HashSet<Vector2Int>, string> AssignRoomTypesBySize(List<HashSet<Vector2Int>> floorRooms, int floorLevel, HashSet<Vector2Int> stairwellRoom)
+    {
+        Dictionary<HashSet<Vector2Int>, string> assignments = new Dictionary<HashSet<Vector2Int>, string>();
+        List<HashSet<Vector2Int>> unassigned = new List<HashSet<Vector2Int>>(floorRooms);
+
+        // Structural/Hallway passes
+        if (stairwellRoom != null && unassigned.Contains(stairwellRoom))
+        {
+            assignments[stairwellRoom] = "Stairwell";
+            unassigned.Remove(stairwellRoom);
+        }
+
+        foreach (var room in unassigned.ToList())
+        {
+            if (IsRoomHallway(room))
+            {
+                assignments[room] = "Hallway";
+                unassigned.Remove(room);
+            }
+        }
+
+        // Sort remaining rooms from largest to smallest
+        unassigned = unassigned.OrderByDescending(r => r.Count).ToList();
+
+        // Tracker state to enforce realistic limits
+        bool assignedLivingRoom = false;
+        bool assignedKitchen = false;
+        bool assignedDiningRoom = false;
+        int bedroomCount = 0;
+        int bathroomCount = 0;
+
+        // Assign absolute primary rooms first (Living Room & Kitchen) on Ground Floor
+        if (floorLevel == 0)
+        {
+            if (unassigned.Count > 0)
+            {
+                assignments[unassigned[0]] = "Living Room";
+                assignedLivingRoom = true;
+                unassigned.RemoveAt(0);
+            }
+            if (unassigned.Count > 0)
+            {
+                assignments[unassigned[0]] = "Kitchen";
+                assignedKitchen = true;
+                unassigned.RemoveAt(0);
+            }
+        }
+
+        // Process remaining rooms with unique-cap checks
+        List<HashSet<Vector2Int>> remainingRooms = new List<HashSet<Vector2Int>>(unassigned);
+        foreach (var room in remainingRooms)
+        {
+            int size = room.Count;
+
+            if (size >= 12) // Large room (>= 120 sq ft)
+            {
+                // Only allow ONE dining room per house, and only on the ground floor
+                if (floorLevel == 0 && !assignedDiningRoom)
+                {
+                    assignments[room] = "Dining Room";
+                    assignedDiningRoom = true;
+                }
+                else
+                {
+                    // Extra large rooms become Bedrooms (or Master Bedrooms if upstairs)
+                    assignments[room] = (floorLevel == 0) ? "Bedroom" : "Master Bedroom";
+                    bedroomCount++;
+                }
+            }
+            else if (size >= 7) // Medium room (>= 70 sq ft)
+            {
+                assignments[room] = "Bedroom";
+                bedroomCount++;
+            }
+            else // Small room (< 70 sq ft)
+            {
+                // If we don't have a bathroom yet, prioritize it!
+                if (bathroomCount == 0)
+                {
+                    assignments[room] = "Bathroom";
+                    bathroomCount++;
+                }
+                else
+                {
+                    // If we already have a bathroom, make a small room a closet or secondary bathroom
+                    assignments[room] = (Random.value > 0.4f) ? "Bathroom" : "Closet";
+                    if (assignments[room] == "Bathroom") bathroomCount++;
+                }
+            }
+            unassigned.Remove(room);
+        }
+
+        // Building codes require at least 1 bathroom per house!
+        // If we finished processing Floor 0 and somehow assigned 0 bathrooms, we must convert the smallest available non-essential room into a Bathroom.
+        if (floorLevel == 0 && bathroomCount == 0)
+        {
+            var eligibleCandidates = assignments
+                .Where(kvp =>
+                    kvp.Value != "Living Room" &&
+                    kvp.Value != "Kitchen" &&
+                    kvp.Value != "Stairwell" &&
+                    kvp.Value != "Hallway"
+                )
+                .OrderBy(kvp => kvp.Key.Count) // Smallest candidate room first
+                .ToList();
+
+            if (eligibleCandidates.Count > 0)
+            {
+                var targetRoom = eligibleCandidates[0].Key;
+                string originalType = eligibleCandidates[0].Value;
+
+                assignments[targetRoom] = "Bathroom";
+                bathroomCount++;
+
+                // Correct our tracker counts
+                if (originalType == "Bedroom" || originalType == "Master Bedroom")
+                    bedroomCount--;
+                else if (originalType == "Dining Room")
+                    assignedDiningRoom = false;
+            }
+        }
+
+        // If this is an upper floor and we failed to make a bedroom, make one.
+        if (floorLevel > 0 && bedroomCount == 0)
+        {
+            var eligibleCandidates = assignments
+                .Where(kvp => kvp.Value != "Stairwell" && kvp.Value != "Hallway" && kvp.Value != "Bathroom")
+                .OrderByDescending(kvp => kvp.Key.Count) // Largest first
+                .ToList();
+
+            if (eligibleCandidates.Count > 0)
+            {
+                assignments[eligibleCandidates[0].Key] = "Master Bedroom";
+                bedroomCount++;
+            }
+        }
+
+        return assignments;
     }
     #endregion
 
