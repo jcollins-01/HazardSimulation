@@ -107,6 +107,10 @@ public class RoomGeneration : MonoBehaviour
     private HashSet<Vector2Int> allHouseOccupiedTiles = new HashSet<Vector2Int>();
     private List<PlacedRoom> placedRooms = new List<PlacedRoom>();
 
+    // Window variables to track
+    Dictionary<string, int> lastWindowIndex = new Dictionary<string, int>();
+    HashSet<HashSet<Vector2Int>> roomsWithWindows = new HashSet<HashSet<Vector2Int>>();
+
     // Room variables to track privately
     private int stairDepth = 5; // Makes for an angle of 31 degrees, architectural height for a comfortable set of stairs
     private Vector2Int mainDoorTile;
@@ -1314,6 +1318,50 @@ public class RoomGeneration : MonoBehaviour
                 continue;
             }
 
+            // Generate a Unique Key for this specific "Wall Run"
+            string wallKey = (currentDir == "N" || currentDir == "S")
+                ? $"{currentDir}_{localCoord.y}"
+                : $"{currentDir}_{localCoord.x}";
+
+            int currentIdx = (currentDir == "N" || currentDir == "S") ? localCoord.x : localCoord.y;
+
+            // Check for Main Door Proximity
+            bool nearMainDoor = false;
+            // Only check proximity if we are on the ground floor and the wall direction matches the door
+            if (floorLevel == 0 && currentDir == mainDoorDirection)
+            {
+                // Check if this specific wall run contains the main door
+                bool isSameRun = (currentDir == "N" || currentDir == "S")
+                    ? localCoord.y == mainDoorTile.y
+                    : localCoord.x == mainDoorTile.x;
+
+                if (isSameRun)
+                {
+                    int doorIdx = (currentDir == "N" || currentDir == "S") ? mainDoorTile.x : mainDoorTile.y;
+
+                    // If distance is < 2, it's either the door itself or the immediate neighbor
+                    if (Mathf.Abs(currentIdx - doorIdx) < 2)
+                    {
+                        nearMainDoor = true;
+                    }
+                }
+            }
+
+            // Logic for Window Spacing
+            bool gapIsLargeEnough = true;
+            if (lastWindowIndex.ContainsKey(wallKey))
+            {
+                // Enforce a minimum gap of 2 tiles (Distance of 3 between indices)
+                if (Mathf.Abs(currentIdx - lastWindowIndex[wallKey]) < 3)
+                    gapIsLargeEnough = false;
+            }
+
+            // Logic for Egress (Ensuring at least one window)
+            bool roomNeedsWindow = !roomsWithWindows.Contains(roomTiles);
+
+            // We increase window chance if the room still hasn't found its egress window
+            float effectiveWindowChance = roomNeedsWindow ? windowChance * 2f : windowChance;
+
             // Check if THIS specific wall segment is the designated Main Door
             bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
 
@@ -1321,7 +1369,8 @@ public class RoomGeneration : MonoBehaviour
             bool safeFromCorners = IsValidWindowLocation(localCoord, dir, roomTiles); 
 
             // It can be a window if it's NOT a door and NOT up against an interior wall/exterior corner
-            bool isWindow = !isMainDoor && (Random.value <= windowChance) && safeFromCorners; 
+            //bool isWindow = !isMainDoor && (Random.value <= windowChance) && safeFromCorners;
+            bool isWindow = !isMainDoor && !nearMainDoor && safeFromCorners && gapIsLargeEnough && (Random.value <= effectiveWindowChance);
 
             if (isMainDoor)
             {
@@ -1349,6 +1398,10 @@ public class RoomGeneration : MonoBehaviour
             }
             else if (isWindow)
             {
+                // Record this window's position to block neighbors and satisfy room egress
+                lastWindowIndex[wallKey] = currentIdx;
+                roomsWithWindows.Add(roomTiles);
+
                 // Spawn the wall below the window (the sill)
                 SpawnWall(pos, dir, parent, isInterior: false, 0f, windowSillHeight);
 
@@ -1737,36 +1790,6 @@ public class RoomGeneration : MonoBehaviour
             mainDoorDirection = chosen.dir;
         }
     }
-
-    /*void DetermineMainDoor(List<HashSet<Vector2Int>> groundFloorRooms)
-    {
-        List<(Vector2Int tile, string dir)> validExteriorWalls = new List<(Vector2Int, string)>();
-
-        foreach (var room in groundFloorRooms)
-        {
-            foreach (var tile in room)
-            {
-                // Check all 4 directions. If a neighbor is NOT in allHouseOccupiedTiles, it is an exterior wall and a candidate for the main door
-                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.up))
-                    validExteriorWalls.Add((tile, "N"));
-                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.down))
-                    validExteriorWalls.Add((tile, "S"));
-                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.right))
-                    validExteriorWalls.Add((tile, "E"));
-                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.left))
-                    validExteriorWalls.Add((tile, "W"));
-            }
-        }
-
-        if (validExteriorWalls.Count > 0)
-        {
-            // Pick a random exterior wall segment to be the door
-            var chosen = validExteriorWalls[Random.Range(0, validExteriorWalls.Count)];
-            mainDoorTile = chosen.tile;
-            mainDoorDirection = chosen.dir;
-            //Debug.Log("Chose a door");
-        }
-    }*/
 
     // Validates if the path to the main egress door is continuous and unobstructed
     bool ValidateEgressPath(List<HashSet<Vector2Int>> rooms, HashSet<string> doors, Vector2Int egressDoorTile)
