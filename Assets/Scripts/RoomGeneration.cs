@@ -1662,6 +1662,84 @@ public class RoomGeneration : MonoBehaviour
 
     void DetermineMainDoor(List<HashSet<Vector2Int>> groundFloorRooms)
     {
+        List<(Vector2Int tile, string dir)> candidates = new List<(Vector2Int, string)>();
+
+        // Gather all raw exterior wall candidates
+        foreach (var room in groundFloorRooms)
+        {
+            foreach (var tile in room)
+            {
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.up)) candidates.Add((tile, "N"));
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.down)) candidates.Add((tile, "S"));
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.right)) candidates.Add((tile, "E"));
+                if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.left)) candidates.Add((tile, "W"));
+            }
+        }
+
+        if (candidates.Count == 0) return;
+
+        // Identify contiguous wall segments (runs)
+        List<List<(Vector2Int tile, string dir)>> wallSegments = new List<List<(Vector2Int, string)>>();
+
+        foreach (string d in new[] { "N", "S", "E", "W" })
+        {
+            // Get all tiles facing this specific direction
+            var dirTiles = candidates.Where(c => c.dir == d).ToList();
+            if (dirTiles.Count == 0) continue;
+
+            // Sort tiles to find sequences. 
+            // For N/S walls, sort by Y then X (to find runs along X). 
+            // For E/W walls, sort by X then Y (to find runs along Y).
+            if (d == "N" || d == "S")
+                dirTiles = dirTiles.OrderBy(c => c.tile.y).ThenBy(c => c.tile.x).ToList();
+            else
+                dirTiles = dirTiles.OrderBy(c => c.tile.x).ThenBy(c => c.tile.y).ToList();
+
+            List<(Vector2Int tile, string dir)> currentRun = new List<(Vector2Int, string)> { dirTiles[0] };
+
+            for (int i = 1; i < dirTiles.Count; i++)
+            {
+                bool isAdjacent = false;
+                if (d == "N" || d == "S")
+                    isAdjacent = dirTiles[i].tile.y == dirTiles[i - 1].tile.y && dirTiles[i].tile.x == dirTiles[i - 1].tile.x + 1;
+                else
+                    isAdjacent = dirTiles[i].tile.x == dirTiles[i - 1].tile.x && dirTiles[i].tile.y == dirTiles[i - 1].tile.y + 1;
+
+                if (isAdjacent)
+                {
+                    currentRun.Add(dirTiles[i]);
+                }
+                else
+                {
+                    wallSegments.Add(new List<(Vector2Int, string)>(currentRun));
+                    currentRun.Clear();
+                    currentRun.Add(dirTiles[i]);
+                }
+            }
+            wallSegments.Add(currentRun);
+        }
+
+        // Score the segments and pick the winner
+        // We favor longer segments, and give a multiplier bonus to South-facing walls.
+        var bestSegment = wallSegments
+            .OrderByDescending(seg => {
+                float score = seg.Count;
+                if (seg[0].dir == "S") score *= 2.0f; // High priority for South (Front)
+            return score;
+            })
+            .FirstOrDefault();
+
+        if (bestSegment != null)
+        {
+            // Center the door in the chosen segment
+            var chosen = bestSegment[bestSegment.Count / 2];
+            mainDoorTile = chosen.tile;
+            mainDoorDirection = chosen.dir;
+        }
+    }
+
+    /*void DetermineMainDoor(List<HashSet<Vector2Int>> groundFloorRooms)
+    {
         List<(Vector2Int tile, string dir)> validExteriorWalls = new List<(Vector2Int, string)>();
 
         foreach (var room in groundFloorRooms)
@@ -1688,7 +1766,7 @@ public class RoomGeneration : MonoBehaviour
             mainDoorDirection = chosen.dir;
             //Debug.Log("Chose a door");
         }
-    }
+    }*/
 
     // Validates if the path to the main egress door is continuous and unobstructed
     bool ValidateEgressPath(List<HashSet<Vector2Int>> rooms, HashSet<string> doors, Vector2Int egressDoorTile)
