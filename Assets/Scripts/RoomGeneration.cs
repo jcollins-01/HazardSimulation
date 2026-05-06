@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation;
@@ -426,9 +426,14 @@ public class RoomGeneration : MonoBehaviour
         HashSet<Vector2Int> houseLayout = GenerateHouseLayout();
         allHouseOccupiedTiles = new HashSet<Vector2Int>(houseLayout); // Save the layout so the wall-spawning logic knows where the outside of the house is
 
-        // Pick one random tile from the layout to serve as the stairwell for all floors
-        //Vector2Int stairwellTile = houseLayout.ElementAt(Random.Range(0, houseLayout.Count));
-        Vector2Int stairwellTile = FindStairwellTile(houseLayout);
+        // Lock in the stairwell BEFORE subdividing floors
+        Vector2Int globalStairTile = new Vector2Int(-999, -999);
+        HashSet<Vector2Int> globalStairwellFootprint = null;
+
+        if (numberOfFloors > 1)
+        {
+            DetermineGlobalStairwell(houseLayout, out globalStairwellFootprint, out globalStairTile);
+        }
 
         // Create a new floorplan and allow us to try generating a hallway on floor one
         List<HashSet<Vector2Int>> rooms = new List<HashSet<Vector2Int>>();
@@ -502,7 +507,7 @@ public class RoomGeneration : MonoBehaviour
                 bool hasMainSpace = false;
                 foreach (var room in floorRooms)
                 {
-                    if (room.Count >= 12) // 12 tiles = 12 m� = ~129 sq ft
+                    if (room.Count >= 12) // 12 tiles = 12 m² = ~129 sq ft
                     {
                         hasMainSpace = true;
                         break;
@@ -517,12 +522,32 @@ public class RoomGeneration : MonoBehaviour
                 }
             }
 
+            // Carve the pre-determined global stairwell from this floor
+            HashSet<Vector2Int> stairwellRoom = null;
+            if (globalStairwellFootprint != null)
+            {
+                foreach (var room in floorRooms)
+                {
+                    room.ExceptWith(globalStairwellFootprint);
+                }
+                floorRooms.RemoveAll(r => r.Count == 0);
+
+                stairwellRoom = new HashSet<Vector2Int>(globalStairwellFootprint);
+                floorRooms.Add(stairwellRoom);
+            }
+
             // Generate doorways for this specific floor layout (now that we have the full layout)
             HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
 
-            // Spawn a ramp to connect floors if this is the stairwell (and not the top floor)
-            if (floor < numberOfFloors - 1) 
-                SpawnStairs(stairwellTile, roofHeight, floorParent.transform, stairDepth);
+            // Force the stairwell doors to align with the ramps
+            if (stairwellRoom != null)
+            {
+                ForceStairwellDoors(floor, globalStairTile, globalStairwellFootprint, floorDoors);
+            }
+
+            // Spawn the ramp using the globally locked tile
+            if (floor < numberOfFloors - 1)
+                SpawnStairs(globalStairTile, roofHeight, floorParent.transform, stairDepth);
 
             // Determine the main door tile in the layout
             DetermineMainDoor(floorRooms);
@@ -538,7 +563,7 @@ public class RoomGeneration : MonoBehaviour
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
             {
-                GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, stairwellTile, floorDoors);
+                GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, globalStairTile, floorDoors, stairwellRoom);
 
                 // Add the room to our list of generated rooms so we can pass it to the decorator later
                 allGeneratedRooms.Add(new RoomData { Tiles = floorRooms[i], RoomObject = builtRoom });
@@ -1157,7 +1182,8 @@ public class RoomGeneration : MonoBehaviour
     #endregion
 
     #region Core Building Callers
-    GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
+    //GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
+    GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors, HashSet<Vector2Int> stairwellRoom = null)
     {
         // Create the Parent GameObject
         GameObject roomParent = new GameObject($"Room_{id}");
@@ -1176,14 +1202,16 @@ public class RoomGeneration : MonoBehaviour
 #if UNITY_EDITOR
         Undo.RegisterCreatedObjectUndo(roomParent, "Generate Room");
 #endif
-        
+
+        // A tile is in the stairwell if this room IS the stairwell room
+        bool thisRoomIsStairwell = (stairwellRoom != null && stairwellRoom == normalizedCoords);
+
         // Build the Room Geometry
         foreach (Vector2Int coord in normalizedCoords)
         {
             // Position relative to the room parent
-            Vector3 tilePos = new Vector3(coord.x, heightOffset, coord.y); // z was 0
-            //bool isStair = (coord == stairTile);
-            bool isStairArea = IsInStairwell(coord, stairTile, stairDepth);
+            Vector3 tilePos = new Vector3(coord.x, heightOffset, coord.y);
+            bool isStairArea = thisRoomIsStairwell; // Every tile in the stairwell room is a stair tile
 
             // Spawn Floor (skip if it's the stairwell, UNLESS it's the ground floor)
             if (!isStairArea || floor == 0)
@@ -1246,9 +1274,6 @@ public class RoomGeneration : MonoBehaviour
             // (prevents the outside wall from getting a hole punched in it)
             if (!isOutsideHouse)
             {
-                if (IsInStairwell(localCoord, stairTile, stairDepth) && IsInStairwell(neighbor, stairTile, stairDepth))
-                    continue; // Don't build walls inside the stairwell corridor!
-
                 // Check if the specific interior wall tile is on the list of doors
                 string edge = GetEdgeKey(localCoord, neighbor);
                 if (floorDoors.Contains(edge))
@@ -1402,6 +1427,9 @@ public class RoomGeneration : MonoBehaviour
 
     void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
     {
+        // No stairwell was carved, skip silently
+        if (topTile.x == -999) return;
+
         // Figure out the vertical bounds of the ramp
         // The floor we are standing on has a top surface at heightOffset + 0.5 - the next floor up is wallHeight + 1 unit
         float surfaceBottom = heightOffset - 1.5f; // + 0.5f;
@@ -1411,7 +1439,7 @@ public class RoomGeneration : MonoBehaviour
         // Figure out the horizontal bounds of the ramp
         // The hole ends at topTile.y - the ramp starts 'depth' tiles back. To center it perfectly, we find the middle of the 'run'.
         float run = (float)depth;
-        float centerZ = (float)topTile.y - (run - 1f); // run - 1f- was run/2f, was + 0.5f
+        float centerZ = (float)topTile.y - (run / 2f) + 0.5f; // was (float)topTile.y - (run - 1f);
 
         // Geometry to determine the angle of the ramp
         float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
@@ -1422,11 +1450,11 @@ public class RoomGeneration : MonoBehaviour
         float thickness = 0.2f;
         float centerY = ((surfaceBottom + surfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
 
-        float centerX = topTile.x; // was topFile.x - 1f;
+        float centerX = topTile.x + 0.5f; // 0.5f offsets to the center of a 2-tile-wide well
 
         // Spawn the ramp - X must be exactly topTile.x to align with the hole
         Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
-        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(0.95f, thickness, rampLength), "Stair_Ramp");
+        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(1.95f, thickness, rampLength), "Stair_Ramp"); // was 0.95f
 
         // Rotation - apply the angle rotation to the ramp's position so it connects the floors
         ramp.transform.localRotation = Quaternion.Euler(-angle, 0, 0);
@@ -1448,41 +1476,188 @@ public class RoomGeneration : MonoBehaviour
     #endregion
 
     #region House Landmark Determination Helpers
-    Vector2Int FindStairwellTile (HashSet<Vector2Int> houseLayout)
+    // Picks a room to serve as a stairwell landing room
+    bool CarveStairwellFromRooms(List<HashSet<Vector2Int>> rooms, ref HashSet<Vector2Int> stairwellFootprint, out Vector2Int stairTile, out HashSet<Vector2Int> stairwellRoomOut)
     {
-        // Find a valid stairwell location with enough "runway" behind it
-        // Convert HashSet to List to shuffle and find a spot
-        var possibleTiles = houseLayout.OrderBy(t => Random.value).ToList();
+        stairTile = new Vector2Int(-999, -999);
+        stairwellRoomOut = null;
+        int stairwellWidth = 2;
+
+        // ── FLOOR 0: choose and commit a footprint ──────────────────────────────
+        if (stairwellFootprint == null)
+        {
+            var candidates = rooms
+                .Where(r => {
+                    int w = r.Max(t => t.x) - r.Min(t => t.x) + 1;
+                    int l = r.Max(t => t.y) - r.Min(t => t.y) + 1;
+                    return w >= stairwellWidth + minViableWidth && l >= stairDepth + minViableLength;
+                })
+                .OrderByDescending(r => r.Count)
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                Debug.LogWarning("Stairwell: no donor room large enough.");
+                return false;
+            }
+
+            foreach (var donor in candidates)
+            {
+                int dMinX = donor.Min(t => t.x), dMaxX = donor.Max(t => t.x);
+                int dMinY = donor.Min(t => t.y), dMaxY = donor.Max(t => t.y);
+                int donorW = dMaxX - dMinX + 1;
+
+                // Anchor to the high-Y edge so the ramp always descends toward low-Y
+                int startX = dMinX + Random.Range(0, donorW - stairwellWidth + 1);
+                int startY = dMaxY - stairDepth + 1;
+
+                // Build candidate footprint, verifying every tile is actually in donor
+                HashSet<Vector2Int> fp = new HashSet<Vector2Int>();
+                for (int x = startX; x < startX + stairwellWidth; x++)
+                    for (int y = startY; y <= dMaxY; y++)
+                        fp.Add(new Vector2Int(x, y));
+
+                // All tiles must exist in the donor (guards against L-shaped rooms)
+                if (!fp.IsSubsetOf(donor)) continue;
+
+                HashSet<Vector2Int> remainder = new HashSet<Vector2Int>(donor);
+                remainder.ExceptWith(fp);
+                if (!IsRoomViable(remainder)) continue;
+
+                // Commit
+                donor.ExceptWith(fp);
+                // fp is the live object we add to rooms — capture it as the footprint AND the room ref
+                rooms.Add(fp);
+                stairwellFootprint = fp;        // canonical coordinate set (coords never change)
+                stairwellRoomOut = fp;        // the actual object in floorRooms this floor
+                stairTile = new Vector2Int(startX, dMaxY);
+                return true;
+            }
+
+            Debug.LogWarning("Stairwell: could not carve a viable footprint.");
+            return false;
+        }
+
+        // ── UPPER FLOORS: carve the same coordinates from whatever rooms own them ─
+        // Find all rooms that contain any stairwell tile and strip those tiles out.
+        // Keep track of which room owned the majority so we can preserve door connectivity.
+        HashSet<Vector2Int> newRoom = new HashSet<Vector2Int>(stairwellFootprint);
+
+        // Validate all footprint tiles exist somewhere in this floor's rooms
+        HashSet<Vector2Int> allTilesOnFloor = new HashSet<Vector2Int>();
+        foreach (var r in rooms) allTilesOnFloor.UnionWith(r);
+        if (!stairwellFootprint.IsSubsetOf(allTilesOnFloor))
+        {
+            Debug.LogWarning("Stairwell footprint doesn't fit on this floor's layout — skipping upper carve.");
+            // Still return true with a sentinel so SpawnStairs is skipped but generation continues
+            stairTile = new Vector2Int(-999, -999);
+            return false;
+        }
+
+        foreach (var room in rooms)
+            room.ExceptWith(newRoom);
+
+        rooms.RemoveAll(r => r.Count == 0);
+        rooms.Add(newRoom);
+
+        stairwellRoomOut = newRoom;   // the live object in THIS floor's floorRooms
+        stairTile = newRoom.OrderByDescending(t => t.y).First();
+        return true;
+    }
+
+    // Finds a guaranteed stairwell footprint from the master layout before subdivision
+    void DetermineGlobalStairwell(HashSet<Vector2Int> layout, out HashSet<Vector2Int> footprint, out Vector2Int stairTile)
+    {
+        footprint = null;
+        stairTile = new Vector2Int(-999, -999);
+        int width = 2; // stairwellWidth
+
+        // Scan from top to bottom, left to right
+        var possibleTiles = layout.OrderByDescending(t => t.y).ThenBy(t => t.x).ToList();
 
         foreach (var tile in possibleTiles)
         {
-            bool runwayClear = true;
-            for (int i = 0; i < stairDepth; i++)
+            bool valid = true;
+            HashSet<Vector2Int> testFootprint = new HashSet<Vector2Int>();
+
+            for (int x = 0; x < width; x++)
             {
-                // Check if the tiles behind this one (where the ramp will be) exist in the house
-                if (!houseLayout.Contains(new Vector2Int(tile.x, tile.y - i)))
+                for (int y = 0; y < stairDepth; y++)
                 {
-                    runwayClear = false;
-                    break;
+                    Vector2Int checkTile = new Vector2Int(tile.x + x, tile.y - y);
+                    if (!layout.Contains(checkTile))
+                    {
+                        valid = false;
+                        break;
+                    }
+                    testFootprint.Add(checkTile);
                 }
+                if (!valid) break;
             }
 
-            if (runwayClear) return tile;
+            // If we found a 2x5 block that fits entirely inside the master layout, commit to it
+            if (valid)
+            {
+                footprint = testFootprint;
+                stairTile = tile; // Top-left tile of the stairwell
+                return;
+            }
         }
 
-        // Fallback if the house is too small/complex for a 4-tile ramp
-        return houseLayout.First();
+        Debug.LogWarning("House layout too small/irregular to fit a stairwell!");
     }
 
-    // Check if a tile is part of the stairwell layout
-    bool IsInStairwell(Vector2Int coord, Vector2Int topTile, int depth)
+    // Strips out randomized doors and forces the door to spawn exactly at the top/bottom of the ramp
+    void ForceStairwellDoors(int floor, Vector2Int topTile, HashSet<Vector2Int> stairwellFootprint, HashSet<string> floorDoors)
     {
-        // If X doesn't match, it's not the stairwell
-        if (coord.x != topTile.x) return false;
+        // Strip ALL random doors that were assigned to the stairwell by the MST algorithm
+        List<string> doorsToRemove = new List<string>();
+        foreach (var door in floorDoors)
+        {
+            string[] parts = door.Split('_');
+            string[] p1 = parts[0].Split(',');
+            string[] p2 = parts[1].Split(',');
+            Vector2Int t1 = new Vector2Int(int.Parse(p1[0]), int.Parse(p1[1]));
+            Vector2Int t2 = new Vector2Int(int.Parse(p2[0]), int.Parse(p2[1]));
 
-        // The hole starts at the topTile and goes BACKWARDS for 'depth' tiles
-        // Example: Top is 10, Depth is 4. Hole is 10, 9, 8, 7.
-        return (coord.y <= topTile.y && coord.y > topTile.y - depth);
+            bool t1In = stairwellFootprint.Contains(t1);
+            bool t2In = stairwellFootprint.Contains(t2);
+
+            if (t1In != t2In) doorsToRemove.Add(door); // One tile is inside, one is outside
+        }
+        foreach (var d in doorsToRemove) floorDoors.Remove(d);
+
+        // Add the structurally correct door
+        Vector2Int landingTile;
+        Vector2Int[] searchDirs;
+
+        if (floor == 0) // Ground floor: entrance MUST be at the bottom of the stairs
+        {
+            landingTile = new Vector2Int(topTile.x, topTile.y - stairDepth + 1);
+            searchDirs = new Vector2Int[] { Vector2Int.down, Vector2Int.left, Vector2Int.right };
+        }
+        else // Upper floors: entrance MUST be at the top of the stairs
+        {
+            landingTile = topTile;
+            searchDirs = new Vector2Int[] { Vector2Int.up, Vector2Int.left, Vector2Int.right };
+        }
+
+        // Search the adjacent tiles around the landing to punch a hole into the connected room
+        foreach (Vector2Int dir in searchDirs)
+        {
+            for (int i = 0; i < 2; i++) // Check both tiles of the 2-wide stairwell
+            {
+                Vector2Int checkTile = new Vector2Int(landingTile.x + i, landingTile.y);
+                Vector2Int neighbor = checkTile + dir;
+
+                // Ensure neighbor is inside the house and NOT part of the stairwell
+                if (allHouseOccupiedTiles.Contains(neighbor) && !stairwellFootprint.Contains(neighbor))
+                {
+                    floorDoors.Add(GetEdgeKey(checkTile, neighbor));
+                    return; // Found a valid connection, exit early
+                }
+            }
+        }
     }
 
     void DetermineMainDoor(List<HashSet<Vector2Int>> groundFloorRooms)
