@@ -110,6 +110,7 @@ public class RoomGeneration : MonoBehaviour
     // Window variables to track
     Dictionary<string, int> lastWindowIndex = new Dictionary<string, int>();
     HashSet<HashSet<Vector2Int>> roomsWithWindows = new HashSet<HashSet<Vector2Int>>();
+    private HashSet<string> floorZeroWindows = new HashSet<string>();
 
     // Room variables to track privately
     private int stairDepth = 5; // Makes for an angle of 31 degrees, architectural height for a comfortable set of stairs
@@ -418,6 +419,8 @@ public class RoomGeneration : MonoBehaviour
         placedRooms.Clear();
         // Clear the internal list of rooms used by the decorator
         allGeneratedRooms.Clear();
+        // Clear the tracked list of window positions
+        floorZeroWindows.Clear();
 
         // Ensure the RoomGeneration object is set to the original transform values (in case it was accidentally moved)
         RestoreGeneratorTransform();
@@ -574,7 +577,7 @@ public class RoomGeneration : MonoBehaviour
                 // Fetch the assigned type
                 string assignedType = roomTypes[floorRooms[i]];
 
-                GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, globalStairTile, floorDoors, stairwellRoom);
+                GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, globalStairTile, floorDoors, assignedType, stairwellRoom);
 
                 // Rename object for easy hierarchy reading
                 builtRoom.name = $"Room_{i} [{assignedType}]";
@@ -643,7 +646,7 @@ public class RoomGeneration : MonoBehaviour
 
         // Build the geometry - we pass an empty HashSet for doors, and a dummy Vector2Int(-999, -999) so it doesn't accidentally spawn stairs
         HashSet<string> noDoors = new HashSet<string>();
-        BuildRoomGeometry(999, 0, outbuildingTiles, Vector2Int.zero, 0f, outbuildingParent.transform, new Vector2Int(-999, -999), noDoors);
+        BuildRoomGeometry(999, 0, outbuildingTiles, Vector2Int.zero, 0f, outbuildingParent.transform, new Vector2Int(-999, -999), noDoors, "Warehouse");
 
         // Restore the original wall height so the next time you hit generate, it's correct
         wallHeight = originalWallHeight;
@@ -1197,7 +1200,7 @@ public class RoomGeneration : MonoBehaviour
 
     #region Core Building Callers
     //GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors)
-    GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors, HashSet<Vector2Int> stairwellRoom = null)
+    GameObject BuildRoomGeometry(int id, int floor, HashSet<Vector2Int> normalizedCoords, Vector2Int worldPos, float heightOffset, Transform parentFloor, Vector2Int stairTile, HashSet<string> floorDoors, string roomType, HashSet<Vector2Int> stairwellRoom = null)
     {
         // Create the Parent GameObject
         GameObject roomParent = new GameObject($"Room_{id}");
@@ -1220,6 +1223,9 @@ public class RoomGeneration : MonoBehaviour
         // A tile is in the stairwell if this room IS the stairwell room
         bool thisRoomIsStairwell = (stairwellRoom != null && stairwellRoom == normalizedCoords);
 
+        // Calculate the windows to plan out for this specific room
+        HashSet<string> plannedWindows = PrecalculateWindows(normalizedCoords, roomType, floor);
+
         // Build the Room Geometry
         foreach (Vector2Int coord in normalizedCoords)
         {
@@ -1236,7 +1242,7 @@ public class RoomGeneration : MonoBehaviour
                 SpawnPrimitive(PrimitiveType.Cube, ceilingGroup.transform, tilePos + Vector3.up * wallHeight, Vector3.one, "Ceiling");
 
             // Spawn Walls (Check neighbors)
-            CheckAndSpawnWalls(coord, normalizedCoords, wallGroup.transform, tilePos, floorDoors, stairTile, stairDepth, floor);
+            CheckAndSpawnWalls(coord, normalizedCoords, wallGroup.transform, tilePos, floorDoors, stairTile, stairDepth, floor, plannedWindows);
 
             // FUTURE: call a separate script to spawn items in the spaces
         }
@@ -1265,7 +1271,7 @@ public class RoomGeneration : MonoBehaviour
     }
 
     // Placing walls on the floors of generated rooms
-    void CheckAndSpawnWalls(Vector2Int localCoord, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos, HashSet<string> floorDoors, Vector2Int stairTile, int stairDepth, int floorLevel)
+    void CheckAndSpawnWalls(Vector2Int localCoord, HashSet<Vector2Int> roomTiles, Transform parent, Vector3 pos, HashSet<string> floorDoors, Vector2Int stairTile, int stairDepth, int floorLevel, HashSet<string> plannedWindows)
     {
         // Directions: Up, Down, Left, Right
         Vector2Int[] directions = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
@@ -1358,7 +1364,7 @@ public class RoomGeneration : MonoBehaviour
             }
 
             // Logic for Window Spacing
-            bool gapIsLargeEnough = true;
+            /*bool gapIsLargeEnough = true;
             if (lastWindowIndex.ContainsKey(wallKey))
             {
                 // Enforce a minimum gap of 2 tiles (Distance of 3 between indices)
@@ -1381,6 +1387,14 @@ public class RoomGeneration : MonoBehaviour
             // It can be a window if it's NOT a door and NOT up against an interior wall/exterior corner
             //bool isWindow = !isMainDoor && (Random.value <= windowChance) && safeFromCorners;
             bool isWindow = !isMainDoor && !nearMainDoor && safeFromCorners && gapIsLargeEnough && (Random.value <= effectiveWindowChance);
+            */
+
+            // Check if THIS specific wall segment is the designated Main Door
+            bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
+
+            // Check if our pre-calculator planned a window here
+            string windowKey = $"{localCoord.x},{localCoord.y}_{currentDir}";
+            bool isWindow = !isMainDoor && !nearMainDoor && plannedWindows.Contains(windowKey);
 
             if (isMainDoor)
             {
@@ -2105,6 +2119,107 @@ public class RoomGeneration : MonoBehaviour
             if (roomB.Contains(tile + Vector2Int.right)) edges.Add(GetEdgeKey(tile, tile + Vector2Int.right));
         }
         return edges;
+    }
+
+    // Helper to group exterior walls into runs so we know where we can mathematically place windows evenly
+    private HashSet<string> PrecalculateWindows(HashSet<Vector2Int> roomTiles, string roomType, int floorLevel)
+    {
+        HashSet<string> plannedWindows = new HashSet<string>();
+        bool isPriorityRoom = roomType == "Bedroom" || roomType == "Master Bedroom" || roomType == "Bathroom" || roomType == "Living Room";
+
+        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+        string[] dirNames = { "N", "S", "W", "E" };
+
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2Int dir = dirs[i];
+            string dName = dirNames[i];
+
+            // Find all tiles facing outside in this direction
+            List<Vector2Int> facingTiles = roomTiles.Where(t => !allHouseOccupiedTiles.Contains(t + dir)).ToList();
+            if (facingTiles.Count == 0) continue;
+
+            // Sort them to find continuous runs
+            if (dir.y != 0) facingTiles = facingTiles.OrderBy(t => t.x).ToList();
+            else facingTiles = facingTiles.OrderBy(t => t.y).ToList();
+
+            List<List<Vector2Int>> runs = new List<List<Vector2Int>>();
+            List<Vector2Int> currentRun = new List<Vector2Int> { facingTiles[0] };
+
+            for (int j = 1; j < facingTiles.Count; j++)
+            {
+                bool isAdjacent = (dir.y != 0) ? facingTiles[j].x == facingTiles[j - 1].x + 1 : facingTiles[j].y == facingTiles[j - 1].y + 1;
+                if (isAdjacent) currentRun.Add(facingTiles[j]);
+                else
+                {
+                    runs.Add(currentRun);
+                    currentRun = new List<Vector2Int> { facingTiles[j] };
+                }
+            }
+            runs.Add(currentRun);
+
+            // Process each continuous wall segment
+            foreach (var run in runs)
+            {
+                // Strip corners for visual safety (validate the location)
+                List<Vector2Int> safeRun = run.Where(t => IsValidWindowLocation(t, dir, roomTiles) && t != mainDoorTile).ToList();
+                if (safeRun.Count == 0) continue;
+
+                bool alignedWithFloorBelow = false;
+
+                // Check the alignment with upper floors for multi-story layouts
+                if (floorLevel > 0 && isPriorityRoom)
+                {
+                    foreach (var tile in safeRun)
+                    {
+                        string checkKey = $"{tile.x},{tile.y}_{dName}";
+                        if (floorZeroWindows.Contains(checkKey))
+                        {
+                            plannedWindows.Add(checkKey);
+                            alignedWithFloorBelow = true;
+                        }
+                    }
+                }
+
+                // Balance out the spacing of the windows, if we didn't directly align them with upper floors / on the ground floor
+                if (!alignedWithFloorBelow)
+                {
+                    // Force spawn if priority, otherwise roll random chance for other rooms
+                    if (isPriorityRoom || Random.value <= windowChance)
+                    {
+                        int length = safeRun.Count;
+                        if (length == 1)
+                        {
+                            plannedWindows.Add($"{safeRun[0].x},{safeRun[0].y}_{dName}");
+                        }
+                        else if (length <= 3)
+                        {
+                            // Place 1 window perfectly in the center
+                            Vector2Int w = safeRun[length / 2];
+                            plannedWindows.Add($"{w.x},{w.y}_{dName}");
+                        }
+                        else
+                        {
+                            // Place 2 windows balanced along the wall (1/3rd and 2/3rd marks)
+                            int index1 = length / 3;
+                            int index2 = length - 1 - (length / 3);
+
+                            plannedWindows.Add($"{safeRun[index1].x},{safeRun[index1].y}_{dName}");
+                            if (index1 != index2)
+                                plannedWindows.Add($"{safeRun[index2].x},{safeRun[index2].y}_{dName}");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Save Ground Floor windows for the next floor to read
+        if (floorLevel == 0)
+        {
+            foreach (var w in plannedWindows) floorZeroWindows.Add(w);
+        }
+
+        return plannedWindows;
     }
     #endregion
 
