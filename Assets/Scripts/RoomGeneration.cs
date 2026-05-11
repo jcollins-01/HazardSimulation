@@ -428,6 +428,12 @@ public class RoomGeneration : MonoBehaviour
 
         // Generate the overall layout of the house/house borders
         HashSet<Vector2Int> houseLayout = GenerateHouseLayout();
+
+        // Determine the load bearing walls that need to be replicated based on the layout
+        HashSet<string> loadBearingWalls = (numberOfFloors > 1)
+            ? DetectLoadBearingWalls(houseLayout)
+            : new HashSet<string>();
+
         allHouseOccupiedTiles = new HashSet<Vector2Int>(houseLayout); // Save the layout so the wall-spawning logic knows where the outside of the house is
 
         // Lock in the stairwell BEFORE subdividing floors
@@ -489,6 +495,10 @@ public class RoomGeneration : MonoBehaviour
 
                     floorRooms.AddRange(SubdivideHouse(currentChunkA, halfRooms));
                     floorRooms.AddRange(SubdivideHouse(currentChunkB, halfRooms));
+
+                    // Enforce load-bearing walls
+                    if (floor > 0 && loadBearingWalls.Count > 0)
+                        EnforceLoadBearingWalls(floorRooms, loadBearingWalls);
                 }
                 else
                 {
@@ -1199,6 +1209,58 @@ public class RoomGeneration : MonoBehaviour
         // If we checked all possible blocks and none fit, this tile is an unviable nook/void space
         return false;
     }
+
+    // Ensures rooms on upper floors respect the load-bearing wall positions from the ground floor
+    // If a room straddles a load-bearing wall boundary, it is split at that boundary
+    private void EnforceLoadBearingWalls(List<HashSet<Vector2Int>> floorRooms, HashSet<string> loadBearingWalls)
+    {
+        bool changed = true;
+        int safetyLimit = 20;
+
+        while (changed && safetyLimit-- > 0)
+        {
+            changed = false;
+            for (int i = 0; i < floorRooms.Count; i++)
+            {
+                var room = floorRooms[i];
+                if (room.Count == 0) continue;
+
+                foreach (string wall in loadBearingWalls)
+                {
+                    string[] parts = wall.Split('_');
+                    string axis = parts[0];
+                    int val = int.Parse(parts[1]);
+
+                    HashSet<Vector2Int> sideA = new HashSet<Vector2Int>();
+                    HashSet<Vector2Int> sideB = new HashSet<Vector2Int>();
+
+                    if (axis == "X")
+                    {
+                        sideA = new HashSet<Vector2Int>(room.Where(t => t.x < val));
+                        sideB = new HashSet<Vector2Int>(room.Where(t => t.x >= val));
+                    }
+                    else // Y
+                    {
+                        sideA = new HashSet<Vector2Int>(room.Where(t => t.y < val));
+                        sideB = new HashSet<Vector2Int>(room.Where(t => t.y >= val));
+                    }
+
+                    // If the room spans the load-bearing boundary, split it
+                    if (sideA.Count > 0 && sideB.Count > 0)
+                    {
+                        floorRooms[i] = sideA;
+                        floorRooms.Add(sideB);
+                        changed = true;
+                        break;
+                    }
+                }
+                if (changed) break;
+            }
+        }
+
+        // Remove any rooms emptied by the splits
+        floorRooms.RemoveAll(r => r.Count == 0);
+    }
     #endregion
 
     #region Core Building Callers
@@ -1646,6 +1708,48 @@ public class RoomGeneration : MonoBehaviour
                 }
             }
         }
+    }
+
+    // Returns a set of wall positions that are load-bearing (span the entire length or width of a house)
+    private HashSet<string> DetectLoadBearingWalls(HashSet<Vector2Int> houseLayout)
+    {
+        HashSet<string> loadBearing = new HashSet<string>();
+
+        int minX = houseLayout.Min(t => t.x), maxX = houseLayout.Max(t => t.x);
+        int minY = houseLayout.Min(t => t.y), maxY = houseLayout.Max(t => t.y);
+
+        // Check each X column: if every Y value in the house at this X exists, it spans the full depth
+        for (int x = minX + 1; x < maxX; x++) // exclude exterior walls
+        {
+            bool fullColumn = true;
+            for (int y = minY; y <= maxY; y++)
+            {
+                // If ANY tile at this X is missing from the layout, it's not a full-span wall
+                if (!houseLayout.Contains(new Vector2Int(x, y)) && houseLayout.Any(t => t.y == y))
+                {
+                    fullColumn = false;
+                    break;
+                }
+            }
+            if (fullColumn) loadBearing.Add($"X_{x}");
+        }
+
+        // Check each Y row
+        for (int y = minY + 1; y < maxY; y++)
+        {
+            bool fullRow = true;
+            for (int x = minX; x <= maxX; x++)
+            {
+                if (!houseLayout.Contains(new Vector2Int(x, y)) && houseLayout.Any(t => t.x == x))
+                {
+                    fullRow = false;
+                    break;
+                }
+            }
+            if (fullRow) loadBearing.Add($"Y_{y}");
+        }
+
+        return loadBearing;
     }
 
     void DetermineMainDoor(List<HashSet<Vector2Int>> groundFloorRooms)
