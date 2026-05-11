@@ -78,4 +78,5 @@ crashlytics-build.properties
 config.json
 
 # MacOS metadata file for folder settings
-.DS_Store
+.DS_StoreAssets/Resources/Interior Designs/
+Assets/ZNS3D/
