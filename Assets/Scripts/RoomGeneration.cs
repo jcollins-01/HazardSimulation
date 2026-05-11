@@ -1594,6 +1594,49 @@ public class RoomGeneration : MonoBehaviour
 
     void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
     {
+        if (topTile.x == -999) return;
+
+        // Vertical Bounds
+        float surfaceBottom = heightOffset - 1.5f;
+        float surfaceTop = heightOffset + wallHeight - 1f;
+        float rise = surfaceTop - surfaceBottom;
+
+        // Horizontal Bounds - ADJUSTED FOR TOP LANDING
+        int topLandingDepth = 2; // The number of flat tiles at the top
+        float run = (float)depth; // The actual slanted part of the stairs
+
+        // Position the ramp so it starts AFTER the top landing
+        // We shift the centerZ further back by the landing depth
+        float centerZ = (float)topTile.y - (run - 1f) - topLandingDepth;
+
+        // Ramp Geometry
+        float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
+        float angle = Mathf.Atan2(rise, run) * Mathf.Rad2Deg;
+
+        float thickness = 0.2f;
+        float centerY = ((surfaceBottom + surfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
+        float centerX = topTile.x + 0.5f;
+
+        // Spawn the slanted ramp
+        Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
+        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(1.95f, thickness, rampLength), "Stair_Ramp");
+        ramp.transform.localRotation = Quaternion.Euler(-angle, 0, 0);
+
+        // SPAWN THE TOP LANDING (The flat bridge)
+        // Positioned at the topTile, flush with the upper floor
+        float landingCenterZ = (float)topTile.y - (topLandingDepth * 1.5f) + 0.5f; // was (topLandingDepth/2f) + 0.5f
+        Vector3 landingPos = new Vector3(centerX, surfaceTop - (thickness / 2f), landingCenterZ);
+        GameObject landing = SpawnPrimitive(PrimitiveType.Cube, parent, landingPos, new Vector3(1.95f, thickness, topLandingDepth), "Stair_Top_Landing");
+
+        if (floorMaterial != null)
+        {
+            ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
+            landing.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
+        }
+    }
+
+    /*void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
+    {
         // No stairwell was carved, skip silently
         if (topTile.x == -999) return;
 
@@ -1628,7 +1671,7 @@ public class RoomGeneration : MonoBehaviour
 
         if (floorMaterial != null)
             ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
-    }
+    }*/
 
     // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
     GameObject SpawnPrimitive(PrimitiveType type, Transform parent, Vector3 localPos, Vector3 scale, string name)
@@ -1670,8 +1713,8 @@ public class RoomGeneration : MonoBehaviour
         footprint = null;
         stairTile = new Vector2Int(-999, -999);
         int width = 2; // stairwellWidth
-        // We increase this to 7: (1 tile bottom landing + 5 tiles ramp + 1 tile top landing)
-        int totalLength = stairDepth + 2;
+        // We increase this to 9: (2 tile bottom landing + 5 tiles ramp + 2 tile top landing)
+        int totalLength = stairDepth + 4;
 
         // Scan from top to bottom, left to right
         var possibleTiles = layout.OrderByDescending(t => t.y).ThenBy(t => t.x).ToList();
@@ -1730,15 +1773,49 @@ public class RoomGeneration : MonoBehaviour
 
         if (floor == 0) // Ground floor
         {
-            // Bottom landing tile of the stairwell (lowest Y tile)
-            Vector2Int bottomTile = new Vector2Int(topTile.x, topTile.y - (stairDepth + 1));
-            stairwellOpenBottomY = bottomTile.y;
+            // The very bottom edge of the entire stairwell room is (topTile.y - 8)
+            int totalRoomLength = stairDepth + 4; // 9 tiles total to include the landings
+            int bottomEdgeY = topTile.y - (totalRoomLength - 1);
+            //Vector2Int bottomTile = new Vector2Int(topTile.x, topTile.y - (stairDepth + 1));
+            stairwellOpenBottomY = bottomEdgeY; // was bottomTile.y
 
             if (!stairwellIsOpenBottom)
             {
                 Debug.Log("[COMMON EVENT]: Generating stairwell behind door");
+
+                // We ONLY want a door on the SOUTH edge of the two bottom-most landing tiles
+                Vector2Int[] landingTiles = {new Vector2Int(topTile.x, bottomEdgeY), new Vector2Int(topTile.x + 1, bottomEdgeY)};
+
                 // Standard: punch a door at the bottom of the stairwell into the adjacent room
-                Vector2Int[] searchDirs = { Vector2Int.down, Vector2Int.left, Vector2Int.right };
+                // We only look SOUTH (down) to ensure the door is at the front of the landing
+                Vector2Int searchDir = Vector2Int.down;
+                foreach (Vector2Int checkTile in landingTiles)
+                {
+                    Vector2Int neighbor = checkTile + searchDir;
+                    // Ensure the neighbor is part of the house but NOT part of the stairwell
+                    if (allHouseOccupiedTiles.Contains(neighbor) && !stairwellFootprint.Contains(neighbor))
+                    {
+                        floorDoors.Add(GetEdgeKey(checkTile, neighbor));
+                        return; // Door placed successfully at the landing
+                    }
+                }
+
+                // Fallback if there is no path directly south
+                Vector2Int[] sideDirs = { Vector2Int.left, Vector2Int.right };
+                foreach (Vector2Int checkTile in landingTiles)
+                {
+                    foreach (Vector2Int sDir in sideDirs)
+                    {
+                        Vector2Int neighbor = checkTile + sDir;
+                        if (allHouseOccupiedTiles.Contains(neighbor) && !stairwellFootprint.Contains(neighbor))
+                        {
+                            floorDoors.Add(GetEdgeKey(checkTile, neighbor));
+                            return;
+                        }
+                    }
+                }
+
+                /*Vector2Int[] searchDirs = { Vector2Int.down, Vector2Int.left, Vector2Int.right };
                 foreach (Vector2Int dir in searchDirs)
                 {
                     for (int i = 0; i < 2; i++)
@@ -1751,7 +1828,7 @@ public class RoomGeneration : MonoBehaviour
                             return;
                         }
                     }
-                }
+                }*/
             }
             // Open-bottom: no door added — the wall will be suppressed in BuildRoomGeometry
         }
