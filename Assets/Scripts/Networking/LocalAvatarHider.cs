@@ -3,21 +3,32 @@ using UnityEngine;
 
 /// <summary>
 /// Attach this to the VR Player prefab (alongside RealtimeAvatar).
-/// When this avatar belongs to the local player, it hides the head and hand
-/// renderers so the player doesn't see their own floating head in VR.
+/// When this avatar belongs to the local player, it hides the specified renderers
+/// so the player doesn't see their own body/head from the inside in VR.
 /// Remote players still see the full avatar normally.
+///
+/// Two modes:
+///   _autoHideBodyRenderers = true  → automatically hides ALL SkinnedMeshRenderers
+///                                    in children (use this with the Firefighter model).
+///   _autoHideBodyRenderers = false → falls back to the manually assigned
+///                                    _headRenderers / _handRenderers arrays.
 /// </summary>
 [RequireComponent(typeof(RealtimeAvatar))]
 public class LocalAvatarHider : MonoBehaviour
 {
-    [Header("Avatar Parts to Hide for Local Player")]
-    [Tooltip("Head mesh renderer — hidden for local player only")]
-    [SerializeField] private Renderer[] _headRenderers;
+    [Header("Auto-hide (recommended for full-body avatars)")]
+    [Tooltip("Automatically finds and hides ALL SkinnedMeshRenderers in children " +
+             "for the local player. Keeps plain MeshRenderers (hand models) visible.")]
+    [SerializeField] private bool _autoHideBodyRenderers = false;
 
-    [Tooltip("Hand mesh renderers — hidden for local player only")]
-    [SerializeField] private Renderer[] _handRenderers;
+    [Header("Manual override renderers")]
+    [Tooltip("Head mesh renderer(s) — hidden for local player only")]
+    [SerializeField] private Renderer[] _headRenderers = new Renderer[0];
 
-    [Tooltip("If true, also disables hand renderers for local player (recommended)")]
+    [Tooltip("Hand mesh renderer(s) — optionally hidden for local player")]
+    [SerializeField] private Renderer[] _handRenderers = new Renderer[0];
+
+    [Tooltip("If true, also hides hand renderers for local player")]
     [SerializeField] private bool _hideHandsLocally = true;
 
     private RealtimeAvatar _avatar;
@@ -29,8 +40,7 @@ public class LocalAvatarHider : MonoBehaviour
 
     private void Start()
     {
-        // RealtimeAvatar.isLocalAvatar is set during Start, so we read it here.
-        // Use a slight delay to ensure Normcore has finished initialising the avatar.
+        // isLocalAvatar is assigned during Start, so we wait one frame.
         Invoke(nameof(ApplyVisibility), 0.1f);
     }
 
@@ -38,18 +48,25 @@ public class LocalAvatarHider : MonoBehaviour
     {
         bool isLocal = _avatar != null && _avatar.isLocalAvatar;
 
-        // Hide head from local player (they should never see their own head in VR)
-        foreach (Renderer r in _headRenderers)
+        if (_autoHideBodyRenderers)
         {
-            if (r != null) r.enabled = !isLocal;
-        }
-
-        // Optionally hide hand meshes too (local player uses XR controller visuals instead)
-        if (_hideHandsLocally)
-        {
-            foreach (Renderer r in _handRenderers)
+            // Hide every SkinnedMeshRenderer under this avatar (the full Firefighter body).
+            // Regular MeshRenderers (e.g. hand models) are left untouched.
+            foreach (SkinnedMeshRenderer smr in GetComponentsInChildren<SkinnedMeshRenderer>(true))
             {
+                if (smr != null) smr.enabled = !isLocal;
+            }
+        }
+        else
+        {
+            // Legacy mode: use the manually assigned renderer arrays.
+            foreach (Renderer r in _headRenderers)
                 if (r != null) r.enabled = !isLocal;
+
+            if (_hideHandsLocally)
+            {
+                foreach (Renderer r in _handRenderers)
+                    if (r != null) r.enabled = !isLocal;
             }
         }
     }
