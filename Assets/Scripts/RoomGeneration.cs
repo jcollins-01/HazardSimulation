@@ -108,8 +108,13 @@ public class RoomGeneration : MonoBehaviour
     private HashSet<string> frontWallFloor0Windows = new HashSet<string>();
     private string frontWallDirection = "";
 
-    // Room variables to track privately
+    // Stairwell variables to track
     private int stairDepth = 5; // Makes for an angle of 31 degrees, architectural height for a comfortable set of stairs
+    private bool stairwellIsOpenBottom = false;
+    private int stairwellOpenBottomY = -999;
+    private HashSet<Vector2Int> activeStairwellFootprint = null;
+
+    // Main door variables
     private Vector2Int mainDoorTile;
     private string mainDoorDirection; // "N", "S", "E", or "W"
 
@@ -417,6 +422,12 @@ public class RoomGeneration : MonoBehaviour
         floorZeroWindows.Clear();
         frontWallFloor0Windows.Clear();
         frontWallDirection = "";
+        // Reset the stairwell logic
+        activeStairwellFootprint = null;
+        bool localOpenBottomDecision = (Random.value > 0.5f);
+        stairwellIsOpenBottom = localOpenBottomDecision;
+        //stairwellIsOpenBottom = false;
+        stairwellOpenBottomY = -999;
 
         // Ensure the RoomGeneration object is set to the original transform values (in case it was accidentally moved)
         RestoreGeneratorTransform();
@@ -443,6 +454,7 @@ public class RoomGeneration : MonoBehaviour
         if (numberOfFloors > 1)
         {
             DetermineGlobalStairwell(houseLayout, out globalStairwellFootprint, out globalStairTile);
+            activeStairwellFootprint = globalStairwellFootprint;
         }
 
         // Create a new floorplan and allow us to try generating a hallway on floor one
@@ -469,6 +481,8 @@ public class RoomGeneration : MonoBehaviour
 
         for (int floor = 0; floor < numberOfFloors; floor++)
         {
+            stairwellIsOpenBottom = localOpenBottomDecision;
+
             // Create the iterative Floor parent to hold each generated floor in
             GameObject floorParent = new GameObject($"Floor_{floor}");
             floorParent.transform.SetParent(houseParent.transform);
@@ -570,7 +584,7 @@ public class RoomGeneration : MonoBehaviour
             HashSet<string> frontWindows = PrecalculateFrontWallWindows(floorRooms, floor);
 
             // Validation step for egress door access condition
-            if (!ValidateEgressPath(floorRooms, floorDoors, mainDoorTile))
+            if (!ValidateEgressPath(floorRooms, floorDoors, mainDoorTile, floor))
             {
                 Debug.LogWarning("Generation failed to create unobstructed egress door. Restarting generation.");
                 GenerateAllRooms(); // Recursive restart
@@ -583,6 +597,8 @@ public class RoomGeneration : MonoBehaviour
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
             {
+                stairwellIsOpenBottom = localOpenBottomDecision;
+
                 // Fetch the assigned type
                 string assignedType = roomTypes[floorRooms[i]];
 
@@ -1352,6 +1368,37 @@ public class RoomGeneration : MonoBehaviour
             if (roomTiles.Contains(neighbor))
                 continue; // No wall needed, it's open floor
 
+            // We check this before doors or interior walls to ensure the opening is preserved.
+            if (floorLevel == 0 && stairwellIsOpenBottom && stairwellOpenBottomY != -999)
+            { 
+                // Check if the CURRENT tile is the stairwell entry looking South (out)
+                bool isStairwellEntryWall = (localCoord.y == stairwellOpenBottomY) &&
+                                             activeStairwellFootprint != null &&
+                                             activeStairwellFootprint.Contains(localCoord) &&
+                                             dir == Vector2Int.down;
+
+                // Check if the NEIGHBOR tile is the stairwell entry looking North (in)
+                // This stops the hallway/neighbor room from spawning a wall against the stairs
+                bool isNeighborStairwellEntry = (neighbor.y == stairwellOpenBottomY) &&
+                                                 activeStairwellFootprint != null &&
+                                                 activeStairwellFootprint.Contains(neighbor) &&
+                                                 dir == Vector2Int.up;
+
+                if (isStairwellEntryWall || isNeighborStairwellEntry)
+                {
+                    continue; // Suppress the wall/door for BOTH the stairwell and its neighbor
+                }
+            }
+            else
+            {
+                bool floor = false;
+                bool stairs = false;
+                if (floorLevel == 0)
+                    floor = true;
+                if (stairwellOpenBottomY != -999)
+                    stairs = true;
+            }
+
             // Check if this is an exterior wall
             bool isOutsideHouse = !allHouseOccupiedTiles.Contains(neighbor);
 
@@ -1389,15 +1436,19 @@ public class RoomGeneration : MonoBehaviour
 
                     continue; // Skip the standard wall spawn
                 }
+
+                // If neighbor is in the house but not in this room (and wasn't a door/stair opening)
+                SpawnWall(pos, dir, parent, isInterior: true);
+                continue;
             }
 
             // Is the neighbor still inside the house, but in a different room?
-            if (allHouseOccupiedTiles.Contains(neighbor))
+            /*if (allHouseOccupiedTiles.Contains(neighbor))
             {
                 // Spawn an interior wall to divide the rooms.
                 SpawnWall(pos, dir, parent, isInterior: true);
                 continue;
-            }
+            }*/
 
             // Generate a Unique Key for this specific "Wall Run"
             string wallKey = (currentDir == "N" || currentDir == "S")
@@ -1677,34 +1728,48 @@ public class RoomGeneration : MonoBehaviour
         }
         foreach (var d in doorsToRemove) floorDoors.Remove(d);
 
-        // Add the structurally correct door
-        Vector2Int landingTile;
-        Vector2Int[] searchDirs;
+        if (floor == 0) // Ground floor
+        {
+            // Bottom landing tile of the stairwell (lowest Y tile)
+            Vector2Int bottomTile = new Vector2Int(topTile.x, topTile.y - (stairDepth + 1));
+            stairwellOpenBottomY = bottomTile.y;
 
-        if (floor == 0) // Ground floor: entrance MUST be at the bottom of the stairs
-        {
-            landingTile = new Vector2Int(topTile.x, topTile.y - (stairDepth + 1));
-            searchDirs = new Vector2Int[] { Vector2Int.down, Vector2Int.left, Vector2Int.right };
-        }
-        else // Upper floors: entrance MUST be at the top of the stairs
-        {
-            landingTile = topTile;
-            searchDirs = new Vector2Int[] { Vector2Int.up, Vector2Int.left, Vector2Int.right };
-        }
-
-        // Search the adjacent tiles around the landing to punch a hole into the connected room
-        foreach (Vector2Int dir in searchDirs)
-        {
-            for (int i = 0; i < 2; i++) // Check both tiles of the 2-wide stairwell
+            if (!stairwellIsOpenBottom)
             {
-                Vector2Int checkTile = new Vector2Int(landingTile.x + i, landingTile.y);
-                Vector2Int neighbor = checkTile + dir;
-
-                // Ensure neighbor is inside the house and NOT part of the stairwell
-                if (allHouseOccupiedTiles.Contains(neighbor) && !stairwellFootprint.Contains(neighbor))
+                Debug.Log("[COMMON EVENT]: Generating stairwell behind door");
+                // Standard: punch a door at the bottom of the stairwell into the adjacent room
+                Vector2Int[] searchDirs = { Vector2Int.down, Vector2Int.left, Vector2Int.right };
+                foreach (Vector2Int dir in searchDirs)
                 {
-                    floorDoors.Add(GetEdgeKey(checkTile, neighbor));
-                    return; // Found a valid connection, exit early
+                    for (int i = 0; i < 2; i++)
+                    {
+                        Vector2Int checkTile = new Vector2Int(bottomTile.x + i, bottomTile.y);
+                        Vector2Int neighbor = checkTile + dir;
+                        if (allHouseOccupiedTiles.Contains(neighbor) && !stairwellFootprint.Contains(neighbor))
+                        {
+                            floorDoors.Add(GetEdgeKey(checkTile, neighbor));
+                            return;
+                        }
+                    }
+                }
+            }
+            // Open-bottom: no door added — the wall will be suppressed in BuildRoomGeometry
+        }
+        else // Upper floor
+        {
+            // Standard: punch a door at the top landing into the adjacent room
+            Vector2Int[] searchDirs = { Vector2Int.up, Vector2Int.left, Vector2Int.right };
+            foreach (Vector2Int dir in searchDirs)
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    Vector2Int checkTile = new Vector2Int(topTile.x + i, topTile.y);
+                    Vector2Int neighbor = checkTile + dir;
+                    if (allHouseOccupiedTiles.Contains(neighbor) && !stairwellFootprint.Contains(neighbor))
+                    {
+                        floorDoors.Add(GetEdgeKey(checkTile, neighbor));
+                        return;
+                    }
                 }
             }
         }
@@ -1831,7 +1896,7 @@ public class RoomGeneration : MonoBehaviour
     }
 
     // Validates if the path to the main egress door is continuous and unobstructed
-    bool ValidateEgressPath(List<HashSet<Vector2Int>> rooms, HashSet<string> doors, Vector2Int egressDoorTile)
+    bool ValidateEgressPath(List<HashSet<Vector2Int>> rooms, HashSet<string> doors, Vector2Int egressDoorTile, int floor)
     {
         HashSet<Vector2Int> walkableTiles = new HashSet<Vector2Int>();
         foreach (var room in rooms) walkableTiles.UnionWith(room);
@@ -1861,7 +1926,23 @@ public class RoomGeneration : MonoBehaviour
                     // If they are in different rooms, check if a door exists between them
                     bool hasDoor = doors.Contains(GetEdgeKey(current, neighbor));
 
-                    if (sameRoom || hasDoor)
+                    bool isOpenStairwell = false;
+                    if (floor == 0 && stairwellIsOpenBottom && stairwellOpenBottomY != -999)
+                    {
+                        // Is the current tile part of the stairwell's bottom landing?
+                        bool currentIsLanding = activeStairwellFootprint.Contains(current) && current.y == stairwellOpenBottomY;
+
+                        // Is the neighbor tile part of the stairwell's bottom landing?
+                        bool neighborIsLanding = activeStairwellFootprint.Contains(neighbor) && neighbor.y == stairwellOpenBottomY;
+
+                        // If we are moving TO or FROM the landing tiles, the "wall" is open
+                        if (currentIsLanding || neighborIsLanding)
+                        {
+                            isOpenStairwell = true;
+                        }
+                    }
+
+                    if (sameRoom || hasDoor || isOpenStairwell)
                     {
                         visited.Add(neighbor);
                         queue.Enqueue(neighbor);
