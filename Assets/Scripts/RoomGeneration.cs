@@ -30,13 +30,7 @@ public class RoomGeneration : MonoBehaviour
     public bool breakHallwayWidth = false; // hallways must be 3 feet (0.9144f) wide 
     public bool breakEgressDoorDimensions = false; // egress door must be 32 inches wide (0.81f) and 78 inches tall (1.98f)
 
-    // These vars specifically pass to RoomDecoration without being changed back...I don't know about this...
-    //[HideInInspector] public bool dormitory = false;
-    //[HideInInspector] public bool warehouse = false;
-    [HideInInspector] public bool isSmallHouse = false;
-    [HideInInspector] public bool isTwoStoryHouse = false;
-    //[HideInInspector] public bool skyscraper = false;
-    //[HideInInspector] public bool mansion = false;
+    // These vars specifically pass to RoomDecoration
     [HideInInspector] public bool shrinkKitchenPassageway = false; // set to value of breakMinimumKitchenWalkway
 
     [Header("Customized Generation Vars")]
@@ -111,6 +105,8 @@ public class RoomGeneration : MonoBehaviour
     Dictionary<string, int> lastWindowIndex = new Dictionary<string, int>();
     HashSet<HashSet<Vector2Int>> roomsWithWindows = new HashSet<HashSet<Vector2Int>>();
     private HashSet<string> floorZeroWindows = new HashSet<string>();
+    private HashSet<string> frontWallFloor0Windows = new HashSet<string>();
+    private string frontWallDirection = "";
 
     // Room variables to track privately
     private int stairDepth = 5; // Makes for an angle of 31 degrees, architectural height for a comfortable set of stairs
@@ -210,7 +206,6 @@ public class RoomGeneration : MonoBehaviour
             hallwayWidth = 2; 
 
             smallHouse = false;
-            isSmallHouse = true;
         }
 
         if (twoStoryHouse)
@@ -234,7 +229,6 @@ public class RoomGeneration : MonoBehaviour
             hallwayWidth = 2;
 
             twoStoryHouse = false;
-            isTwoStoryHouse = true;
         }
 
         if (skyscraper)
@@ -421,6 +415,8 @@ public class RoomGeneration : MonoBehaviour
         allGeneratedRooms.Clear();
         // Clear the tracked list of window positions
         floorZeroWindows.Clear();
+        frontWallFloor0Windows.Clear();
+        frontWallDirection = "";
 
         // Ensure the RoomGeneration object is set to the original transform values (in case it was accidentally moved)
         RestoreGeneratorTransform();
@@ -560,6 +556,9 @@ public class RoomGeneration : MonoBehaviour
             // Determine the main door tile in the layout
             DetermineMainDoor(floorRooms);
 
+            // Plan the locations of front wall windows for the wall determined to hold the main door
+            HashSet<string> frontWindows = PrecalculateFrontWallWindows(floorRooms, floor);
+
             // Validation step for egress door access condition
             if (!ValidateEgressPath(floorRooms, floorDoors, mainDoorTile))
             {
@@ -576,6 +575,10 @@ public class RoomGeneration : MonoBehaviour
             {
                 // Fetch the assigned type
                 string assignedType = roomTypes[floorRooms[i]];
+
+                // Merge with the pre-calculated front wall windows
+                HashSet<string> roomWindows = PrecalculateWindows(floorRooms[i], assignedType, floor);
+                roomWindows.UnionWith(frontWindows);
 
                 GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, globalStairTile, floorDoors, assignedType, stairwellRoom);
 
@@ -1362,32 +1365,6 @@ public class RoomGeneration : MonoBehaviour
                     }
                 }
             }
-
-            // Logic for Window Spacing
-            /*bool gapIsLargeEnough = true;
-            if (lastWindowIndex.ContainsKey(wallKey))
-            {
-                // Enforce a minimum gap of 2 tiles (Distance of 3 between indices)
-                if (Mathf.Abs(currentIdx - lastWindowIndex[wallKey]) < 3)
-                    gapIsLargeEnough = false;
-            }
-
-            // Logic for Egress (Ensuring at least one window)
-            bool roomNeedsWindow = !roomsWithWindows.Contains(roomTiles);
-
-            // We increase window chance if the room still hasn't found its egress window
-            float effectiveWindowChance = roomNeedsWindow ? windowChance * 2f : windowChance;
-
-            // Check if THIS specific wall segment is the designated Main Door
-            bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
-
-            // Check if this is a safe, centered spot for a window
-            bool safeFromCorners = IsValidWindowLocation(localCoord, dir, roomTiles); 
-
-            // It can be a window if it's NOT a door and NOT up against an interior wall/exterior corner
-            //bool isWindow = !isMainDoor && (Random.value <= windowChance) && safeFromCorners;
-            bool isWindow = !isMainDoor && !nearMainDoor && safeFromCorners && gapIsLargeEnough && (Random.value <= effectiveWindowChance);
-            */
 
             // Check if THIS specific wall segment is the designated Main Door
             bool isMainDoor = (floorLevel == 0 && localCoord == mainDoorTile && currentDir == mainDoorDirection);
@@ -2221,6 +2198,100 @@ public class RoomGeneration : MonoBehaviour
 
         return plannedWindows;
     }
+
+    // Specialty function to place windows symmetrically on the main door wall, balanced with upper floors
+    private HashSet<string> PrecalculateFrontWallWindows(List<HashSet<Vector2Int>> floorRooms, int floorLevel)
+    {
+        HashSet<string> planned = new HashSet<string>();
+        if (mainDoorTile == Vector2Int.zero) return planned;
+
+        string dir = mainDoorDirection; // "N", "S", "E", or "W"
+        bool isHorizontalWall = (dir == "N" || dir == "S");
+
+        // For upper floors, mirror floor 0 positions if the tile is in bounds of a room (no windows on wall segments)
+        if (floorLevel > 0 && frontWallFloor0Windows.Count > 0)
+        {
+            // Build the set of all tiles available on this floor
+            HashSet<Vector2Int> allFloorTiles = new HashSet<Vector2Int>();
+            foreach (var room in floorRooms) allFloorTiles.UnionWith(room);
+
+            foreach (string key in frontWallFloor0Windows)
+            {
+                // Key format: "x,y_DIR" — parse the tile coordinate
+                string[] parts = key.Split('_');
+                string[] coords = parts[0].Split(',');
+                Vector2Int tile = new Vector2Int(int.Parse(coords[0]), int.Parse(coords[1]));
+
+                // Only mirror if this tile exists on the current floor and faces outside
+                if (allFloorTiles.Contains(tile) && !allHouseOccupiedTiles.Contains(tile + DirectionToVector(dir)))
+                    planned.Add(key);
+            }
+            return planned;
+        }
+
+        // On floor 0, compute balanced positions by collecting all exterior-facing tiles on the front wall direction
+        List<Vector2Int> frontTiles = new List<Vector2Int>();
+        foreach (var room in floorRooms)
+        {
+            Vector2Int dirVec = DirectionToVector(dir);
+            foreach (var tile in room)
+            {
+                if (!allHouseOccupiedTiles.Contains(tile + dirVec) &&    // faces outside
+                    tile != mainDoorTile &&                                // not the door itself
+                    IsValidWindowLocation(tile, dirVec, room))             // not a corner
+                {
+                    frontTiles.Add(tile);
+                }
+            }
+        }
+
+        if (frontTiles.Count == 0) return planned;
+
+        // Sort along the wall axis
+        frontTiles = isHorizontalWall
+            ? frontTiles.OrderBy(t => t.x).ToList()
+            : frontTiles.OrderBy(t => t.y).ToList();
+
+        // Find the door's position index in the wall axis
+        int doorAxisVal = isHorizontalWall ? mainDoorTile.x : mainDoorTile.y;
+
+        // Split into left and right of door
+        List<Vector2Int> leftSide = frontTiles.Where(t => (isHorizontalWall ? t.x : t.y) < doorAxisVal).ToList();
+        List<Vector2Int> rightSide = frontTiles.Where(t => (isHorizontalWall ? t.x : t.y) > doorAxisVal).ToList();
+
+        // Place one window on each side, equidistant from the door.
+        // Pick the tile closest to 1/2 of the available run on each side.
+        if (leftSide.Count >= 2)
+        {
+            Vector2Int w = leftSide[leftSide.Count / 2];
+            planned.Add($"{w.x},{w.y}_{dir}");
+        }
+        if (rightSide.Count >= 2)
+        {
+            Vector2Int w = rightSide[rightSide.Count / 2];
+            planned.Add($"{w.x},{w.y}_{dir}");
+        }
+
+        // Save for upper floors to mirror
+        frontWallFloor0Windows = new HashSet<string>(planned);
+        frontWallDirection = dir;
+
+        return planned;
+    }
+
+    // Converts a direction string to a Vector2Int
+    private Vector2Int DirectionToVector(string dir)
+    {
+        return dir switch
+        {
+            "N" => Vector2Int.up,
+            "S" => Vector2Int.down,
+            "E" => Vector2Int.right,
+            "W" => Vector2Int.left,
+            _ => Vector2Int.zero
+        };
+    }
+
     #endregion
 
 }
