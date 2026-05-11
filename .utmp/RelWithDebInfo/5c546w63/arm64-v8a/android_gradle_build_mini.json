@@ -1,0 +1,28 @@
+{
+  "buildFiles": [
+    "/Users/sarahswee/Downloads/VEL:DAIL/HazardSimulation-main/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/CMakeLists.txt",
+    "/Users/sarahswee/Downloads/VEL:DAIL/HazardSimulation-main/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/sarahswee/UnityEditors/6000.0.66f1/PlaybackEngines/AndroidPlayer/SDK/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/sarahswee/Downloads/VEL:DAIL/HazardSimulation-main/.utmp/RelWithDebInfo/5c546w63/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/sarahswee/UnityEditors/6000.0.66f1/PlaybackEngines/AndroidPlayer/SDK/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/sarahswee/Downloads/VEL:DAIL/HazardSimulation-main/.utmp/RelWithDebInfo/5c546w63/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "game::@d02bb112ea9f9c2ed29f": {
+      "artifactName": "game",
+      "abi": "arm64-v8a",
+      "output": "/Users/sarahswee/Downloads/VEL:DAIL/HazardSimulation-main/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/5c546w63/obj/arm64-v8a/libgame.so",
+      "runtimeFiles": []
+    }
+  }
+}
