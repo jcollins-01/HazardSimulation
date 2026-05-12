@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class scooterCtrl : MonoBehaviour
 {
@@ -11,6 +12,16 @@ public class scooterCtrl : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        transform.Rotate(Vector3.up, Input.GetAxis("Horizontal") * delay);
+        var keyboard = Keyboard.current;
+        if (keyboard == null)
+            return;
+
+        float horizontalInput = 0f;
+        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
+            horizontalInput -= 1f;
+        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
+            horizontalInput += 1f;
+
+        transform.Rotate(Vector3.up, horizontalInput * delay);
     }
 }
