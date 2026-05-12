@@ -1432,6 +1432,7 @@ public class RoomGeneration : MonoBehaviour
 
                         // Fit it to the hole. Depth is 0.15f to slightly overlap the 0.1f interior wall thickness
                         FitPrefabToHole(spawnedDoor, 1f, actualDoorHeight, 0.15f, pos.y);
+                        SetLayerRecursively(spawnedDoor, LayerMask.NameToLayer("Ignore Raycast"));
                     }
 
                     continue; // Skip the standard wall spawn
@@ -1506,6 +1507,7 @@ public class RoomGeneration : MonoBehaviour
                     //Debug.Log("Should try to spawn main door");
                     // Width is 1 tile, Height is doorHeight, Depth is 0.25f (slightly thicker than the 0.2f wall to prevent texture z-fighting)
                     FitPrefabToHole(spawnedDoor, 1f, doorHeight, 0.25f, pos.y);
+                    SetLayerRecursively(spawnedDoor, LayerMask.NameToLayer("Ignore Raycast"));
                 }
 
                 continue; // Prevent standard full wall from spawning
@@ -2241,6 +2243,18 @@ public class RoomGeneration : MonoBehaviour
             groundY + yOffset,
             prefabInstance.transform.position.z
         );
+    }
+
+    void SetLayerRecursively(GameObject obj, int layer)
+    {
+        if (obj == null)
+            return;
+
+        obj.layer = layer;
+        foreach (Transform child in obj.transform)
+        {
+            SetLayerRecursively(child.gameObject, layer);
+        }
     }
 
     void ConfigureTeleportArea(GameObject targetSurface, Collider targetCollider)
