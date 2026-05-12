@@ -2240,6 +2240,50 @@ public class RoomGeneration : MonoBehaviour
         );
     }
 
+    void ConfigureFloorTeleportArea(GameObject floor, MeshCollider floorCollider)
+    {
+        if (!enableTeleportationOnFloors || floor == null || floorCollider == null)
+            return;
+
+        Transform teleportChild = floor.transform.Find("Teleport Area Invisible");
+        GameObject teleportInstance;
+
+        if (teleportChild != null)
+        {
+            teleportInstance = teleportChild.gameObject;
+        }
+        else
+        {
+            GameObject teleportPrefab = Resources.Load<GameObject>("Locomotion/Teleport Area Invisible");
+            if (teleportPrefab == null)
+            {
+                Debug.LogWarning("Prefab not found at Resources/Locomotion/Teleport Area Invisible.prefab");
+                return;
+            }
+
+            teleportInstance = Instantiate(teleportPrefab, floor.transform);
+            teleportInstance.name = "Teleport Area Invisible";
+        }
+
+        teleportInstance.transform.SetParent(floor.transform, false);
+        teleportInstance.transform.localPosition = Vector3.zero;
+        teleportInstance.transform.localRotation = Quaternion.identity;
+        teleportInstance.transform.localScale = Vector3.one;
+
+        foreach (Collider col in teleportInstance.GetComponentsInChildren<Collider>(true))
+        {
+            DestroyImmediate(col);
+        }
+
+        var teleportationArea = teleportInstance.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
+        if (teleportationArea == null)
+            return;
+
+        teleportationArea.colliders.Clear();
+        teleportationArea.colliders.Add(floorCollider);
+        teleportationArea.interactionLayers = UnityEngine.XR.Interaction.Toolkit.InteractionLayerMask.GetMask("Teleport");
+    }
+
     void CombineChildrenMeshes(GameObject parent, Material targetMaterial, bool addCollider = false,  bool addTeleportationArea = false)
     {
         MeshFilter[] meshFilters = parent.GetComponentsInChildren<MeshFilter>();
@@ -2273,50 +2317,21 @@ public class RoomGeneration : MonoBehaviour
             mr.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
 
         // Add colliders so that the house is walkable
-        MeshCollider mc = parent.AddComponent<MeshCollider>();
-        mc.sharedMesh = combinedMesh;
-
-        // LINGERING ISSUE: floor teleport area variant is not spawning in for some reason
-        // Load the new teleport prefab variant
-        if (addTeleportationArea)
+        MeshCollider mc = null;
+        if (addCollider)
         {
-            //Debug.Log("Trying to add Floors teleport area");
-            GameObject teleportPrefab = Resources.Load<GameObject>("Locomotion/Teleport Area Invisible");
-            if (teleportPrefab != null)
-            {
-                GameObject teleportInstance = Instantiate(teleportPrefab, parent.transform);
-                teleportInstance.name = "Teleport Area Invisible";
-
-                // Keep the prefab's scale and position at 0/1 so it perfectly overlays the parent
-                teleportInstance.transform.localPosition = Vector3.zero;
-                teleportInstance.transform.localRotation = Quaternion.identity;
-                teleportInstance.transform.localScale = Vector3.one;
-
-                // Destroy any default colliders on the prefab so they don't create phantom boundaries
-                Collider[] defaultColliders = teleportInstance.GetComponents<Collider>();
-                foreach (Collider col in defaultColliders)
-                    DestroyImmediate(col);
-
-                // Link the XR Teleportation Area to the custom Floor MeshCollider
-                var teleportationArea = teleportInstance.GetComponent<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationArea>();
-                if (teleportationArea != null)
-                {
-                    teleportationArea.colliders.Clear();
-                    teleportationArea.colliders.Add(mc); // Use the matching MeshCollider shape we made above
-
-                    // Ensure it's on the right interaction layer
-                    teleportationArea.interactionLayers = UnityEngine.XR.Interaction.Toolkit.InteractionLayerMask.GetMask("Teleport");
-                }
-            }
-            else
-            {
-                Debug.LogWarning("Prefab not found at Resources/Locomotion/Teleport Area Invisible.prefab");
-            }
+            mc = parent.AddComponent<MeshCollider>();
+            mc.sharedMesh = combinedMesh;
         }
 
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(parent.transform.GetChild(i).gameObject);
+
+        if (addTeleportationArea)
+        {
+            ConfigureFloorTeleportArea(parent, mc);
+        }
     }
     #endregion
 
