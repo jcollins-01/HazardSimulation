@@ -1633,6 +1633,9 @@ public class RoomGeneration : MonoBehaviour
             ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
             landing.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
         }
+
+        ConfigureTeleportArea(ramp, ramp.GetComponent<Collider>());
+        ConfigureTeleportArea(landing, landing.GetComponent<Collider>());
     }
 
     /*void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
@@ -2240,12 +2243,12 @@ public class RoomGeneration : MonoBehaviour
         );
     }
 
-    void ConfigureFloorTeleportArea(GameObject floor, MeshCollider floorCollider)
+    void ConfigureTeleportArea(GameObject targetSurface, Collider targetCollider)
     {
-        if (!enableTeleportationOnFloors || floor == null || floorCollider == null)
+        if (!enableTeleportationOnFloors || targetSurface == null || targetCollider == null)
             return;
 
-        Transform teleportChild = floor.transform.Find("Teleport Area Invisible");
+        Transform teleportChild = targetSurface.transform.Find("Teleport Area Invisible");
         GameObject teleportInstance;
 
         if (teleportChild != null)
@@ -2261,11 +2264,11 @@ public class RoomGeneration : MonoBehaviour
                 return;
             }
 
-            teleportInstance = Instantiate(teleportPrefab, floor.transform);
+            teleportInstance = Instantiate(teleportPrefab, targetSurface.transform);
             teleportInstance.name = "Teleport Area Invisible";
         }
 
-        teleportInstance.transform.SetParent(floor.transform, false);
+        teleportInstance.transform.SetParent(targetSurface.transform, false);
         teleportInstance.transform.localPosition = Vector3.zero;
         teleportInstance.transform.localRotation = Quaternion.identity;
         teleportInstance.transform.localScale = Vector3.one;
@@ -2280,7 +2283,7 @@ public class RoomGeneration : MonoBehaviour
             return;
 
         teleportationArea.colliders.Clear();
-        teleportationArea.colliders.Add(floorCollider);
+        teleportationArea.colliders.Add(targetCollider);
         teleportationArea.interactionLayers = UnityEngine.XR.Interaction.Toolkit.InteractionLayerMask.GetMask("Teleport");
     }
 
@@ -2330,7 +2333,7 @@ public class RoomGeneration : MonoBehaviour
 
         if (addTeleportationArea)
         {
-            ConfigureFloorTeleportArea(parent, mc);
+            ConfigureTeleportArea(parent, mc);
         }
     }
     #endregion
