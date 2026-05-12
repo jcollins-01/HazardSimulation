@@ -25,12 +25,20 @@ public class ApplyGridMaterial : MonoBehaviour
     [ContextMenu("Apply Grid Material Now")]
     public void ApplyToAll()
     {
-        originalMaterials.Clear();
+        if (gridMaterial == null)
+        {
+            Debug.LogWarning("No grid material assigned.");
+            return;
+        }
+
+        if (originalMaterials.Count > 0)
+            RestoreAll();
+
         Renderer[] allRenderers = FindObjectsOfType<Renderer>();
 
         foreach (Renderer r in allRenderers)
         {
-            if (furnitureOnlyMode && !HasFurnitureParent(r.gameObject))
+            if (furnitureOnlyMode && !IsFurniture(r.gameObject))
                 continue;
 
             originalMaterials[r] = r.materials;
@@ -58,7 +66,7 @@ public class ApplyGridMaterial : MonoBehaviour
         originalMaterials.Clear();
     }
 
-    private bool HasFurnitureParent(GameObject obj)
+    private bool IsFurniture(GameObject obj)
     {
         Transform current = obj.transform;
         while (current != null)
