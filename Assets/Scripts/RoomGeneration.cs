@@ -68,7 +68,7 @@ public class RoomGeneration : MonoBehaviour
     [Header("Doors and Windows")]
     [Range(0f, 1f)]
     public float windowChance = 0.3f;
-    public float doorHeight = 3.0f; // was 2.0f
+    public float doorHeight = 2.9f; // was 2.0f
     public float windowSillHeight = 0.8f;
     public float windowTopHeight = 2.0f;
 
@@ -307,7 +307,7 @@ public class RoomGeneration : MonoBehaviour
         }
         else
         {
-            doorHeight = 2f;
+            doorHeight = 2.9f;
         }
 
         if (breakMinimumCeilingHeight)
