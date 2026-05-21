@@ -70,7 +70,7 @@ public class RoomGeneration : MonoBehaviour
     public float windowChance = 0.3f;
     public float doorHeight = 2.9f; // was 2.0f
     public float windowSillHeight = 0.8f;
-    public float windowTopHeight = 2.0f;
+    public float windowTopHeight = 2.0f; 
 
     [Header("Yard")]
     public bool generateYard = true; // Generally, always generate a yard (except for when we are making non-explorable houses)
@@ -1534,6 +1534,50 @@ public class RoomGeneration : MonoBehaviour
                 lastWindowIndex[wallKey] = currentIdx;
                 roomsWithWindows.Add(roomTiles);
 
+                // Define how tall the window actually is (based on your inspector variables)
+                float actualWindowHeight = windowTopHeight - windowSillHeight;
+
+                // Find the exact vertical middle of the current wall
+                float middleOfWall = wallHeight / 2f;
+
+                // Dynamically set the sill and top so the window sits perfectly in the center
+                float dynamicSillHeight = middleOfWall - (actualWindowHeight / 2f);
+                float dynamicTopHeight = middleOfWall + (actualWindowHeight / 2f);
+
+                // Spawn the wall below the window (the sill)
+                SpawnWall(pos, dir, parent, isInterior: false, 0f, dynamicSillHeight);
+
+                // Spawn the wall above the window (the header)
+                if (wallHeight > dynamicTopHeight)
+                {
+                    SpawnWall(pos, dir, parent, isInterior: false, dynamicTopHeight, wallHeight - dynamicTopHeight);
+                }
+
+                // Spawns placeholder prefab for window
+                GameObject windowPrefab = Resources.Load<GameObject>("Interior Prefabs/Window");
+
+                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, dynamicSillHeight, dir.y * 0.5f);
+
+                if (windowPrefab != null)
+                {
+                    // Parent to parent.parent to escape the mesh combiner
+                    GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)));
+
+                    // Set the parent while telling Unity NOT to change the world position
+                    spawnedWindow.transform.SetParent(parent.parent, true);
+
+                    // Pass the dynamic sill height as the "ground" level for the window to rest on!
+                    FitPrefabToHole(spawnedWindow, 1f, actualWindowHeight, 0.25f, pos.y + dynamicSillHeight);
+                }
+
+                continue; // Prevent standard full wall from spawning
+            }
+            /*else if (isWindow)
+            {
+                // Record this window's position to block neighbors and satisfy room egress
+                lastWindowIndex[wallKey] = currentIdx;
+                roomsWithWindows.Add(roomTiles);
+
                 // Spawn the wall below the window (the sill)
                 SpawnWall(pos, dir, parent, isInterior: false, 0f, windowSillHeight);
 
@@ -1569,7 +1613,7 @@ public class RoomGeneration : MonoBehaviour
                 }
 
                 continue; // Prevent standard full wall from spawning
-            }
+            }*/
             else
             {
                 // If it's not in the room or in the house layout, this neighbor space is outside
@@ -2220,7 +2264,7 @@ public class RoomGeneration : MonoBehaviour
 
     #region Prefab + Mesh Helpers
     // A helper to look at where a prefabs pivot point is so we can better spawn it in place, not a little too low (use the bottom of the object for location)
-    float CalculateVerticalOffset(GameObject instance)
+    /*float CalculateVerticalOffset(GameObject instance)
     {
         // Get the local bottom of the mesh (distance from pivot to bottom)
         float meshBottomY = instance.GetComponent<Renderer>().bounds.min.y;
@@ -2228,6 +2272,23 @@ public class RoomGeneration : MonoBehaviour
         float pivotY = instance.transform.position.y;
 
         // Return the distance from the pivot to the bottom with some funky math to make it spawn in just the right place
+        return pivotY - meshBottomY;
+    }*/
+
+    float CalculateVerticalOffset(GameObject instance)
+    {
+        // Use GetComponentInChildren to grab the actual mesh renderer, even if the root is empty
+        Renderer renderer = instance.GetComponentInChildren<Renderer>();
+
+        // Failsafe in case there's no renderer attached to the prefab at all
+        if (renderer == null) return 0f;
+
+        // Get the local bottom of the mesh (distance from pivot to bottom)
+        float meshBottomY = renderer.bounds.min.y;
+        // Get the pivot point at which the prefab is spawned/handled from
+        float pivotY = instance.transform.position.y;
+
+        // Return the distance from the pivot to the bottom
         return pivotY - meshBottomY;
     }
 
