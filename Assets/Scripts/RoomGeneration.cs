@@ -1752,13 +1752,62 @@ public class RoomGeneration : MonoBehaviour
         */
     }
 
-    void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
+    /*void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
     {
         if (topTile.x == -999) return;
 
         // Vertical Bounds
         float surfaceBottom = heightOffset - 1.5f;
-        float surfaceTop = heightOffset + wallHeight - 1f;
+        float originalSurfaceTop = heightOffset + wallHeight - 1f;
+
+        // THE HEIGHT FIX: 
+        // Calculate the true top height based on your 0.5f landing offset.
+        // The ramp will now use this adjusted height to calculate its angle and length, 
+        // bringing it completely flush with the lowered landing.
+        float actualSurfaceTop = originalSurfaceTop - 0.5f;
+        float rise = actualSurfaceTop - surfaceBottom;
+
+        // Horizontal Bounds (Restored to YOUR exact logic)
+        int topLandingDepth = 2;
+        float run = (float)depth;
+
+        // Restored your Z math so it juts backwards to clear the wall
+        float centerZ = (float)topTile.y - (run - 1f) - topLandingDepth;
+
+        // Ramp Geometry (Now using the properly adjusted 'rise')
+        float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
+        float angle = Mathf.Atan2(rise, run) * Mathf.Rad2Deg;
+
+        float thickness = 0.2f;
+        // centerY now accurately anchors halfway between bottom and the adjusted top
+        float centerY = ((surfaceBottom + actualSurfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
+        float centerX = topTile.x + 0.55f; // Restored your 0.55f offset
+
+        // Spawn the slanted ramp
+        Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
+        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(1.95f, thickness, rampLength), "Stair_Ramp");
+        ramp.transform.localRotation = Quaternion.Euler(-angle, 0, 0);
+
+        // SPAWN THE TOP LANDING
+        // Restored your Z math perfectly. 
+        // Y math is now cleaner because actualSurfaceTop already accounts for the -0.5f offset.
+        float landingCenterZ = (float)topTile.y - (topLandingDepth * 1.5f) + 0.5f;
+        Vector3 landingPos = new Vector3(centerX, actualSurfaceTop - (thickness / 2f), landingCenterZ);
+        GameObject landing = SpawnPrimitive(PrimitiveType.Cube, parent, landingPos, new Vector3(1.95f, thickness, topLandingDepth), "Stair_Top_Landing");
+
+        if (floorMaterial != null)
+        {
+            ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
+            landing.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
+        }
+    }*/
+    void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
+    {
+        if (topTile.x == -999) return;
+
+        // Vertical Bounds
+        float surfaceBottom = heightOffset - 2f;
+        float surfaceTop = heightOffset + wallHeight - 1.55f; // was 1.5f
         float rise = surfaceTop - surfaceBottom;
 
         // Horizontal Bounds - ADJUSTED FOR TOP LANDING
@@ -1775,7 +1824,7 @@ public class RoomGeneration : MonoBehaviour
 
         float thickness = 0.2f;
         float centerY = ((surfaceBottom + surfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
-        float centerX = topTile.x + 0.5f;
+        float centerX = topTile.x + 0.6f; // was 0.5f
 
         // Spawn the slanted ramp
         Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
@@ -1785,7 +1834,7 @@ public class RoomGeneration : MonoBehaviour
         // SPAWN THE TOP LANDING (The flat bridge)
         // Positioned at the topTile, flush with the upper floor
         float landingCenterZ = (float)topTile.y - (topLandingDepth * 1.5f) + 0.5f; // was (topLandingDepth/2f) + 0.5f
-        Vector3 landingPos = new Vector3(centerX, surfaceTop - (thickness / 2f), landingCenterZ);
+        Vector3 landingPos = new Vector3(centerX, surfaceTop - (thickness / 2f), landingCenterZ); 
         GameObject landing = SpawnPrimitive(PrimitiveType.Cube, parent, landingPos, new Vector3(1.95f, thickness, topLandingDepth), "Stair_Top_Landing");
 
         if (floorMaterial != null)
@@ -1794,44 +1843,6 @@ public class RoomGeneration : MonoBehaviour
             landing.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
         }
     }
-
-    /*void SpawnStairs(Vector2Int topTile, float heightOffset, Transform parent, int depth)
-    {
-        // No stairwell was carved, skip silently
-        if (topTile.x == -999) return;
-
-        // Figure out the vertical bounds of the ramp
-        // The floor we are standing on has a top surface at heightOffset + 0.5 - the next floor up is wallHeight + 1 unit
-        float surfaceBottom = heightOffset - 1.5f; // + 0.5f;
-        float surfaceTop = heightOffset + wallHeight - 1f; // + 1 unit for the floor thickness
-        float rise = surfaceTop - surfaceBottom;
-
-        // Figure out the horizontal bounds of the ramp
-        // The hole ends at topTile.y - the ramp starts 'depth' tiles back. To center it perfectly, we find the middle of the 'run'.
-        float run = (float)depth;
-        float centerZ = (float)topTile.y - (run - 1f);   // was (float)topTile.y - (run / 2f) + 0.5f - 1.0f;
-
-        // Geometry to determine the angle of the ramp
-        float rampLength = Mathf.Sqrt((run * run) + (rise * rise));
-        float angle = Mathf.Atan2(rise, run) * Mathf.Rad2Deg;
-
-        // Alignment tweak - helps us to make the ramp flush with the upper floor
-        // Lower the center slightly so the top surface of the ramp is what aligns with the floor, not the core center
-        float thickness = 0.2f;
-        float centerY = ((surfaceBottom + surfaceTop) / 2f) - ((thickness / 2f) * Mathf.Cos(angle * Mathf.Deg2Rad));
-
-        float centerX = topTile.x + 0.5f; // 0.5f offsets to the center of a 2-tile-wide well 
-
-        // Spawn the ramp - X must be exactly topTile.x to align with the hole
-        Vector3 rampPos = new Vector3(centerX, centerY, centerZ);
-        GameObject ramp = SpawnPrimitive(PrimitiveType.Cube, parent, rampPos, new Vector3(1.95f, thickness, rampLength), "Stair_Ramp"); // was 0.95f
-
-        // Rotation - apply the angle rotation to the ramp's position so it connects the floors
-        ramp.transform.localRotation = Quaternion.Euler(-angle, 0, 0);
-
-        if (floorMaterial != null)
-            ramp.GetComponent<MeshRenderer>().sharedMaterial = floorMaterial;
-    }*/
 
     // Helpers to spawn primitives - could be used later for spawning primitive furniture etc.
     GameObject SpawnPrimitive(PrimitiveType type, Transform parent, Vector3 localPos, Vector3 scale, string name)
