@@ -769,6 +769,140 @@ public class RoomGeneration : MonoBehaviour
 
     bool GenerateHallway(HashSet<Vector2Int> footprint, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
     {
+        Debug.Log("Checking to see about generating a hallway");
+        hallway = new HashSet<Vector2Int>();
+        chunkA = new HashSet<Vector2Int>();
+        chunkB = new HashSet<Vector2Int>();
+
+        // Find the bounding box of the footprint
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+        foreach (var tile in footprint)
+        {
+            if (tile.x < minX) minX = tile.x;
+            if (tile.x > maxX) maxX = tile.x;
+            if (tile.y < minY) minY = tile.y;
+            if (tile.y > maxY) maxY = tile.y;
+        }
+
+        int width = maxX - minX + 1;
+        int length = maxY - minY + 1;
+
+        // Realistic padding based strictly on your viability rules.
+        // We need enough space for the hallway PLUS at least a viable room on both sides.
+        int requiredWidth = hallwayWidth + (minViableWidth * 2);
+        int requiredLength = hallwayWidth + (minViableLength * 2);
+
+        // Determine which axes actually have enough physical space to be carved
+        bool canCarveVertical = width >= requiredWidth;
+        bool canCarveHorizontal = length >= requiredLength;
+
+        if (!canCarveVertical && !canCarveHorizontal)
+        {
+            Debug.Log("Decided that footprint was too small for a hallway with viable rooms");
+            return false; // Footprint is universally too small for a hallway + viable rooms
+        }
+
+        // Prefer slicing along the longest axis to create a central spine
+        bool carveVertical = canCarveVertical;
+        if (canCarveVertical && canCarveHorizontal)
+        {
+            carveVertical = width > length;
+        }
+
+        // Try the preferred direction first
+        bool success = TryCarveHallwayAxis(footprint, carveVertical, minX, maxX, minY, maxY, out hallway, out chunkA, out chunkB);
+
+        // If the preferred direction failed (due to irregular shapes) and the other is available, fallback and try it
+        if (!success && canCarveVertical && canCarveHorizontal)
+        {
+            success = TryCarveHallwayAxis(footprint, !carveVertical, minX, maxX, minY, maxY, out hallway, out chunkA, out chunkB);
+        }
+
+        return success;
+    }
+
+    // A smart helper that hunts for the best place to lay the hallway
+    bool TryCarveHallwayAxis(HashSet<Vector2Int> footprint, bool vertical, int minX, int maxX, int minY, int maxY, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
+    {
+        Debug.Log("Trying to carve a hallway");
+        hallway = new HashSet<Vector2Int>();
+        chunkA = new HashSet<Vector2Int>();
+        chunkB = new HashSet<Vector2Int>();
+
+        int start = vertical ? minX : minY;
+        int end = vertical ? maxX : maxY;
+
+        // Establish the mathematical bounds where a hallway can legally start without violating viability rules
+        int minAllowedSplit = start + (vertical ? minViableWidth : minViableLength);
+        int maxAllowedSplit = end - (vertical ? minViableWidth : minViableLength) - hallwayWidth + 1;
+
+        int centerSplit = (minAllowedSplit + maxAllowedSplit) / 2;
+
+        // Create a list of slice attempts, starting from the center and fanning outward
+        // This guarantees we try the most "realistic" center cut first, but adapt to irregular house shapes if needed
+        List<int> sliceAttempts = new List<int>();
+        for (int i = minAllowedSplit; i <= maxAllowedSplit; i++)
+        {
+            sliceAttempts.Add(i);
+        }
+        sliceAttempts = sliceAttempts.OrderBy(s => Mathf.Abs(s - centerSplit)).ToList();
+
+        // Test the slices
+        foreach (int splitStart in sliceAttempts)
+        {
+            hallway.Clear();
+            chunkA.Clear();
+            chunkB.Clear();
+
+            int splitEnd = splitStart + hallwayWidth - 1;
+
+            foreach (var tile in footprint)
+            {
+                int val = vertical ? tile.x : tile.y;
+
+                if (val >= splitStart && val <= splitEnd) hallway.Add(tile);
+                else if (val < splitStart) chunkA.Add(tile);
+                else chunkB.Add(tile);
+            }
+
+            // Reject if the slice missed completely (can happen in L-shaped voids)
+            if (hallway.Count == 0 || chunkA.Count == 0 || chunkB.Count == 0) continue;
+
+            // Validate against the strict room rules
+            if (IsHallwayViable(hallway) && IsRoomViable(chunkA) && IsRoomViable(chunkB))
+            {
+                Debug.Log("Found a good hallway slice!");
+                return true; // Found a working slice!
+            }
+        }
+        Debug.Log("Nothing doing for hallways");
+        return false; // All attempts on this axis failed
+    }
+
+    bool IsHallwayViable(HashSet<Vector2Int> hallway)
+    {
+        // If void spaces are allowed, bypass the strict check
+        if (allowVoidSpaces) return true;
+
+        if (hallway.Count == 0) return false;
+
+        // A hallway doesn't need to be minViableWidth (3x3). 
+        // It only needs to be hallwayWidth thick (e.g., 2x2) everywhere to avoid 1-tile bottlenecks.
+        foreach (Vector2Int tile in hallway)
+        {
+            // We check a square of hallwayWidth x hallwayWidth 
+            if (!CheckBlockAtTile(tile, hallway, hallwayWidth, hallwayWidth))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /*bool GenerateHallway(HashSet<Vector2Int> footprint, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
+    {
         //Debug.Log("[COMMON EVENT]: Attempting to generate hallway");
 
         hallway = new HashSet<Vector2Int>();
@@ -799,11 +933,6 @@ public class RoomGeneration : MonoBehaviour
         {
             return false;
         }
-        /*if (width < hallwayWidth + 4 || length < hallwayWidth + 4)
-        {
-            //Debug.Log("Aborted hallway attempt");
-            return false; // was &&
-        }*/
 
         // Slice along the longest axis
         bool carveVertical = width > length;
@@ -847,7 +976,7 @@ public class RoomGeneration : MonoBehaviour
         }
 
         return true;
-    }
+    }*/
 
     // Finds all adjacent rooms on a floor and creates a REALISTIC path through the house using a minimum spanning tree method for procedural generation
     // (considers each room in the layout as one node, generates a map of all the routes necessary to have each node connected, WITHOUT drawing every possible line between them)
