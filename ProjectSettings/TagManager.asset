@@ -10,6 +10,7 @@ TagManager:
   - Living Room
   - Hallway
   - Structural
+  - Furniture
   layers:
   - Default
   - TransparentFX

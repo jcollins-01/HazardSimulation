@@ -193,7 +193,7 @@ public class RoomGeneration : MonoBehaviour
 
         if (smallHouse) // Essentially like a cottage - very slim chance of having a hallway to connect the rooms
         {
-            numberOfRooms = 5;
+            numberOfRooms = 6; // to include kitchen, living room, bedroom, bathroom, dining room, and hallway
             numberOfFloors = 1;
             identicalFloors = false;
             roomAmountsDifferPerFloor = false;
@@ -595,6 +595,16 @@ public class RoomGeneration : MonoBehaviour
             // Determine room types before building them out
             Dictionary<HashSet<Vector2Int>, string> roomTypes = AssignRoomTypesBySize(floorRooms, floor, stairwellRoom);
 
+            // Precalculate ALL windows for the entire floor at once
+            HashSet<string> allFloorWindows = new HashSet<string>(frontWindows);
+            for (int i = 0; i < floorRooms.Count; i++)
+            {
+                allFloorWindows.UnionWith(PrecalculateWindows(floorRooms[i], roomTypes[floorRooms[i]], floor));
+            }
+
+            // Run the validation pass to force windows into enclosed priority rooms
+            ValidateRequiredRoomWindows(floorRooms, roomTypes, allFloorWindows);
+
             // Build at the current roofHeight
             for (int i = 0; i < floorRooms.Count; i++)
             {
@@ -604,8 +614,8 @@ public class RoomGeneration : MonoBehaviour
                 string assignedType = roomTypes[floorRooms[i]];
 
                 // Merge with the pre-calculated front wall windows
-                HashSet<string> roomWindows = PrecalculateWindows(floorRooms[i], assignedType, floor);
-                roomWindows.UnionWith(frontWindows);
+                //HashSet<string> roomWindows = PrecalculateWindows(floorRooms[i], assignedType, floor);
+                //roomWindows.UnionWith(frontWindows);
 
                 GameObject builtRoom = BuildRoomGeometry(i, floor, floorRooms[i], Vector2Int.zero, roofHeight, floorParent.transform, globalStairTile, floorDoors, assignedType, stairwellRoom);
 
@@ -1686,12 +1696,20 @@ public class RoomGeneration : MonoBehaviour
                 float wStart = wCenter - (windowWidth / 2f);
                 float wEnd = wCenter + (windowWidth / 2f);
 
-                if (tileStart < wEnd && tileEnd > wStart)
+                // This stops adjacent tiles from thinking they overlap a flush window edge
+                if (tileStart < wEnd - 0.01f && tileEnd > wStart + 0.01f)
                 {
                     isOverlappingWindow = true;
                     activeWindowCenter = wCenter;
                     break;
                 }
+
+                /*if (tileStart < wEnd && tileEnd > wStart)
+                {
+                    isOverlappingWindow = true;
+                    activeWindowCenter = wCenter;
+                    break;
+                }*/
             }
 
             if (isOverlappingWindow)
@@ -1703,6 +1721,13 @@ public class RoomGeneration : MonoBehaviour
                 float overlapStart = Mathf.Max(tileStart, wStart);
                 float overlapEnd = Mathf.Min(tileEnd, wEnd);
                 float overlapWidth = overlapEnd - overlapStart;
+
+                // Reject microscopic overlaps entirely
+                if (overlapWidth < 0.05f)
+                {
+                    SpawnWall(pos, dir, parent, isInterior: false);
+                    continue;
+                }
 
                 // Calculate the offset to shift the hole/wall pieces to the correct spot on the tile
                 float overlapCenter = (overlapStart + overlapEnd) / 2f;
@@ -1723,22 +1748,42 @@ public class RoomGeneration : MonoBehaviour
                     SpawnWall(overlapPos, dir, parent, isInterior: false, dynamicTopHeight, wallHeight - dynamicTopHeight, overlapWidth);
                 }
 
-                // Spawn a solid filler wall for any leftover space on the left side of the tile
-                if (wStart > tileStart)
+                // LEFT filler uses CLIPPED overlap edge
+                float leftWidth = overlapStart - tileStart;
+
+                if (leftWidth > 0.05f)
                 {
-                    float leftWidth = wStart - tileStart;
-                    float leftCenter = (tileStart + wStart) / 2f;
+                    float leftCenter = (tileStart + overlapStart) / 2f;
                     float leftOffset = leftCenter - currentIdx;
-                    SpawnWall(pos + shiftDir * leftOffset, dir, parent, isInterior: false, 0f, wallHeight, leftWidth);
+
+                    SpawnWall(
+                        pos + shiftDir * leftOffset,
+                        dir,
+                        parent,
+                        isInterior: false,
+                        0f,
+                        wallHeight,
+                        leftWidth
+                    );
                 }
 
-                // Spawn a solid filler wall for any leftover space on the right side of the tile
-                if (wEnd < tileEnd)
+                // RIGHT filler uses CLIPPED overlap edge
+                float rightWidth = tileEnd - overlapEnd;
+
+                if (rightWidth > 0.05f)
                 {
-                    float rightWidth = tileEnd - wEnd;
-                    float rightCenter = (wEnd + tileEnd) / 2f;
+                    float rightCenter = (overlapEnd + tileEnd) / 2f;
                     float rightOffset = rightCenter - currentIdx;
-                    SpawnWall(pos + shiftDir * rightOffset, dir, parent, isInterior: false, 0f, wallHeight, rightWidth);
+
+                    SpawnWall(
+                        pos + shiftDir * rightOffset,
+                        dir,
+                        parent,
+                        isInterior: false,
+                        0f,
+                        wallHeight,
+                        rightWidth
+                    );
                 }
 
                 // If THIS tile is the exact anchor center of the window, spawn the actual prefab once
@@ -1764,89 +1809,6 @@ public class RoomGeneration : MonoBehaviour
                 // No window overlap at all, spawn a standard 1x1 exterior wall
                 SpawnWall(pos, dir, parent, isInterior: false);
             }
-
-            /*
-            // Check if our pre-calculator planned a window here
-            string windowKey = $"{localCoord.x},{localCoord.y}_{currentDir}";
-            bool isWindow = !isMainDoor && !nearMainDoor && plannedWindows.Contains(windowKey);
-
-            if (isMainDoor)
-            {
-                // Spawn a header wall above the main door
-                if (wallHeight > doorHeight)
-                {
-                    SpawnWall(pos, dir, parent, isInterior: false, doorHeight, wallHeight - doorHeight);
-                }
-
-                // Spawns placeholder prefab from looking like a broken wall chunk in the floor
-                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f); // pos + new Vector3(dir.x * 0.5f, 0f, dir.y * 0.5f);
-                GameObject doorPrefab = Resources.Load<GameObject>("Interior Prefabs/Door");
-                
-
-                if (doorPrefab != null)
-                {
-                    // Parent to parent.parent to escape the mesh combiner
-                    GameObject spawnedDoor = Instantiate(doorPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)), parent.parent);
-                    //Debug.Log("Should try to spawn main door");
-                    // Width is 1 tile, Height is doorHeight, Depth is 0.25f (slightly thicker than the 0.2f wall to prevent texture z-fighting)
-                    FitPrefabToHole(spawnedDoor, 1f, doorHeight, 0.25f, pos.y);
-                    spawnedDoor.GetComponent<BoxCollider>().enabled = false; // set the collider to false so we can teleport through
-                }
-
-                continue; // Prevent standard full wall from spawning
-            }
-            else if (isWindow)
-            {
-                lastWindowIndex[wallKey] = currentIdx;
-                roomsWithWindows.Add(roomTiles);
-
-                // We strictly clamp the window to 1.0 maximum so it doesn't bleed into the next tile
-                float safeWindowWidth = Mathf.Clamp(windowWidth, 0.1f, 1.0f);
-
-                float middleOfWall = wallHeight / 2f;
-                float dynamicSillHeight = middleOfWall - (windowHeight / 2f);
-                float dynamicTopHeight = middleOfWall + (windowHeight / 2f);
-
-                // Spawn the main sill and header (these match the window's exact width)
-                SpawnWall(pos, dir, parent, isInterior: false, 0f, dynamicSillHeight, safeWindowWidth); // was windowWidth
-                if (wallHeight > dynamicTopHeight)
-                {
-                    SpawnWall(pos, dir, parent, isInterior: false, dynamicTopHeight, wallHeight - dynamicTopHeight, safeWindowWidth); // was windowWidth
-                }
-
-                // Spawn lateral filler walls if the window is narrower than 1 tile
-                if (safeWindowWidth < 1.0f) // was windowWidth
-                {
-                    float remainingSpace = 1.0f - safeWindowWidth; // was windowWidth
-                    float halfGap = remainingSpace / 2f;
-
-                    // Calculate offsets perpendicular to the wall direction to place the side pillars
-                    Vector3 rightOffset = new Vector3(dir.y * (0.5f - halfGap / 2f), 0, -dir.x * (0.5f - halfGap / 2f));
-                    Vector3 leftOffset = new Vector3(-dir.y * (0.5f - halfGap / 2f), 0, dir.x * (0.5f - halfGap / 2f));
-
-                    // Spawn full-height pillars on the left and right of the window
-                    SpawnWall(pos + rightOffset, dir, parent, isInterior: false, 0f, wallHeight, halfGap);
-                    SpawnWall(pos + leftOffset, dir, parent, isInterior: false, 0f, wallHeight, halfGap);
-                }
-
-                // Spawn the window prefab
-                GameObject windowPrefab = Resources.Load<GameObject>("Interior Prefabs/Window");
-                Vector3 prefabPos = pos + new Vector3(dir.x * 0.5f, dynamicSillHeight, dir.y * 0.5f);
-
-                if (windowPrefab != null)
-                {
-                    GameObject spawnedWindow = Instantiate(windowPrefab, prefabPos, Quaternion.LookRotation(new Vector3(dir.x, 0, dir.y)));
-                    spawnedWindow.transform.SetParent(parent.parent, true);
-                    FitPrefabToHole(spawnedWindow, windowWidth, windowHeight, 0.25f, pos.y + dynamicSillHeight);
-                }
-                continue;
-            }
-            else
-            {
-                // If it's not in the room or in the house layout, this neighbor space is outside
-                // We spawn an exterior wall to block off the outside
-                SpawnWall(pos, dir, parent, isInterior: false);
-            }*/
         }
     }
     #endregion
@@ -2360,6 +2322,47 @@ public class RoomGeneration : MonoBehaviour
         // If both sides are in the room, it's not a corner or an edge!
         return leftInRoom && rightInRoom && leftIsExterior && rightIsExterior; // was return leftInRoom && rightInRoom;
     }
+
+
+    private List<List<Vector2Int>> BuildContinuousSegments(
+    List<Vector2Int> tiles,
+    Vector2Int dirVec)
+    {
+        List<List<Vector2Int>> segments = new();
+
+        if (tiles.Count == 0) return segments;
+
+        HashSet<Vector2Int> remaining = new(tiles);
+
+        while (remaining.Count > 0)
+        {
+            Vector2Int start = remaining.First();
+            remaining.Remove(start);
+
+            List<Vector2Int> segment = new() { start };
+
+            // expand forward
+            Vector2Int current = start;
+
+            while (true)
+            {
+                Vector2Int next = current + Vector2Int.right;
+                if (dirVec == Vector2Int.up || dirVec == Vector2Int.down)
+                    next = current + Vector2Int.up;
+
+                if (!remaining.Contains(next))
+                    break;
+
+                segment.Add(next);
+                remaining.Remove(next);
+                current = next;
+            }
+
+            segments.Add(segment);
+        }
+
+        return segments;
+    }
     #endregion
 
     #region Room Assignment Logic
@@ -2824,95 +2827,6 @@ public class RoomGeneration : MonoBehaviour
 
         return plannedWindows;
     }
-    /*private HashSet<string> PrecalculateWindows(HashSet<Vector2Int> roomTiles, string roomType, int floorLevel)
-    {
-        HashSet<string> plannedWindows = new HashSet<string>();
-        bool isPriorityRoom = roomType == "Bedroom" || roomType == "Master Bedroom" || roomType == "Bathroom" || roomType == "Living Room";
-
-        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-        string[] dirNames = { "N", "S", "W", "E" };
-
-        for (int i = 0; i < 4; i++)
-        {
-            Vector2Int dir = dirs[i];
-            string dName = dirNames[i];
-
-            // Find all tiles facing outside in this direction
-            List<Vector2Int> facingTiles = roomTiles.Where(t => !allHouseOccupiedTiles.Contains(t + dir)).ToList();
-            if (facingTiles.Count == 0) continue;
-
-            // Sort them to find continuous runs
-            if (dir.y != 0) facingTiles = facingTiles.OrderBy(t => t.x).ToList();
-            else facingTiles = facingTiles.OrderBy(t => t.y).ToList();
-
-            List<List<Vector2Int>> runs = new List<List<Vector2Int>>();
-            List<Vector2Int> currentRun = new List<Vector2Int> { facingTiles[0] };
-
-            for (int j = 1; j < facingTiles.Count; j++)
-            {
-                bool isAdjacent = (dir.y != 0) ? facingTiles[j].x == facingTiles[j - 1].x + 1 : facingTiles[j].y == facingTiles[j - 1].y + 1;
-                if (isAdjacent) currentRun.Add(facingTiles[j]);
-                else
-                {
-                    runs.Add(currentRun);
-                    currentRun = new List<Vector2Int> { facingTiles[j] };
-                }
-            }
-            runs.Add(currentRun);
-
-            // Process each continuous wall segment
-            foreach (var run in runs)
-            {
-                // Strip corners for visual safety (validate the location)
-                List<Vector2Int> safeRun = run.Where(t => IsValidWindowLocation(t, dir, roomTiles) && t != mainDoorTile).ToList();
-                if (safeRun.Count == 0) continue;
-
-                bool alignedWithFloorBelow = false;
-
-                // Check the alignment with upper floors for multi-story layouts
-                if (floorLevel > 0 && isPriorityRoom)
-                {
-                    foreach (var tile in safeRun)
-                    {
-                        string checkKey = $"{tile.x},{tile.y}_{dName}";
-                        if (floorZeroWindows.Contains(checkKey))
-                        {
-                            plannedWindows.Add(checkKey);
-                            alignedWithFloorBelow = true;
-                        }
-                    }
-                }
-
-                // Balance out the spacing of the windows, if we didn't directly align them with upper floors / on the ground floor
-                if (!alignedWithFloorBelow)
-                {
-                    // Force spawn if priority, otherwise roll random chance for other rooms
-                    if (isPriorityRoom || Random.value <= windowChance)
-                    {
-                        int length = safeRun.Count;
-
-                        // Calculate a starting offset to perfectly center the pattern on the wall
-                        int offset = (length % windowSpacing) / 2;
-
-                        // Step through the wall using our exact spacing interval
-                        for (int k = offset; k < length; k += windowSpacing)
-                        {
-                            Vector2Int w = safeRun[k];
-                            plannedWindows.Add($"{w.x},{w.y}_{dName}");
-                        }
-                    }
-                }
-            }
-        }
-
-        // Save Ground Floor windows for the next floor to read
-        if (floorLevel == 0)
-        {
-            foreach (var w in plannedWindows) floorZeroWindows.Add(w);
-        }
-
-        return plannedWindows;
-    }*/
 
     // Specialty function to place windows symmetrically on the main door wall, balanced with upper floors
     private HashSet<string> PrecalculateFrontWallWindows(List<HashSet<Vector2Int>> floorRooms, int floorLevel)
@@ -2995,6 +2909,110 @@ public class RoomGeneration : MonoBehaviour
         frontWallDirection = dir;
 
         return planned;
+    }
+
+    private Vector2Int ParseCoordinatesFromKey(string key)
+    {
+        string[] parts = key.Split('_');
+        string[] coords = parts[0].Split(',');
+        return new Vector2Int(int.Parse(coords[0]), int.Parse(coords[1]));
+    }
+
+    private bool IsExteriorWallTile(Vector2Int tile)
+    {
+        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+        foreach (var dir in dirs)
+        {
+            if (!allHouseOccupiedTiles.Contains(tile + dir)) return true;
+        }
+        return false;
+    }
+
+    private string GetExteriorWallDirection(Vector2Int tile)
+    {
+        if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.up)) return "N";
+        if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.down)) return "S";
+        if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.right)) return "E";
+        if (!allHouseOccupiedTiles.Contains(tile + Vector2Int.left)) return "W";
+        return "N"; // Fallback
+    }
+
+    private void ValidateRequiredRoomWindows(List<HashSet<Vector2Int>> floorRooms, Dictionary<HashSet<Vector2Int>, string> roomTypes, HashSet<string> plannedWindows)
+    {
+        foreach (var roomTiles in floorRooms)
+        {
+            string roomType = roomTypes[roomTiles];
+
+            // Target only the types requiring guaranteed natural light
+            if (roomType == "Living Room" || roomType == "Bathroom" || roomType == "Bedroom" || roomType == "Master Bedroom")
+            {
+                bool hasWindow = false;
+                foreach (var windowStr in plannedWindows)
+                {
+                    Vector2Int windowPos = ParseCoordinatesFromKey(windowStr);
+                    if (roomTiles.Contains(windowPos))
+                    {
+                        hasWindow = true;
+                        break;
+                    }
+                }
+
+                // If the geometric pass completely skipped this room, force-add a single fallback window
+                if (!hasWindow)
+                {
+                    List<Vector2Int> validExteriorTiles = roomTiles.Where(t => IsExteriorWallTile(t)).ToList();
+
+                    if (validExteriorTiles.Count > 0)
+                    {
+                        // Attempt to pick a safe tile that isn't a corner, falling back to a raw midpoint if necessary
+                        List<Vector2Int> safeTiles = validExteriorTiles.Where(t => IsValidWindowLocation(t, DirectionToVector(GetExteriorWallDirection(t)), roomTiles)).ToList();
+                        Vector2Int fallbackTile = safeTiles.Count > 0 ? safeTiles[safeTiles.Count / 2] : validExteriorTiles[validExteriorTiles.Count / 2];
+
+                        string outwardFacingDir = GetExteriorWallDirection(fallbackTile);
+                        plannedWindows.Add($"{fallbackTile.x},{fallbackTile.y}_{outwardFacingDir}");
+                    }
+                }
+            }
+        }
+    }
+
+    private List<Vector2Int> CalculateSymmetricalWindows(List<Vector2Int> safeTiles, int desiredSpacing)
+    {
+        List<Vector2Int> selectedTiles = new List<Vector2Int>();
+
+        // Do not strip the outer indices here; IsValidWindowLocation already did that.
+        if (safeTiles == null || safeTiles.Count == 0) return selectedTiles;
+
+        int length = safeTiles.Count;
+        int left = 0;
+        int right = length - 1;
+
+        while (left <= right)
+        {
+            // Center single tile
+            if (left == right)
+            {
+                selectedTiles.Add(safeTiles[left]);
+                break;
+            }
+
+            // CRITICAL FIX: If placing these two would put them closer together than the allowed spacing,
+            // place a single center window instead of two cramped ones. This stops mesh fighting/holes.
+            if (right - left < desiredSpacing)
+            {
+                int mid = (left + right) / 2;
+                selectedTiles.Add(safeTiles[mid]);
+                break;
+            }
+
+            selectedTiles.Add(safeTiles[left]);
+            selectedTiles.Add(safeTiles[right]);
+
+            left += desiredSpacing;
+            right -= desiredSpacing;
+        }
+
+        return selectedTiles;
     }
 
     // Converts a direction string to a Vector2Int

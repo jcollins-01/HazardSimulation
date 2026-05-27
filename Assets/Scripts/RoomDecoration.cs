@@ -82,6 +82,15 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
             case "Living Room":
                 SpawnLivingRoomFurniture(room);
                 break;
+            case "Kitchen":
+                SpawnKitchenFurniture(room);
+                break;
+            case "Dining Room":
+                SpawnDiningRoomFurniture(room);
+                break;
+            case "Hallway":
+                SpawnHallwayClutter(room);
+                break;
             case "Generic":
             default:
                 SpawnGenericFurniture(room);
@@ -180,17 +189,65 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         }
     }
 
-    // FUTURE: Incorporate special hallway clutter
-    private void SpawnHallwayClutter(RoomGeneration.RoomData room)
+    private void SpawnKitchenFurniture(RoomGeneration.RoomData room)
     {
-        GameObject shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
+        GameObject ovenPrefab = Resources.Load<GameObject>("Interior Prefabs/Stove");
+        GameObject fridgePrefab = Resources.Load<GameObject>("Interior Prefabs/Fridge+Oven");
+        GameObject counterPrefab = Resources.Load<GameObject>("Interior Prefabs/Counter");
+
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
-        // Hallways should only have items if clutter is very high, as they block pathing
-        if (Random.value <= (clutterAmount - 0.3f) && edges.Count > 0 && shelfPrefab != null)
+        // Kitchens need at least 3 walls to feel functional
+        if (edges.Count >= 3)
+        {
+            // Oven against one wall
+            SpawnFurniture(ovenPrefab, edges[0].tile, edges[0].forward, room.RoomObject.transform);
+
+            // Fridge against another
+            SpawnFurniture(fridgePrefab, edges[1].tile, edges[1].forward, room.RoomObject.transform);
+
+            // Counter against the third
+            if (Random.value <= clutterAmount)
+                SpawnFurniture(counterPrefab, edges[2].tile, edges[2].forward, room.RoomObject.transform);
+        }
+    }
+
+    private void SpawnDiningRoomFurniture(RoomGeneration.RoomData room)
+    {
+        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Dining Table");
+        GameObject chairPrefab = Resources.Load<GameObject>("Interior Prefabs/Chair");
+
+        if (tablePrefab == null) return;
+
+        // Place table in center
+        Vector2Int center = GetRoomCenter(room.Tiles);
+        SpawnFurniture(tablePrefab, center, Vector3.forward, room.RoomObject.transform);
+
+        // Place chairs around the table (North, South, East, West)
+        Vector2Int[] chairOffsets = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        foreach (var offset in chairOffsets)
+        {
+            Vector2Int chairTile = center + offset;
+            if (room.Tiles.Contains(chairTile))
+            {
+                // Face the chair toward the table center
+                Vector3 lookDir = new Vector3(-offset.x, 0, -offset.y);
+                SpawnFurniture(chairPrefab, chairTile, lookDir, room.RoomObject.transform);
+            }
+        }
+    }
+
+    private void SpawnHallwayClutter(RoomGeneration.RoomData room)
+    {
+        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Small Table");
+        List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
+
+        // Only spawn if enough room and high enough clutter setting
+        if (clutterAmount > 0.4f && edges.Count > 0 && tablePrefab != null)
         {
             var edge = edges[Random.Range(0, edges.Count)];
-            SpawnFurniture(shelfPrefab, edge.tile, edge.forward, room.RoomObject.transform);
+            SpawnFurniture(tablePrefab, edge.tile, edge.forward, room.RoomObject.transform);
         }
     }
 
@@ -266,7 +323,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
     private float CalculateVerticalOffset(GameObject instance)
     {
         // Get the local bottom of the mesh (distance from pivot to bottom)
-        float meshBottomY = instance.GetComponent<Renderer>().bounds.min.y;
+        float meshBottomY = instance.GetComponentInChildren<Renderer>().bounds.min.y;
         // Get the pivot point at which the prefab is spawned/handled from
         float pivotY = instance.transform.position.y;
 
@@ -280,7 +337,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         Transform floorTransform = room.RoomObject.transform.Find("Floors");
         if (floorTransform == null) return;
 
-        MeshRenderer renderer = floorTransform.GetComponent<MeshRenderer>();
+        MeshRenderer renderer = floorTransform.GetComponentInChildren<MeshRenderer>();
         if (renderer == null) return;
 
         switch (assignedType)
