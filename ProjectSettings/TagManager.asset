@@ -11,6 +11,8 @@ TagManager:
   - Hallway
   - Structural
   - Furniture
+  - Possible Hazard
+  - Active Hazard
   layers:
   - Default
   - TransparentFX

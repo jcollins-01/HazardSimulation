@@ -221,19 +221,19 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
         // Place table in center
         Vector2Int center = GetRoomCenter(room.Tiles);
-        SpawnFurniture(tablePrefab, center, Vector3.forward, room.RoomObject.transform);
-
-        // Place chairs around the table (North, South, East, West)
-        Vector2Int[] chairOffsets = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-
-        foreach (var offset in chairOffsets)
+        // Only spawn chairs if the table spawned successfully
+        if (SpawnFurniture(tablePrefab, center, Vector3.forward, room.RoomObject.transform))
         {
-            Vector2Int chairTile = center + offset;
-            if (room.Tiles.Contains(chairTile))
+            Vector2Int[] chairOffsets = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+            foreach (var offset in chairOffsets)
             {
-                // Face the chair toward the table center
-                Vector3 lookDir = new Vector3(-offset.x, 0, -offset.y);
-                SpawnFurniture(chairPrefab, chairTile, lookDir, room.RoomObject.transform);
+                Vector2Int chairTile = center + offset;
+                if (room.Tiles.Contains(chairTile))
+                {
+                    Vector3 lookDir = new Vector3(-offset.x, 0, -offset.y);
+                    SpawnFurniture(chairPrefab, chairTile, lookDir, room.RoomObject.transform);
+                }
             }
         }
     }
@@ -276,7 +276,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         }
     }
 
-    private void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
+    /*private void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
     {
         // Spawns slightly above the ground, then drops down to calculate exact bottom
         Vector3 pos = new Vector3(tile.x, 2f, tile.y);
@@ -284,6 +284,29 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
         float yOffset = CalculateVerticalOffset(instance);
         instance.transform.position = new Vector3(pos.x, yOffset, pos.z);
+    }*/
+
+    private bool SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
+    {
+        Vector3 pos = new Vector3(tile.x, 0.5f, tile.y); // Slightly elevated
+
+        // Define a small box area to check for collisions (adjust size based on your tile scale)
+        Vector3 halfExtents = new Vector3(0.4f, 0.4f, 0.4f);
+
+        // Check if anything is already in this space
+        if (Physics.CheckBox(pos, halfExtents, Quaternion.identity))
+        {
+            return false; // Space occupied, abort
+        }
+
+        // Instantiate if clear
+        GameObject instance = Instantiate(prefab, pos, Quaternion.LookRotation(forward), parent);
+
+        // Apply your vertical offset logic
+        float yOffset = CalculateVerticalOffset(instance);
+        instance.transform.position = new Vector3(pos.x, yOffset, pos.z);
+
+        return true; // Success
     }
 
     private Vector2Int GetRoomCenter(HashSet<Vector2Int> roomTiles)
