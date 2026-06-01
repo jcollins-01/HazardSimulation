@@ -53,6 +53,7 @@ public class RoomGeneration : MonoBehaviour
     public bool roomAmountsDifferPerFloor = false;
     public bool heightenedNooks = false;
     public bool generateHallways = true;
+    public bool spineHallways = false; // true is the dorm-style long strip hallways
     [Range(0f, 1f)]
     public float hallwayChance = 0.6f;
     public int hallwayWidth = 2;
@@ -566,7 +567,29 @@ public class RoomGeneration : MonoBehaviour
             }
 
             // Generate doorways for this specific floor layout (now that we have the full layout)
-            HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
+            //HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
+
+            // Force the stairwell doors to align with the ramps
+            /*if (stairwellRoom != null)
+            {
+                ForceStairwellDoors(floor, globalStairTile, globalStairwellFootprint, floorDoors);
+            }
+
+            // Spawn the ramp using the globally locked tile
+            if (floor < numberOfFloors - 1)
+                SpawnStairs(globalStairTile, roofHeight, floorParent.transform, stairDepth);*/
+
+            // Determine the main door tile in the layout
+            DetermineMainDoor(floorRooms);
+
+            // Plan the locations of front wall windows for the wall determined to hold the main door
+            HashSet<string> frontWindows = PrecalculateFrontWallWindows(floorRooms, floor);
+
+            // Determine room types before building them out
+            Dictionary<HashSet<Vector2Int>, string> roomTypes = AssignRoomTypesBySize(floorRooms, floor, stairwellRoom);
+
+            // Generate doorways for this specific floor layout (now that we have the full layout)
+            HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms, roomTypes);
 
             // Force the stairwell doors to align with the ramps
             if (stairwellRoom != null)
@@ -578,11 +601,8 @@ public class RoomGeneration : MonoBehaviour
             if (floor < numberOfFloors - 1)
                 SpawnStairs(globalStairTile, roofHeight, floorParent.transform, stairDepth);
 
-            // Determine the main door tile in the layout
-            DetermineMainDoor(floorRooms);
-
-            // Plan the locations of front wall windows for the wall determined to hold the main door
-            HashSet<string> frontWindows = PrecalculateFrontWallWindows(floorRooms, floor);
+            // Force the hallway to punch doors into adjacent private rooms
+            //ForceHallwayDoors(floorRooms, roomTypes, floorDoors);
 
             // Validation step for egress door access condition
             if (!ValidateEgressPath(floorRooms, floorDoors, mainDoorTile, floor))
@@ -593,7 +613,7 @@ public class RoomGeneration : MonoBehaviour
             }
 
             // Determine room types before building them out
-            Dictionary<HashSet<Vector2Int>, string> roomTypes = AssignRoomTypesBySize(floorRooms, floor, stairwellRoom);
+            //Dictionary<HashSet<Vector2Int>, string> roomTypes = AssignRoomTypesBySize(floorRooms, floor, stairwellRoom);
 
             // Precalculate ALL windows for the entire floor at once
             HashSet<string> allFloorWindows = new HashSet<string>(frontWindows);
@@ -867,13 +887,44 @@ public class RoomGeneration : MonoBehaviour
 
             int splitEnd = splitStart + hallwayWidth - 1;
 
-            foreach (var tile in footprint)
+            /*foreach (var tile in footprint)
             {
                 int val = vertical ? tile.x : tile.y;
 
                 if (val >= splitStart && val <= splitEnd) hallway.Add(tile);
                 else if (val < splitStart) chunkA.Add(tile);
                 else chunkB.Add(tile);
+            }*/
+            foreach (var tile in footprint)
+            {
+                int val = vertical ? tile.x : tile.y;
+
+                if (val >= splitStart && val <= splitEnd)
+                {
+                    if (!spineHallways)
+                    {
+                        // For domestic corridors, truncate the ends so rooms wrap around the hallway
+                        int otherVal = vertical ? tile.y : tile.x;
+                        int otherMin = vertical ? minY : minX;
+                        int otherMax = vertical ? maxY : maxX;
+                        int length = otherMax - otherMin;
+
+                        // Trim roughly 25% off each end to create end-rooms
+                        int padding = length / 4;
+
+                        if (otherVal < otherMin + padding) chunkA.Add(tile);
+                        else if (otherVal > otherMax - padding) chunkB.Add(tile);
+                        else hallway.Add(tile);
+                    }
+                    else
+                    {
+                        hallway.Add(tile); // Classic full-length spine
+                    }
+                }
+                else if 
+                    (val < splitStart) chunkA.Add(tile);
+                else 
+                    chunkB.Add(tile);
             }
 
             // Reject if the slice missed completely (can happen in L-shaped voids)
@@ -911,86 +962,41 @@ public class RoomGeneration : MonoBehaviour
         return true;
     }
 
-    /*bool GenerateHallway(HashSet<Vector2Int> footprint, out HashSet<Vector2Int> hallway, out HashSet<Vector2Int> chunkA, out HashSet<Vector2Int> chunkB)
+    /*private void ForceHallwayDoors(List<HashSet<Vector2Int>> floorRooms, Dictionary<HashSet<Vector2Int>, string> roomTypes, HashSet<string> floorDoors)
     {
-        //Debug.Log("[COMMON EVENT]: Attempting to generate hallway");
+        // Find all hallways on this floor
+        List<HashSet<Vector2Int>> hallways = floorRooms.Where(r => roomTypes.ContainsKey(r) && roomTypes[r] == "Hallway").ToList();
 
-        hallway = new HashSet<Vector2Int>();
-        // The chunks are the two separate sides of the house that the hallway connects
-        chunkA = new HashSet<Vector2Int>();
-        chunkB = new HashSet<Vector2Int>();
+        if (hallways.Count == 0) return;
 
-        // Find the bounding box of the footprint
-        int minX = int.MaxValue, maxX = int.MinValue;
-        int minY = int.MaxValue, maxY = int.MinValue;
-        foreach (var tile in footprint)
+        foreach (var hallway in hallways)
         {
-            if (tile.x < minX) minX = tile.x;
-            if (tile.x > maxX) maxX = tile.x;
-            if (tile.y < minY) minY = tile.y;
-            if (tile.y > maxY) maxY = tile.y;
-        }
-
-        int width = maxX - minX + 1;
-        int length = maxY - minY + 1;
-
-        // Allow tighter hallway carving for smaller houses (only requires 1 room tile on each side)
-        int requiredPadding = smallHouse ? 2 : 4;
-
-        // If the house is too small, abort the hallway carve - needs to be at least four additional tiles on either side + the minimum width of our hallway
-        // I.e., there need to be at least 4 tiles worth of rooms next to the hallway, and 4 tiles worth of space for the hallway to stretch down + our width
-        if (width < hallwayWidth + requiredPadding || length < hallwayWidth + requiredPadding)
-        {
-            return false;
-        }
-
-        // Slice along the longest axis
-        bool carveVertical = width > length;
-
-        if (carveVertical)
-        {
-            int splitXStart = minX + (width / 2) - (hallwayWidth / 2); // Find the middle X in our hallway zone (space needed for a hallway of our width)
-            int splitXEnd = splitXStart + hallwayWidth - 1;
-
-            foreach (var tile in footprint)
+            foreach (var room in floorRooms)
             {
-                if (tile.x >= splitXStart && tile.x <= splitXEnd) hallway.Add(tile); // Middle line is the hallway
-                else if (tile.x < splitXStart) chunkA.Add(tile); // Left side
-                else chunkB.Add(tile); // Right side (you are king)
+                if (room == hallway) continue;
+
+                // Get all contiguous shared edges between the hallway and this specific room
+                List<string> sharedEdges = GetSharedEdges(hallway, room);
+
+                if (sharedEdges.Count > 0)
+                {
+                    // Check if the MST already put a door here
+                    bool alreadyConnected = sharedEdges.Any(edge => floorDoors.Contains(edge));
+
+                    // If no door exists, punch one right in the middle of the shared wall segment
+                    if (!alreadyConnected)
+                    {
+                        string chosenDoorEdge = sharedEdges[sharedEdges.Count / 2];
+                        floorDoors.Add(chosenDoorEdge);
+                    }
+                }
             }
         }
-        else
-        {
-            int splitYStart = minY + (length / 2) - (hallwayWidth / 2); // Find the middle Y
-            int splitYEnd = splitYStart + hallwayWidth - 1; 
-
-            foreach (var tile in footprint)
-            {
-                if (tile.y >= splitYStart && tile.y <= splitYEnd) hallway.Add(tile); // Middle line is the hallway
-                else if (tile.y < splitYStart) chunkA.Add(tile); // Bottom side
-                else chunkB.Add(tile); // Top side
-            }
-        }
-
-        // Validate that the hallway didn't leave behind unviable slivers
-        if (!IsRoomViable(hallway) || !IsRoomViable(chunkA) || !IsRoomViable(chunkB))
-        {
-            //Debug.Log("Hallway cut rejected: Resulting chunks were too narrow or irregular.");
-
-            // Clear the sets to ensure no partial data is left behind
-            hallway.Clear();
-            chunkA.Clear();
-            chunkB.Clear();
-
-            return false;
-        }
-
-        return true;
     }*/
 
     // Finds all adjacent rooms on a floor and creates a REALISTIC path through the house using a minimum spanning tree method for procedural generation
     // (considers each room in the layout as one node, generates a map of all the routes necessary to have each node connected, WITHOUT drawing every possible line between them)
-    HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms)
+    /*HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms)
     {
         HashSet<string> doors = new HashSet<string>();
         Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
@@ -1045,6 +1051,77 @@ public class RoomGeneration : MonoBehaviour
             else if (Random.value < 0.05f)
             {
                 Debug.Log("[RARE EVENT]: Added a natural loop!");
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+            }
+        }
+
+        return doors;
+    }*/
+    HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms, Dictionary<HashSet<Vector2Int>, string> roomTypes)
+    {
+        HashSet<string> doors = new HashSet<string>();
+        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+
+        Dictionary<string, List<string>> roomConnections = new Dictionary<string, List<string>>();
+
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            for (int j = i + 1; j < rooms.Count; j++)
+            {
+                List<string> shared = GetSharedEdges(rooms[i], rooms[j]);
+
+                if (shared.Count > 0)
+                {
+                    roomConnections.Add($"{i}_{j}", shared);
+                }
+            }
+        }
+
+        int[] parents = Enumerable.Range(0, rooms.Count).ToArray();
+        int Find(int i) => parents[i] == i ? i : parents[i] = Find(parents[i]);
+
+        // THE FIX: Weighted sorting instead of purely random sorting.
+        // This evaluates Hallway walls first, establishing them as the main thoroughfare.
+        var connectionKeys = roomConnections.Keys.OrderBy(key =>
+        {
+            string[] parts = key.Split('_');
+            int r1 = int.Parse(parts[0]);
+            int r2 = int.Parse(parts[1]);
+
+            // Check if either room in this pair is a hallway
+            bool isHallwayConnection = false;
+
+            // Safety check to ensure the rooms exist in the dictionary
+            if (roomTypes.ContainsKey(rooms[r1]) && roomTypes.ContainsKey(rooms[r2]))
+            {
+                isHallwayConnection = roomTypes[rooms[r1]] == "Hallway" || roomTypes[rooms[r2]] == "Hallway";
+            }
+
+            // Hallway connections get priority 0, others get priority 1. 
+            // We add Random.value so non-hallway doors are still randomized organically.
+            return (isHallwayConnection ? 0 : 1) + Random.value * 0.5f;
+
+        }).ToList();
+
+        foreach (var key in connectionKeys)
+        {
+            string[] parts = key.Split('_');
+            int r1 = int.Parse(parts[0]);
+            int r2 = int.Parse(parts[1]);
+
+            List<string> possibleEdges = roomConnections[key];
+
+            if (Find(r1) != Find(r2))
+            {
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+                parents[Find(r1)] = Find(r2);
+            }
+            else if (Random.value < 0.6f && heightenedNooks)
+            {
+                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
+            }
+            else if (Random.value < 0.05f)
+            {
                 doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
             }
         }
@@ -2366,7 +2443,7 @@ public class RoomGeneration : MonoBehaviour
     #endregion
 
     #region Room Assignment Logic
-    private Dictionary<HashSet<Vector2Int>, string> AssignRoomTypesBySize(List<HashSet<Vector2Int>> floorRooms, int floorLevel, HashSet<Vector2Int> stairwellRoom)
+    /*private Dictionary<HashSet<Vector2Int>, string> AssignRoomTypesBySize(List<HashSet<Vector2Int>> floorRooms, int floorLevel, HashSet<Vector2Int> stairwellRoom)
     {
         Dictionary<HashSet<Vector2Int>, string> assignments = new Dictionary<HashSet<Vector2Int>, string>();
         List<HashSet<Vector2Int>> unassigned = new List<HashSet<Vector2Int>>(floorRooms);
@@ -2516,6 +2593,121 @@ public class RoomGeneration : MonoBehaviour
                 assignments[eligibleCandidates[0].Key] = "Master Bedroom";
                 bedroomCount++;
             }
+        }
+
+        return assignments;
+    }*/
+    private Dictionary<HashSet<Vector2Int>, string> AssignRoomTypesBySize(List<HashSet<Vector2Int>> floorRooms, int floorLevel, HashSet<Vector2Int> stairwellRoom)
+    {
+        Dictionary<HashSet<Vector2Int>, string> assignments = new Dictionary<HashSet<Vector2Int>, string>();
+        List<HashSet<Vector2Int>> unassigned = new List<HashSet<Vector2Int>>(floorRooms);
+
+        // 1. Structural Passes
+        if (stairwellRoom != null && unassigned.Contains(stairwellRoom))
+        {
+            assignments[stairwellRoom] = "Stairwell";
+            unassigned.Remove(stairwellRoom);
+        }
+
+        foreach (var room in unassigned.ToList())
+        {
+            if (IsRoomHallway(room))
+            {
+                assignments[room] = "Hallway";
+                unassigned.Remove(room);
+            }
+        }
+
+        // 2. Guaranteed Entry Space
+        if (floorLevel == 0 && mainDoorTile != Vector2Int.zero)
+        {
+            HashSet<Vector2Int> entryRoom = unassigned.FirstOrDefault(r => r.Contains(mainDoorTile));
+            if (entryRoom != null)
+            {
+                assignments[entryRoom] = "Living Room";
+                unassigned.Remove(entryRoom);
+            }
+        }
+
+        // Tracker state
+        bool assignedDiningRoom = false;
+        int bedroomCount = 0;
+        int bathroomCount = 0;
+
+        // Approximate maximum possible distance in the layout to normalize depth
+        float maxHouseDist = Mathf.Max(maxHouseWidth, maxHouseLength);
+
+        // 3. Process remaining rooms using Depth Metrics
+        foreach (var room in unassigned.ToList())
+        {
+            int size = room.Count;
+
+            // Calculate the center point of the current room
+            float avgX = (float)room.Average(t => t.x);
+            float avgY = (float)room.Average(t => t.y);
+            Vector2 roomCenter = new Vector2(avgX, avgY);
+
+            // Calculate depth from the main door (0.0 is front, 1.0 is deep back)
+            float distToDoor = Vector2.Distance(roomCenter, new Vector2(mainDoorTile.x, mainDoorTile.y));
+            float depth = Mathf.Clamp01(distToDoor / maxHouseDist);
+
+            if (size >= 12)
+            {
+                if (floorLevel == 0 && depth < 0.5f && !assignedDiningRoom)
+                {
+                    assignments[room] = "Dining Room";
+                    assignedDiningRoom = true;
+                }
+                else
+                {
+                    assignments[room] = (floorLevel == 0) ? "Bedroom" : "Master Bedroom";
+                    bedroomCount++;
+                }
+            }
+            else if (size >= 7)
+            {
+                // If it's near the front, it might be a kitchen; if deep, bedroom.
+                if (floorLevel == 0 && depth < 0.4f && !assignments.ContainsValue("Kitchen"))
+                {
+                    assignments[room] = "Kitchen";
+                }
+                else
+                {
+                    assignments[room] = "Bedroom";
+                    bedroomCount++;
+                }
+            }
+            else
+            {
+                if (bathroomCount == 0)
+                {
+                    assignments[room] = "Bathroom";
+                    bathroomCount++;
+                }
+                else
+                {
+                    // Deeper small rooms become bathrooms, shallower become closets
+                    assignments[room] = (depth > 0.5f || Random.value > 0.4f) ? "Bathroom" : "Closet";
+                    if (assignments[room] == "Bathroom") bathroomCount++;
+                }
+            }
+        }
+
+        // 4. Code Compliance Checks
+        if (floorLevel == 0 && bathroomCount == 0)
+        {
+            var target = assignments.FirstOrDefault(kvp => kvp.Value == "Bedroom" || kvp.Value == "Closet").Key;
+            if (target != null)
+            {
+                if (assignments[target] == "Bedroom") bedroomCount--;
+                assignments[target] = "Bathroom";
+            }
+        }
+
+        if (floorLevel > 0 && bedroomCount == 0)
+        {
+            var target = assignments.OrderByDescending(kvp => kvp.Key.Count).FirstOrDefault(kvp => kvp.Value != "Stairwell" && kvp.Value != "Hallway").Key;
+            if (target != null) assignments[target] = "Master Bedroom";
         }
 
         return assignments;
