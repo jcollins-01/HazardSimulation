@@ -566,19 +566,6 @@ public class RoomGeneration : MonoBehaviour
                 floorRooms.Add(stairwellRoom);
             }
 
-            // Generate doorways for this specific floor layout (now that we have the full layout)
-            //HashSet<string> floorDoors = GenerateDoorsForFloor(floorRooms);
-
-            // Force the stairwell doors to align with the ramps
-            /*if (stairwellRoom != null)
-            {
-                ForceStairwellDoors(floor, globalStairTile, globalStairwellFootprint, floorDoors);
-            }
-
-            // Spawn the ramp using the globally locked tile
-            if (floor < numberOfFloors - 1)
-                SpawnStairs(globalStairTile, roofHeight, floorParent.transform, stairDepth);*/
-
             // Determine the main door tile in the layout
             DetermineMainDoor(floorRooms);
 
@@ -601,9 +588,6 @@ public class RoomGeneration : MonoBehaviour
             if (floor < numberOfFloors - 1)
                 SpawnStairs(globalStairTile, roofHeight, floorParent.transform, stairDepth);
 
-            // Force the hallway to punch doors into adjacent private rooms
-            //ForceHallwayDoors(floorRooms, roomTypes, floorDoors);
-
             // Validation step for egress door access condition
             if (!ValidateEgressPath(floorRooms, floorDoors, mainDoorTile, floor))
             {
@@ -611,9 +595,6 @@ public class RoomGeneration : MonoBehaviour
                 GenerateAllRooms(); // Recursive restart
                 return;
             }
-
-            // Determine room types before building them out
-            //Dictionary<HashSet<Vector2Int>, string> roomTypes = AssignRoomTypesBySize(floorRooms, floor, stairwellRoom);
 
             // Precalculate ALL windows for the entire floor at once
             HashSet<string> allFloorWindows = new HashSet<string>(frontWindows);
@@ -962,101 +943,6 @@ public class RoomGeneration : MonoBehaviour
         return true;
     }
 
-    /*private void ForceHallwayDoors(List<HashSet<Vector2Int>> floorRooms, Dictionary<HashSet<Vector2Int>, string> roomTypes, HashSet<string> floorDoors)
-    {
-        // Find all hallways on this floor
-        List<HashSet<Vector2Int>> hallways = floorRooms.Where(r => roomTypes.ContainsKey(r) && roomTypes[r] == "Hallway").ToList();
-
-        if (hallways.Count == 0) return;
-
-        foreach (var hallway in hallways)
-        {
-            foreach (var room in floorRooms)
-            {
-                if (room == hallway) continue;
-
-                // Get all contiguous shared edges between the hallway and this specific room
-                List<string> sharedEdges = GetSharedEdges(hallway, room);
-
-                if (sharedEdges.Count > 0)
-                {
-                    // Check if the MST already put a door here
-                    bool alreadyConnected = sharedEdges.Any(edge => floorDoors.Contains(edge));
-
-                    // If no door exists, punch one right in the middle of the shared wall segment
-                    if (!alreadyConnected)
-                    {
-                        string chosenDoorEdge = sharedEdges[sharedEdges.Count / 2];
-                        floorDoors.Add(chosenDoorEdge);
-                    }
-                }
-            }
-        }
-    }*/
-
-    // Finds all adjacent rooms on a floor and creates a REALISTIC path through the house using a minimum spanning tree method for procedural generation
-    // (considers each room in the layout as one node, generates a map of all the routes necessary to have each node connected, WITHOUT drawing every possible line between them)
-    /*HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms)
-    {
-        HashSet<string> doors = new HashSet<string>();
-        Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-
-        // Gather all possible shared walls between all rooms (key: "room A index, room B index" , value: list of shared edge keys)
-        Dictionary<string, List<string>> roomConnections = new Dictionary<string, List<string>>();
-
-        // Compare every room against every other room
-        for (int i = 0; i < rooms.Count; i++)
-        {
-            for (int j = i + 1; j < rooms.Count; j++)
-            {
-                // Check every tile in Room A to see if it touches Room B
-                List<string> shared = GetSharedEdges(rooms[i], rooms[j]);
-
-                if (shared.Count > 0)
-                {
-                    roomConnections.Add($"{i}_{j}", shared);
-                }
-            }
-        }
-
-        // Use a union to find all connected rooms (groups of rooms sharing the same walls) and ensure connections via MINIMUM necessary doors
-        int[] parents = Enumerable.Range(0, rooms.Count).ToArray();
-        int Find(int i) => parents[i] == i ? i : parents[i] = Find(parents[i]);
-
-        // Shuffle the connections so the house layout feels random and organic
-        var connectionKeys = roomConnections.Keys.OrderBy(x => Random.value).ToList();
-
-        // Connect the rooms in their new paths
-        foreach (var key in connectionKeys)
-        {
-            string[] parts = key.Split('_');
-            int r1 = int.Parse(parts[0]);
-            int r2 = int.Parse(parts[1]);
-
-            List<string> possibleEdges = roomConnections[key];
-
-            if (Find(r1) != Find(r2))
-            {
-                // Pick exactly one edge from the shared list to connect them
-                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
-                parents[Find(r1)] = Find(r2);
-            }
-            // If they are already connected and the mansion bool is on, have a large chance (60%) to create realistic, maze-like loops
-            else if (Random.value < 0.6f && heightenedNooks)
-            {
-                //Debug.Log("[MANSION EVENT]: Added a natural loop!");
-                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
-            }
-            // If they are ALREADY connected (indirectly through other rooms), have a random 5% chance to add a door anyway to create a realistic loop
-            else if (Random.value < 0.05f)
-            {
-                Debug.Log("[RARE EVENT]: Added a natural loop!");
-                doors.Add(possibleEdges[Random.Range(0, possibleEdges.Count)]);
-            }
-        }
-
-        return doors;
-    }*/
     HashSet<string> GenerateDoorsForFloor(List<HashSet<Vector2Int>> rooms, Dictionary<HashSet<Vector2Int>, string> roomTypes)
     {
         HashSet<string> doors = new HashSet<string>();
@@ -2602,7 +2488,7 @@ public class RoomGeneration : MonoBehaviour
         Dictionary<HashSet<Vector2Int>, string> assignments = new Dictionary<HashSet<Vector2Int>, string>();
         List<HashSet<Vector2Int>> unassigned = new List<HashSet<Vector2Int>>(floorRooms);
 
-        // 1. Structural Passes
+        // Structural Passes
         if (stairwellRoom != null && unassigned.Contains(stairwellRoom))
         {
             assignments[stairwellRoom] = "Stairwell";
@@ -2618,8 +2504,8 @@ public class RoomGeneration : MonoBehaviour
             }
         }
 
-        // 2. Guaranteed Entry Space
-        if (floorLevel == 0 && mainDoorTile != Vector2Int.zero)
+        // Guaranteed Entry Space
+        /*if (floorLevel == 0 && mainDoorTile != Vector2Int.zero)
         {
             HashSet<Vector2Int> entryRoom = unassigned.FirstOrDefault(r => r.Contains(mainDoorTile));
             if (entryRoom != null)
@@ -2632,12 +2518,43 @@ public class RoomGeneration : MonoBehaviour
         // Tracker state
         bool assignedDiningRoom = false;
         int bedroomCount = 0;
+        int bathroomCount = 0;*/
+
+        // Guaranteed Entry Space
+        if (floorLevel == 0 && mainDoorTile != Vector2Int.zero)
+        {
+            HashSet<Vector2Int> entryRoom = unassigned.FirstOrDefault(r => r.Contains(mainDoorTile));
+            if (entryRoom != null)
+            {
+                assignments[entryRoom] = "Living Room";
+                unassigned.Remove(entryRoom);
+            }
+        }
+
+        // Guaranteed Kitchen Space
+        if (floorLevel == 0 && unassigned.Count > 0)
+        {
+            // Find the remaining room closest to the front door to maintain public zoning
+            var kitchenRoom = unassigned.OrderBy(r =>
+            {
+                float avgX = (float)r.Average(t => t.x);
+                float avgY = (float)r.Average(t => t.y);
+                return Vector2.Distance(new Vector2(avgX, avgY), new Vector2(mainDoorTile.x, mainDoorTile.y));
+            }).First();
+
+            assignments[kitchenRoom] = "Kitchen";
+            unassigned.Remove(kitchenRoom);
+        }
+
+        // Tracker state
+        bool assignedDiningRoom = false;
+        int bedroomCount = 0;
         int bathroomCount = 0;
 
         // Approximate maximum possible distance in the layout to normalize depth
         float maxHouseDist = Mathf.Max(maxHouseWidth, maxHouseLength);
 
-        // 3. Process remaining rooms using Depth Metrics
+        // Process remaining rooms using Depth Metrics
         foreach (var room in unassigned.ToList())
         {
             int size = room.Count;
@@ -2666,6 +2583,12 @@ public class RoomGeneration : MonoBehaviour
             }
             else if (size >= 7)
             {
+                // Kitchen is already guaranteed, so medium rooms default to Bedrooms
+                assignments[room] = "Bedroom";
+                bedroomCount++;
+            }
+            /*else if (size >= 7)
+            {
                 // If it's near the front, it might be a kitchen; if deep, bedroom.
                 if (floorLevel == 0 && depth < 0.4f && !assignments.ContainsValue("Kitchen"))
                 {
@@ -2676,7 +2599,7 @@ public class RoomGeneration : MonoBehaviour
                     assignments[room] = "Bedroom";
                     bedroomCount++;
                 }
-            }
+            }*/
             else
             {
                 if (bathroomCount == 0)
@@ -2693,7 +2616,7 @@ public class RoomGeneration : MonoBehaviour
             }
         }
 
-        // 4. Code Compliance Checks
+        // Code Compliance Checks
         if (floorLevel == 0 && bathroomCount == 0)
         {
             var target = assignments.FirstOrDefault(kvp => kvp.Value == "Bedroom" || kvp.Value == "Closet").Key;
@@ -2716,17 +2639,6 @@ public class RoomGeneration : MonoBehaviour
 
     #region Prefab + Mesh Helpers
     // A helper to look at where a prefabs pivot point is so we can better spawn it in place, not a little too low (use the bottom of the object for location)
-    /*float CalculateVerticalOffset(GameObject instance)
-    {
-        // Get the local bottom of the mesh (distance from pivot to bottom)
-        float meshBottomY = instance.GetComponent<Renderer>().bounds.min.y;
-        // Get the pivot point at which the prefab is spawned/handled from
-        float pivotY = instance.transform.position.y;
-
-        // Return the distance from the pivot to the bottom with some funky math to make it spawn in just the right place
-        return pivotY - meshBottomY;
-    }*/
-
     float CalculateVerticalOffset(GameObject instance)
     {
         // Use GetComponentInChildren to grab the actual mesh renderer, even if the root is empty
