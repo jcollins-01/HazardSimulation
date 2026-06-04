@@ -7,7 +7,7 @@ using UnityEngine;
 public class PredatorBehaviors : MonoBehaviour
 {
     // Hazard controller
-    UniversalHazardsController controller;
+    UnrealHazardsController controller;
 
     // Movement variables
     NavMeshSurface territory;
@@ -19,7 +19,7 @@ public class PredatorBehaviors : MonoBehaviour
     void Start()
     {
         // Grab the controller and the NavMeshAgent
-        controller = this.GetComponent<UniversalHazardsController>();
+        controller = this.GetComponent<UnrealHazardsController>();
         territory = controller.hazardTerritory;
         agent = GetComponent<NavMeshAgent>();
 
@@ -77,6 +77,7 @@ public class PredatorBehaviors : MonoBehaviour
     public void Approaching()
     {
         // Simply set destination to player
+        Debug.Log("Approaching player");
         agent.SetDestination(controller.player.transform.position);
 
         if (controller.distanceToPlayer < controller.touchingDistance)
@@ -96,6 +97,7 @@ public class PredatorBehaviors : MonoBehaviour
             if (controller.attacking)
             {
                 // We only start the attack routine if it isn't already running
+                Debug.Log("Got close to player to attack");
                 if (!isAttackingRoutineRunning)
                 {
                     StartCoroutine(AttackSequence());
@@ -103,6 +105,7 @@ public class PredatorBehaviors : MonoBehaviour
             }
             else
             {
+                Debug.Log("Got close to player but won't attack");
                 controller.resetHazard();
             }
         }
@@ -110,6 +113,7 @@ public class PredatorBehaviors : MonoBehaviour
 
     public void Patrolling()
     {
+        Debug.Log("Passive behavior - patrolling");
         // Check if we've reached our destination or don't have one
         if (!agent.pathPending && agent.remainingDistance < 0.5f)
         {
@@ -121,6 +125,7 @@ public class PredatorBehaviors : MonoBehaviour
 
     public void Camping()
     {
+        Debug.Log("Passive behavior - camping in place");
         // Use the agent to move instead of snapping transform (looks smoother)
         // If you want it instant, keep your old line. If you want it to walk back, use this:
         agent.SetDestination(controller.initialHazardPosition);

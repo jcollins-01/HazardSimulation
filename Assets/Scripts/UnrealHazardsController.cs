@@ -2,7 +2,7 @@ using System.Collections;
 using Unity.AI.Navigation;
 using UnityEngine;
 
-public class UniversalHazardsController : MonoBehaviour
+public class UnrealHazardsController : MonoBehaviour
 {
     // This script is meant to be added to each hazard whose behavior must be dynamic
     
@@ -61,18 +61,17 @@ public class UniversalHazardsController : MonoBehaviour
         // Determine hazard type and create an instance of the appropriate behaviors
         if (isPredator)
             predator = this.gameObject.AddComponent<PredatorBehaviors>();
-
-        // Start this coroutine from the time a hazard notices or engages with the player
-        StartCoroutine(countdownToResetHazard());
     }
 
     private IEnumerator countdownToResetHazard()
     {
         yield return new WaitForSeconds(timeToLoseInterestOrEffect);
+        resetHazard();
     }
 
     public void resetHazard()
     {
+        Debug.Log("Resetting hazard behavior to passive movements");
         // Resets hazard in one way or another
         if (predator != null)
         {
@@ -104,7 +103,7 @@ public class UniversalHazardsController : MonoBehaviour
             // --- ALERTED STATE ---
             if (distanceToPlayer < noticeDistance)
             {
-                // FIX 2: We call movement EVERY FRAME so the agent follows the moving player.
+                Debug.Log("Player moved close to hazard - acting active");
                 // We pass the triggering logic to the movement script.
                 approachingPlayer = true;
                 predator.AlertedMovement();
@@ -123,6 +122,7 @@ public class UniversalHazardsController : MonoBehaviour
             {
                 // If the player is far away, go back to patrolling
                 predator.PassiveMovement();
+                Debug.Log("Player is far from hazard - acting passive");
             }
         }
     }
