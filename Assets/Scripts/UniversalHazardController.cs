@@ -183,24 +183,24 @@ public class UniversalHazardController : MonoBehaviour
         Debug.Log($"{model.gameObject.name} is looming over player");
 
         // Stop any currently running scale transition to prevent conflicts
-        if (scaleCoroutine != null)
+        if (model.activeScaleCoroutine != null)
         {
-            StopCoroutine(scaleCoroutine);
+            StopCoroutine(model.activeScaleCoroutine);
         }
 
         // Start the smooth scaling coroutine towards the target max scale
-        scaleCoroutine = StartCoroutine(ScaleOverTime(model, targetMaxScale));
+        model.activeScaleCoroutine = StartCoroutine(ScaleOverTime(model, targetMaxScale));
     }
 
     public void TriggerShrink(HazardBehaviorModel model)
     {
-        if (scaleCoroutine != null)
+        if (model.activeScaleCoroutine != null)
         {
-            StopCoroutine(scaleCoroutine);
+            StopCoroutine(model.activeScaleCoroutine);
         }
 
         // Start the smooth scaling coroutine back towards the original scale
-        scaleCoroutine = StartCoroutine(ScaleOverTime(model, model.originalScale));
+        model.activeScaleCoroutine = StartCoroutine(ScaleOverTime(model, model.originalScale));
     }
 
     // The Coroutine that handles the actual frame-by-frame interpolation
@@ -229,7 +229,7 @@ public class UniversalHazardController : MonoBehaviour
 
         // Snap to exact target scale at the end to clean up precision errors
         model.gameObject.transform.localScale = targetScale;
-        scaleCoroutine = null;
+        model.activeScaleCoroutine = null;
     }
 
     public void Patrolling(NavMeshAgent agent, HazardBehaviorModel model)

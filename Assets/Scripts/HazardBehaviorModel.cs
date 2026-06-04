@@ -15,8 +15,11 @@ public class HazardBehaviorModel : MonoBehaviour
     public Vector3 initialHazardPosition;
     public float distanceToPlayer;
     public bool alreadyTriggeredByPlayer;
+
+    // States for hazards
     public bool isAttacking = false;
     public Vector3 originalScale;
+    [HideInInspector] public Coroutine activeScaleCoroutine;
 
     // Constant player attributes
     private Vector3 currentPlayerPosition;
@@ -93,25 +96,42 @@ public class HazardBehaviorModel : MonoBehaviour
         // --- ALERTED STATE ---
         if (distanceToPlayer < noticeDistance)
         {
-            Debug.Log("Player moved close to hazard - acting active");
-            // We pass the triggering logic to the movement script.
-            controller.AlertedMovement(agent, this); // pass our attached agent and this model instance with its defined vars
+            // Pass movement updates to the controller
+            controller.AlertedMovement(agent, this);
 
-            // Triggers that only happen ONCE (like playing a sound or starting a timer) go here
+            // Triggers that only happen ONCE when first entering range
             if (!alreadyTriggeredByPlayer)
             {
+                Debug.Log("Player entered hazard threat zone - activating.");
                 alreadyTriggeredByPlayer = true;
-                // Start the "lose interest" timer only when first spotted
-                StopAllCoroutines(); // Safety check
+
+                // Trigger the scaling/looming once here instead of continuously in Update
+                if (looming)
+                {
+                    controller.Looming(agent, this);
+                }
+
+                // Start the "lose interest" timer safely
+                StopAllCoroutines();
                 StartCoroutine(countdownToResetHazard());
             }
         }
         // --- PASSIVE STATE ---
         else
         {
-            // If the player is far away, go back to patrolling
-            controller.PassiveMovement(agent, this);
-            Debug.Log("Player is far from hazard - acting passive");
+            // Only trigger the reset transition once when the player moves out of range
+            if (alreadyTriggeredByPlayer)
+            {
+                Debug.Log("Player left hazard threat zone - returning to passive state.");
+                alreadyTriggeredByPlayer = false;
+                StopAllCoroutines(); // Stops the countdown timer safely
+                controller.resetHazard(agent, this);
+            }
+            else
+            {
+                // Keep running normal passive idle behaviors if the player is absent
+                controller.PassiveMovement(agent, this);
+            }
         }
     }
 
