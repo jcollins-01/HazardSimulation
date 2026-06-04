@@ -16,6 +16,13 @@ public class HazardTagging : MonoBehaviour
     [Tooltip("Any prefab/object containing these keywords in their name will flag a room as a potential hazard.")]
     public List<string> flammableKeywords = new List<string> { "Electric Scooter", "Small Table", "Oven", "Fridge", "Toaster" };
 
+    [Header("Hazard Tracking")]
+    [Tooltip("Tracks all specific objects that could potentially be hazards.")]
+    public List<GameObject> possibleHazards = new List<GameObject>();
+
+    [Tooltip("Tracks the specific objects that have been assigned as active hazards.")]
+    public List<GameObject> activeHazards = new List<GameObject>();
+
     // Scans the generated house and automatically applies 'Possible Hazard' tags based on room type and contents.
     public void RunAutoTagging()
     {
@@ -26,7 +33,14 @@ public class HazardTagging : MonoBehaviour
             return;
         }
 
-        int taggedCount = 0;
+#if UNITY_EDITOR
+        Undo.RecordObject(this, "Run Auto-Tagging"); // Record list changes for Undo
+#endif
+
+        // Clean up previous runs (untags objects and clears lists)
+        ClearTrackedHazards();
+
+        int taggedZoneCount = 0;
 
         foreach (var room in gen.allGeneratedRooms)
         {
@@ -38,90 +52,168 @@ public class HazardTagging : MonoBehaviour
                 room.RoomObject.tag = "Untagged";
             }
 
-            bool isPotentialHazard = false;
+            List<GameObject> flammableItemsInRoom = GetFlammableObjectsInZone(room.RoomObject.transform);
+
+            bool isPotentialHazardZone = false;
 
             // Check 1: Is it a Kitchen?
             if (room.RoomType == "Kitchen")
             {
                 Debug.Log("Found a kitchen");
-                isPotentialHazard = true;
+                isPotentialHazardZone = true;
             }
-            // Check 2: Does it contain a flammable item?
-            else
+            // Check 2: Does it contain flammable items?
+            else if (flammableItemsInRoom.Count > 0)
             {
-                Transform[] allChildren = room.RoomObject.GetComponentsInChildren<Transform>();
-                foreach (var child in allChildren)
+                isPotentialHazardZone = true;
+            }
+
+            // Apply tags and populate arrays if conditions are met
+            if (isPotentialHazardZone)
+            {
+                room.RoomObject.tag = "Possible Hazard";
+                taggedZoneCount++;
+
+                // Add all the specific flammable items to our possible hazards tracking list
+                foreach (GameObject item in flammableItemsInRoom)
                 {
-                    if (ContainsFlammableKeyword(child.name))
-                    {
-                        isPotentialHazard = true;
-                        break; // No need to check further items in this room
-                    }
+                    item.tag = "Possible Hazard";
+                    possibleHazards.Add(item);
+
+#if UNITY_EDITOR
+                    EditorUtility.SetDirty(item);
+#endif
+                }
+
+#if UNITY_EDITOR
+                EditorUtility.SetDirty(room.RoomObject);
+#endif
+            }
+        }
+
+        Debug.Log($"HazardTagging: Auto-tagging complete. Found {taggedZoneCount} 'Possible Hazard' rooms.");
+    }
+
+    // Selects 1 or 2 objects currently marked 'Possible Hazard' and escalates them to 'Active Hazard'.
+    public void AssignActiveHazards()
+    {
+#if UNITY_EDITOR
+        Undo.RecordObject(this, "Assign Active Hazards");
+#endif
+
+        // Step 1: Clear the active list and demote current active hazards
+        foreach (GameObject obj in activeHazards)
+        {
+            if (obj != null) obj.tag = "Possible Hazard"; // Demote back to possible
+        }
+        activeHazards.Clear();
+
+
+        // Step 2: Handle assignment based on the selected Mode
+        Transform[] allChildren = GetComponentsInChildren<Transform>();
+
+        if (mode == TaggingMode.AutoTagging)
+        {
+            // --- AUTO MODE LOGIC (Zones first, then items inside) ---
+            List<GameObject> possibleHazardZones = new List<GameObject>();
+
+            foreach (var child in allChildren)
+            {
+                // In auto mode, we look for the zones we tagged
+                if (child.gameObject.tag == "Possible Hazard" && child.GetComponent<RoomGeneration>() == null) // Basic check to ensure it's a zone
+                {
+                    possibleHazardZones.Add(child.gameObject);
                 }
             }
 
-            // Apply tag if conditions are met
-            if (isPotentialHazard)
+            if (possibleHazardZones.Count == 0)
             {
-                //Debug.Log("Should be setting a hazard");
-                room.RoomObject.tag = "Possible Hazard";
-                taggedCount++;
+                Debug.LogWarning("HazardTagging: No zones with 'Possible Hazard' tag found.");
+                return;
+            }
 
+            int targetZoneCount = Random.Range(1, 3);
+            targetZoneCount = Mathf.Min(targetZoneCount, possibleHazardZones.Count);
+
+            for (int i = 0; i < targetZoneCount; i++)
+            {
+                int randomZoneIndex = Random.Range(0, possibleHazardZones.Count);
+                GameObject chosenZone = possibleHazardZones[randomZoneIndex];
+                chosenZone.tag = "Active Hazard";
+                possibleHazardZones.RemoveAt(randomZoneIndex);
+
+                List<GameObject> itemsInZone = GetFlammableObjectsInZone(chosenZone.transform);
+
+                if (itemsInZone.Count > 0)
+                {
+                    int itemsToActivate = Random.Range(1, 3);
+                    itemsToActivate = Mathf.Min(itemsToActivate, itemsInZone.Count);
+
+                    for (int j = 0; j < itemsToActivate; j++)
+                    {
+                        int randomItemIndex = Random.Range(0, itemsInZone.Count);
+                        GameObject chosenItem = itemsInZone[randomItemIndex];
+
+                        chosenItem.tag = "Active Hazard";
+                        activeHazards.Add(chosenItem);
+                        itemsInZone.RemoveAt(randomItemIndex);
+
+                        Debug.Log($"HazardTagging: {chosenItem.name} in zone {chosenZone.name} is now ACTIVE!");
 #if UNITY_EDITOR
-                EditorUtility.SetDirty(room.RoomObject); // Ensure Unity registers the change in-editor
+                        EditorUtility.SetDirty(chosenItem);
+#endif
+                    }
+                }
+#if UNITY_EDITOR
+                EditorUtility.SetDirty(chosenZone);
 #endif
             }
         }
-
-        Debug.Log($"HazardTagging: Auto-tagging complete. Found {taggedCount} 'Possible Hazard' rooms.");
-    }
-
-    // Selects 1 or 2 rooms currently marked 'Possible Hazard' and escalates them to 'Active Hazard'.
-    public void AssignActiveHazards()
-    {
-        // Find all rooms currently tagged as 'Possible Hazard' anywhere under this generator
-        List<GameObject> possibleHazardRooms = new List<GameObject>();
-
-        // We scan children of this GameObject to avoid pulling random objects from the rest of the scene
-        Transform[] allChildren = GetComponentsInChildren<Transform>();
-        foreach (var child in allChildren)
+        else
         {
-            // Clear out any stale Active Hazards from a previous button press
-            if (child.gameObject.tag == "Active Hazard")
+            // --- MANUAL MODE LOGIC (Directly target the tagged objects) ---
+
+            // Clear the tracking array so we can rebuild it purely from your manual tags
+            possibleHazards.Clear();
+
+            List<GameObject> manuallyTaggedItems = new List<GameObject>();
+
+            // Find everything the user manually tagged and rebuild the possibleHazards list
+            foreach (var child in allChildren)
             {
-                child.gameObject.tag = "Possible Hazard";
+                if (child.gameObject.tag == "Possible Hazard")
+                {
+                    manuallyTaggedItems.Add(child.gameObject);
+                    possibleHazards.Add(child.gameObject); // Track it for the inspector!
+                }
             }
 
-            if (child.gameObject.tag == "Possible Hazard")
+            if (manuallyTaggedItems.Count == 0)
             {
-                possibleHazardRooms.Add(child.gameObject);
+                Debug.LogWarning("HazardTagging: You have no objects manually tagged as 'Possible Hazard'.");
+                return;
             }
-        }
 
-        if (possibleHazardRooms.Count == 0)
-        {
-            Debug.LogWarning("HazardTagging: No rooms with 'Possible Hazard' tag found. Cannot assign active hazards.");
-            return;
-        }
+            // Pick 1 or 2 items directly
+            int itemsToActivate = Random.Range(1, 3);
+            itemsToActivate = Mathf.Min(itemsToActivate, manuallyTaggedItems.Count);
 
-        // Determine how many hazards to activate (1 or 2, capped by total possible available)
-        int targetActiveCount = Random.Range(1, 3);
-        targetActiveCount = Mathf.Min(targetActiveCount, possibleHazardRooms.Count);
+            for (int i = 0; i < itemsToActivate; i++)
+            {
+                int randomItemIndex = Random.Range(0, manuallyTaggedItems.Count);
+                GameObject chosenItem = manuallyTaggedItems[randomItemIndex];
 
-        // Randomly pick unique rooms from our list
-        for (int i = 0; i < targetActiveCount; i++)
-        {
-            int randomIndex = Random.Range(0, possibleHazardRooms.Count);
-            GameObject chosenRoom = possibleHazardRooms[randomIndex];
+                // Escalate
+                chosenItem.tag = "Active Hazard";
+                activeHazards.Add(chosenItem);
+                manuallyTaggedItems.RemoveAt(randomItemIndex);
 
-            chosenRoom.tag = "Active Hazard";
-            possibleHazardRooms.RemoveAt(randomIndex); // Prevent picking the same room twice
-
-            Debug.Log($"HazardTagging: {chosenRoom.name} ({chosenRoom.gameObject.layer}) has been activated as an ACTIVE HAZARD!");
+                Debug.Log($"HazardTagging (Manual): {chosenItem.name} has been activated as an ACTIVE HAZARD!");
 
 #if UNITY_EDITOR
-            EditorUtility.SetDirty(chosenRoom);
+                EditorUtility.SetDirty(chosenItem);
 #endif
+            }
         }
     }
 
@@ -136,16 +228,47 @@ public class HazardTagging : MonoBehaviour
         }
         return false;
     }
+
+    private List<GameObject> GetFlammableObjectsInZone(Transform zoneRoot)
+    {
+        List<GameObject> foundObjects = new List<GameObject>();
+        Transform[] allChildren = zoneRoot.GetComponentsInChildren<Transform>();
+
+        foreach (var child in allChildren)
+        {
+            if (ContainsFlammableKeyword(child.name))
+            {
+                foundObjects.Add(child.gameObject);
+            }
+        }
+        return foundObjects;
+    }
+
+    // Wipes arrays clean. Called only by Auto-Tagging to reset the simulation state.
+    private void ClearTrackedHazards()
+    {
+        foreach (GameObject obj in possibleHazards)
+        {
+            if (obj != null) obj.tag = "Untagged";
+        }
+        foreach (GameObject obj in activeHazards)
+        {
+            if (obj != null) obj.tag = "Untagged";
+        }
+
+        possibleHazards.Clear();
+        activeHazards.Clear();
+    }
 }
 
-// Custom Inspector layout to draw buttons in the Editor without needing Play mode
+// Custom Inspector layout
 #if UNITY_EDITOR
 [CustomEditor(typeof(HazardTagging))]
 public class HazardTaggingEditor : Editor
 {
     public override void OnInspectorGUI()
     {
-        DrawDefaultInspector(); // Draw standard variables
+        DrawDefaultInspector();
 
         HazardTagging script = (HazardTagging)target;
         GUILayout.Space(15);
@@ -169,7 +292,6 @@ public class HazardTaggingEditor : Editor
         if (GUILayout.Button("2. Assign Active Hazards", GUILayout.Height(35)))
         {
             script.AssignActiveHazards();
-            // Mark the scene dirty so Unity knows changes were made pre-start and saves them
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         }
     }

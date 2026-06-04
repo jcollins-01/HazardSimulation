@@ -10,6 +10,9 @@ public class HazardBehaviorModel : MonoBehaviour
     public GameObject player;
     public UniversalHazardController controller;
 
+    // Managing model activation
+    public bool active;
+
     // Constant hazard attributes
     private Vector3 currentHazardPosition;
     public Vector3 initialHazardPosition;
@@ -57,9 +60,12 @@ public class HazardBehaviorModel : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        // Called from the start - always need to be checking where the hazard is compared to the player
-        determineDistanceToPlayer();
-        checkIfTriggered();
+        if (gameObject.tag == "Active Hazard") // If the object was set as active via HazardTagging / manual testing
+        {
+            // Called from the start - always need to be checking where the hazard is compared to the player
+            determineDistanceToPlayer();
+            checkIfTriggered();
+        }
     }
 
     // Get all the behavior variables passed from the controller
