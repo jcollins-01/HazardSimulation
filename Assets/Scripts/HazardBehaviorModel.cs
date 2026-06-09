@@ -21,8 +21,14 @@ public class HazardBehaviorModel : MonoBehaviour
 
     // States for hazards
     public bool isAttacking = false;
+
     public Vector3 originalScale;
     [HideInInspector] public Coroutine activeScaleCoroutine;
+
+    public bool isTouchingSomething = false;
+    public GameObject lastTouchedObject;
+    private float spreadCooldownTimer = 0f;
+    [SerializeField] private float spreadRate = 1.5f; // Spawns a new flame every 1.5 seconds, maybe set it as a range that leans higher when aggression is high
 
     // Constant player attributes
     private Vector3 currentPlayerPosition;
@@ -38,6 +44,7 @@ public class HazardBehaviorModel : MonoBehaviour
     public bool approaching;
     public bool attacking;
     public bool looming;
+    public bool spreading;
 
     public int escapeNoticeDistance;
     public int timeToLoseInterestOrEffect;
@@ -55,6 +62,12 @@ public class HazardBehaviorModel : MonoBehaviour
             agent = gameObject.AddComponent<NavMeshAgent>();
         else
             agent = ag;
+
+        if (!gameObject.TryGetComponent<Rigidbody>(out Rigidbody rb))
+        {
+            rb = gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+        }
     }
 
     // Update is called once per frame
@@ -72,7 +85,7 @@ public class HazardBehaviorModel : MonoBehaviour
     public void Initialize(
         UniversalHazardController control, GameObject play,
         int aggression, int caution, int notice, int touching, 
-        bool isPatrolling, bool isApproaching, bool isAttacking, bool isLooming,
+        bool isPatrolling, bool isApproaching, bool isAttacking, bool isLooming, bool isSpreading,
         int escape, int timeToLose, NavMeshSurface territory)
     {
         controller = control;
@@ -86,6 +99,7 @@ public class HazardBehaviorModel : MonoBehaviour
         approaching = isApproaching;
         attacking = isAttacking;
         looming = isLooming;
+        spreading = isSpreading;
         timeToLoseInterestOrEffect = timeToLose;
         hazardTerritory = territory;
     }
@@ -95,6 +109,26 @@ public class HazardBehaviorModel : MonoBehaviour
         currentHazardPosition = this.gameObject.transform.position;
         currentPlayerPosition = player.transform.position;
         distanceToPlayer = Vector3.Distance(currentHazardPosition, currentPlayerPosition);
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        // Ignore the player or any active hazards, which will be doing their own things
+        // Later allow it to burn walls and whatnot, narrow it down to what it can burn
+        if (other.gameObject == player || other.CompareTag("Active Hazard")) return;
+
+        isTouchingSomething = true;
+        lastTouchedObject = other.gameObject;
+        Debug.Log($"Hazard is touching: {lastTouchedObject.name}");
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (other.gameObject == lastTouchedObject)
+        {
+            isTouchingSomething = false;
+            lastTouchedObject = null;
+        }
     }
 
     private void checkIfTriggered()
@@ -120,6 +154,19 @@ public class HazardBehaviorModel : MonoBehaviour
                 // Start the "lose interest" timer safely
                 StopAllCoroutines();
                 StartCoroutine(countdownToResetHazard());
+            }
+        }
+        else if (isTouchingSomething) // if we're touching another object and spreading is active
+        {
+            // If the hazard is capable of spreading
+            if (spreading)
+            {
+                spreadCooldownTimer -= Time.deltaTime;
+                if (spreadCooldownTimer <= 0f && lastTouchedObject != null)
+                {
+                    controller.Spreading(this); 
+                    spreadCooldownTimer = spreadRate; // Reset the timer
+                }
             }
         }
         // --- PASSIVE STATE ---

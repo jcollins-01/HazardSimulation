@@ -9,6 +9,7 @@ public class UniversalHazardController : MonoBehaviour
     // Variables to set in the public editor -- all will be passed to the produced state model
     [Header("PLAYER TO THREATEN")]
     public GameObject player; // could change this later to an array to affect multiple things
+    public GameObject flamePrefab;
 
     [Header("HAZARDS TO MODEL")]
     [Space(10)]
@@ -35,6 +36,7 @@ public class UniversalHazardController : MonoBehaviour
     public bool approaching;
     public bool attacking;
     public bool looming; // growing larger than the player so the player has to look up at it
+    public bool spreading;
 
     [Header("Hazard Boundaries")] // What limits or ends the hazard's behaviors
     public int escapeNoticeDistance;
@@ -75,7 +77,7 @@ public class UniversalHazardController : MonoBehaviour
             model.Initialize(
                 this, player,
                 aggressionLevel, cautionLevel, noticeDistance, touchingDistance,
-                patrolling, approaching, attacking, looming,
+                patrolling, approaching, attacking, looming, spreading,
                 escapeNoticeDistance, timeToLoseInterestOrEffect, hazardTerritory
             );
 
@@ -150,7 +152,7 @@ public class UniversalHazardController : MonoBehaviour
     public void Approaching(NavMeshAgent agent, HazardBehaviorModel model)
     {
         // Simply set destination to player
-        Debug.Log($"{model.gameObject.name} is approaching player");
+        //Debug.Log($"{model.gameObject.name} is approaching player");
         agent.SetDestination(model.player.transform.position);
 
         if (model.distanceToPlayer < model.touchingDistance)
@@ -164,7 +166,7 @@ public class UniversalHazardController : MonoBehaviour
         if (model.attacking)
         {
             // We only start the attack routine if it isn't already running
-            Debug.Log($"{model.gameObject.name} got close to player to attack");
+            //Debug.Log($"{model.gameObject.name} got close to player to attack");
             if (!model.isAttacking)
             {
                 StartCoroutine(AttackSequence(agent, model));
@@ -172,7 +174,7 @@ public class UniversalHazardController : MonoBehaviour
         }
         else
         {
-            Debug.Log($"{model.gameObject.name} got close to player but won't attack");
+            //Debug.Log($"{model.gameObject.name} got close to player but won't attack");
             resetHazard(agent, model);
         }
     }
@@ -180,7 +182,7 @@ public class UniversalHazardController : MonoBehaviour
     public void Looming(NavMeshAgent agent, HazardBehaviorModel model)
     {
         // Simply set destination to player
-        Debug.Log($"{model.gameObject.name} is looming over player");
+        //Debug.Log($"{model.gameObject.name} is looming over player");
 
         // Stop any currently running scale transition to prevent conflicts
         if (model.activeScaleCoroutine != null)
@@ -201,6 +203,27 @@ public class UniversalHazardController : MonoBehaviour
 
         // Start the smooth scaling coroutine back towards the original scale
         model.activeScaleCoroutine = StartCoroutine(ScaleOverTime(model, model.originalScale));
+    }
+
+    public void Spreading(HazardBehaviorModel model)
+    {
+        if (model.lastTouchedObject == null) return;
+
+        // Determine a point on the surface of the touched object -- closest point on the target's collider to the hazard
+        Vector3 spawnPosition = model.lastTouchedObject.GetComponent<Collider>().ClosestPoint(model.transform.position);
+
+        // Spawn the smaller hazard instance (the "flame")
+        GameObject newFlame = Instantiate(flamePrefab, spawnPosition, Quaternion.identity);
+
+        // Scale it down to make it a "small duplicate"
+        newFlame.transform.localScale = model.originalScale * 0.3f; // 30% of original size
+
+        // Attach it to the touched object so it moves WITH it (e.g., if a chair moves, the fire stays on it)
+        newFlame.transform.SetParent(model.lastTouchedObject.transform);
+
+        // Attach the growth behavior script dynamically so it can spawn its own copies
+        SpreadingHazard spreadingScript = newFlame.AddComponent<SpreadingHazard>();
+        spreadingScript.Initialize(flamePrefab, model.originalScale);
     }
 
     // The Coroutine that handles the actual frame-by-frame interpolation
@@ -234,7 +257,7 @@ public class UniversalHazardController : MonoBehaviour
 
     public void Patrolling(NavMeshAgent agent, HazardBehaviorModel model)
     {
-        Debug.Log($"{model.gameObject.name} is patrolling passively");
+        //Debug.Log($"{model.gameObject.name} is patrolling passively");
         // Check if we've reached our destination or don't have one
         if (!agent.pathPending && agent.remainingDistance < 0.5f)
         {
@@ -246,7 +269,7 @@ public class UniversalHazardController : MonoBehaviour
 
     public void Camping(NavMeshAgent agent, HazardBehaviorModel model)
     {
-        Debug.Log($"{model.gameObject.name} is camping passively");
+        //Debug.Log($"{model.gameObject.name} is camping passively");
         // Use the agent to move instead of snapping transform (looks smoother)
         // If you want it instant, keep your old line. If you want it to walk back, use this:
         agent.SetDestination(model.initialHazardPosition);
