@@ -10,6 +10,7 @@ public class UniversalHazardController : MonoBehaviour
     [Header("PLAYER TO THREATEN")]
     public GameObject player; // could change this later to an array to affect multiple things
     public GameObject flamePrefab;
+    public GameObject smokePrefab;
 
     [Header("HAZARDS TO MODEL")]
     [Space(10)]
@@ -209,11 +210,15 @@ public class UniversalHazardController : MonoBehaviour
     {
         if (model.lastTouchedObject == null) return;
 
+        // If the object is already burning
+        if (model.lastTouchedObject.GetComponentInChildren<SpreadingHazard>() != null) return;
+
         // Determine a point on the surface of the touched object -- closest point on the target's collider to the hazard
         Vector3 spawnPosition = model.lastTouchedObject.GetComponent<Collider>().ClosestPoint(model.transform.position);
 
         // Spawn the smaller hazard instance (the "flame")
         GameObject newFlame = Instantiate(flamePrefab, spawnPosition, Quaternion.identity);
+        Debug.Log($"Hazard itself spawned a flame on {model.lastTouchedObject.gameObject.name}");
 
         // Scale it down to make it a "small duplicate"
         newFlame.transform.localScale = model.originalScale * 0.3f; // 30% of original size
@@ -223,7 +228,7 @@ public class UniversalHazardController : MonoBehaviour
 
         // Attach the growth behavior script dynamically so it can spawn its own copies
         SpreadingHazard spreadingScript = newFlame.AddComponent<SpreadingHazard>();
-        spreadingScript.Initialize(flamePrefab, model.originalScale);
+        spreadingScript.Initialize(flamePrefab, smokePrefab, model.originalScale);
     }
 
     // The Coroutine that handles the actual frame-by-frame interpolation
