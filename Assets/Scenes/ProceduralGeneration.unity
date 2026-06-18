@@ -15088,7 +15088,7 @@ GameObject:
   - component: {fileID: 2005727218}
   m_Layer: 0
   m_Name: Couch(Clone)
-  m_TagString: Untagged
+  m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 4294967295

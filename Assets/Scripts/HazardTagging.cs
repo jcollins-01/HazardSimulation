@@ -101,20 +101,19 @@ public class HazardTagging : MonoBehaviour
         Undo.RecordObject(this, "Assign Active Hazards");
 #endif
 
-        // Step 1: Clear the active list and demote current active hazards
-        foreach (GameObject obj in activeHazards)
-        {
-            if (obj != null) obj.tag = "Possible Hazard"; // Demote back to possible
-        }
-        activeHazards.Clear();
-
-
-        // Step 2: Handle assignment based on the selected Mode
+        // Handle assignment based on the selected Mode
         Transform[] allChildren = GetComponentsInChildren<Transform>();
 
         if (mode == TaggingMode.AutoTagging)
         {
             // --- AUTO MODE LOGIC (Zones first, then items inside) ---
+            // Only clear the active list and demote current active hazards if we're in active mode
+            foreach (GameObject obj in activeHazards)
+            {
+                if (obj != null) obj.tag = "Possible Hazard"; // Demote back to possible
+            }
+            activeHazards.Clear();
+
             List<GameObject> possibleHazardZones = new List<GameObject>();
 
             foreach (var child in allChildren)
@@ -173,8 +172,9 @@ public class HazardTagging : MonoBehaviour
         {
             // --- MANUAL MODE LOGIC (Directly target the tagged objects) ---
 
-            // Clear the tracking array so we can rebuild it purely from your manual tags
+            // Clear the tracking array so we can rebuild it purely from the manual tags
             possibleHazards.Clear();
+            activeHazards.Clear();
 
             List<GameObject> manuallyTaggedItems = new List<GameObject>();
 
@@ -185,6 +185,17 @@ public class HazardTagging : MonoBehaviour
                 {
                     manuallyTaggedItems.Add(child.gameObject);
                     possibleHazards.Add(child.gameObject); // Track it for the inspector!
+#if UNITY_EDITOR
+                    EditorUtility.SetDirty(child.gameObject);
+#endif
+                }
+                else if (child.gameObject.CompareTag("Active Hazard"))
+                {
+                    manuallyTaggedItems.Add(child.gameObject);
+                    activeHazards.Add(child.gameObject);
+#if UNITY_EDITOR
+                    EditorUtility.SetDirty(child.gameObject);
+#endif
                 }
             }
 
