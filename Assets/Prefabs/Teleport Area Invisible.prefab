@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 6832177256720363419}
   m_Layer: 0
   m_Name: Teleport Area Invisible
-  m_TagString: Untagged
+  m_TagString: No Hazard
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

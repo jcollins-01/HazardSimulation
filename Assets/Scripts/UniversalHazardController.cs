@@ -1,16 +1,16 @@
 using System.Collections;
+using System.Collections.Generic;
 using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.InputSystem;
 
 public class UniversalHazardController : MonoBehaviour
 {
     // Variables to set in the public editor -- all will be passed to the produced state model
     [Header("PLAYER TO THREATEN")]
     public GameObject player; // could change this later to an array to affect multiple things
-    public GameObject flamePrefab;
-    public GameObject smokePrefab;
 
     [Header("HAZARDS TO MODEL")]
     [Space(10)]
@@ -23,6 +23,7 @@ public class UniversalHazardController : MonoBehaviour
     [Header("Inciting Values")] // How likely are specific behaviors to happen
     [Range(0, 10)] public int aggressionLevel;
     [Range(0, 10)] public int cautionLevel;
+    [Range(0, 10)] public int speed;
 
     [Header("Trigger Values")] // What triggers specific behaviors
     public int noticeDistance;
@@ -46,11 +47,22 @@ public class UniversalHazardController : MonoBehaviour
 
     // Vars for functions
     private Coroutine scaleCoroutine;
+    private Dictionary<GameObject, Material> originalColors = new Dictionary<GameObject, Material>();
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         
+    }
+
+    void Update()
+    {
+        // If the reset button is pressed, reset other objects
+        if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame) //if (Input.GetKeyDown(KeyCode.Space))
+        {
+            Debug.Log("Calling reset on other objects!");
+            resetAffectedObjects();
+        }
     }
 
     private void SetHazardBehaviors()
@@ -77,7 +89,7 @@ public class UniversalHazardController : MonoBehaviour
             // Pass parameters safely
             model.Initialize(
                 this, player,
-                aggressionLevel, cautionLevel, noticeDistance, touchingDistance,
+                aggressionLevel, cautionLevel, speed, noticeDistance, touchingDistance,
                 patrolling, approaching, attacking, looming, spreading,
                 escapeNoticeDistance, timeToLoseInterestOrEffect, hazardTerritory
             );
@@ -122,6 +134,18 @@ public class UniversalHazardController : MonoBehaviour
         PassiveMovement(agent, model);
         TriggerShrink(model);
         model.alreadyTriggeredByPlayer = false;
+    }
+
+    public void resetAffectedObjects()
+    {
+        Debug.Log($"Resetting any gameObjects altered by the hazard");
+
+        // Reset colors of marked/spread gameobjects
+        foreach (var pair in originalColors)
+        {
+            pair.Key.GetComponent<Renderer>().material = pair.Value;
+            pair.Key.tag = "Possible Hazard";
+        }
     }
 
     public void AlertedMovement(NavMeshAgent agent, HazardBehaviorModel model)
@@ -208,27 +232,14 @@ public class UniversalHazardController : MonoBehaviour
 
     public void Spreading(HazardBehaviorModel model)
     {
-        if (model.lastTouchedObject == null) return;
+        // Set the object we're touching as an Active Hazard
+        model.lastTouchedObject.tag = "Active Hazard";
 
-        // If the object is already burning
-        if (model.lastTouchedObject.GetComponentInChildren<SpreadingHazard>() != null) return;
+        // Use TryAdd so that it only adds the material the first time (doesn't overwrite the original material as touching continues)
+        originalColors.TryAdd(model.lastTouchedObject, model.lastTouchedObject.GetComponent<Renderer>().material);
 
-        // Determine a point on the surface of the touched object -- closest point on the target's collider to the hazard
-        Vector3 spawnPosition = model.lastTouchedObject.GetComponent<Collider>().ClosestPoint(model.transform.position);
-
-        // Spawn the smaller hazard instance (the "flame")
-        GameObject newFlame = Instantiate(flamePrefab, spawnPosition, Quaternion.identity);
-        Debug.Log($"Hazard itself spawned a flame on {model.lastTouchedObject.gameObject.name}");
-
-        // Scale it down to make it a "small duplicate"
-        newFlame.transform.localScale = model.originalScale * 0.3f; // 30% of original size
-
-        // Attach it to the touched object so it moves WITH it (e.g., if a chair moves, the fire stays on it)
-        newFlame.transform.SetParent(model.lastTouchedObject.transform);
-
-        // Attach the growth behavior script dynamically so it can spawn its own copies
-        SpreadingHazard spreadingScript = newFlame.AddComponent<SpreadingHazard>();
-        spreadingScript.Initialize(flamePrefab, smokePrefab, model.originalScale);
+        // Change its color to red to visually mark the difference
+        model.lastTouchedObject.GetComponent<Renderer>().material = Resources.Load<Material>("Materials/Red");
     }
 
     // The Coroutine that handles the actual frame-by-frame interpolation

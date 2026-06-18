@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 7557232299322543484}
   - component: {fileID: 7373271679210580337}
   m_Layer: 0
-  m_Name: Flame
+  m_Name: Smoke
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -64,7 +64,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 602f0cc7e7a32c142a97c3cd2564266e, type: 2}
+  - {fileID: 2100000, guid: 54e59db67ff01834791c02014c0bd301, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

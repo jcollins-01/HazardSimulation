@@ -27,7 +27,6 @@ public class HazardBehaviorModel : MonoBehaviour
 
     public bool isTouchingSomething = false;
     public GameObject lastTouchedObject;
-    private float spreadCooldownTimer = 0f;
     [SerializeField] private float spreadRate = 1.5f; // Spawns a new flame every 1.5 seconds, maybe set it as a range that leans higher when aggression is high
 
     // Constant player attributes
@@ -36,6 +35,7 @@ public class HazardBehaviorModel : MonoBehaviour
     // Hazard behavioral vars
     public int aggressionLevel;
     public int cautionLevel;
+    public int speedLevel;
 
     public int noticeDistance;
     public int touchingDistance;
@@ -63,6 +63,10 @@ public class HazardBehaviorModel : MonoBehaviour
         else
             agent = ag;
 
+        agent.Warp(transform.position);
+        // Set basic agent variables
+        agent.speed = speedLevel;
+
         if (!gameObject.TryGetComponent<Rigidbody>(out Rigidbody rb))
         {
             rb = gameObject.AddComponent<Rigidbody>();
@@ -76,15 +80,18 @@ public class HazardBehaviorModel : MonoBehaviour
         if (gameObject.tag == "Active Hazard") // If the object was set as active via HazardTagging / manual testing
         {
             // Called from the start - always need to be checking where the hazard is compared to the player
-            determineDistanceToPlayer();
-            checkIfTriggered();
+            if (agent != null)
+            {
+                determineDistanceToPlayer();
+                checkIfTriggered();
+            }
         }
     }
 
     // Get all the behavior variables passed from the controller
     public void Initialize(
         UniversalHazardController control, GameObject play,
-        int aggression, int caution, int notice, int touching, 
+        int aggression, int caution, int speed, int notice, int touching, 
         bool isPatrolling, bool isApproaching, bool isAttacking, bool isLooming, bool isSpreading,
         int escape, int timeToLose, NavMeshSurface territory)
     {
@@ -92,6 +99,7 @@ public class HazardBehaviorModel : MonoBehaviour
         player = play;
         aggressionLevel = aggression;
         cautionLevel = caution;
+        speedLevel = speed;
         noticeDistance = notice;
         touchingDistance = touching;
         escapeNoticeDistance = escape;
@@ -113,13 +121,13 @@ public class HazardBehaviorModel : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // Ignore the player or any active hazards, which will be doing their own things
-        // Later allow it to burn walls and whatnot, narrow it down to what it can burn
-        if (other.gameObject == player || other.CompareTag("Active Hazard")) return;
-
-        isTouchingSomething = true;
-        lastTouchedObject = other.gameObject;
-        Debug.Log($"Hazard is touching: {lastTouchedObject.name}");
+        // Only interact with other objects that are possible hazards
+        if (other.CompareTag("Possible Hazard"))
+        {
+            isTouchingSomething = true;
+            lastTouchedObject = other.gameObject;
+            Debug.Log($"Hazard is touching: {lastTouchedObject.name}");
+        }
     }
 
     private void OnTriggerExit(Collider other)
@@ -161,11 +169,9 @@ public class HazardBehaviorModel : MonoBehaviour
             // If the hazard is capable of spreading
             if (spreading)
             {
-                spreadCooldownTimer -= Time.deltaTime;
-                if (spreadCooldownTimer <= 0f && lastTouchedObject != null)
+                if (lastTouchedObject != null)
                 {
                     controller.Spreading(this); 
-                    spreadCooldownTimer = spreadRate; // Reset the timer
                 }
             }
         }
