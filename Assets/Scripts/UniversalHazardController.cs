@@ -148,6 +148,21 @@ public class UniversalHazardController : MonoBehaviour
         }
     }
 
+    public void resetSingleObject(GameObject hazard)
+    {
+        Debug.Log($"Resetting a specific game object fixed by the user");
+
+        // Reset colors of marked/spread gameobjects
+        foreach (var pair in originalColors)
+        {
+            if (pair.Key == hazard)
+            {
+                pair.Key.GetComponent<Renderer>().material = pair.Value;
+                pair.Key.tag = "Possible Hazard";
+            }
+        }
+    }
+
     public void AlertedMovement(NavMeshAgent agent, HazardBehaviorModel model)
     {
         if (model.approaching)
