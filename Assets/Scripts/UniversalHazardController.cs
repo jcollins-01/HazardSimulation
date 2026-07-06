@@ -145,6 +145,12 @@ public class UniversalHazardController : MonoBehaviour
         {
             pair.Key.GetComponent<Renderer>().material = pair.Value;
             pair.Key.tag = "Possible Hazard";
+
+            // track the heat on the object
+            if (pair.Key.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
+            {
+                temp.ResetTemperature(); // Snaps thermal view to blue instantly
+            }
         }
     }
 
@@ -159,6 +165,12 @@ public class UniversalHazardController : MonoBehaviour
             {
                 pair.Key.GetComponent<Renderer>().material = pair.Value;
                 pair.Key.tag = "Possible Hazard";
+
+                // track the heat on the object
+                if (pair.Key.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
+                {
+                    temp.ResetTemperature(); // Snaps thermal view to blue instantly
+                }
             }
         }
     }
@@ -252,6 +264,19 @@ public class UniversalHazardController : MonoBehaviour
 
         // Use TryAdd so that it only adds the material the first time (doesn't overwrite the original material as touching continues)
         originalColors.TryAdd(model.lastTouchedObject, model.lastTouchedObject.GetComponent<Renderer>().material);
+
+        // Adding the hazard temp component
+        if (!model.lastTouchedObject.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
+        {
+            // Assign the newly added component to 'temp' and ignite it so we can use it right away
+            temp = model.lastTouchedObject.AddComponent<HazardTemperature>();
+            temp.Ignite();
+        }
+        else
+        {
+            // If it already has the component, just make sure it's ignited
+            temp.Ignite();
+        }
 
         // Change its color to red to visually mark the difference
         model.lastTouchedObject.GetComponent<Renderer>().material = Resources.Load<Material>("Materials/Red");

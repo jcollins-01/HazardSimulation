@@ -130,7 +130,7 @@ GameObject:
   - component: {fileID: 5429015}
   - component: {fileID: 5429017}
   - component: {fileID: 5429016}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: BedBase
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -490,7 +490,7 @@ GameObject:
   - component: {fileID: 48135443}
   - component: {fileID: 48135442}
   - component: {fileID: 48135441}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floors
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -686,7 +686,7 @@ GameObject:
   - component: {fileID: 90754917}
   - component: {fileID: 90754916}
   - component: {fileID: 90754915}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floors
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -796,7 +796,7 @@ GameObject:
   - component: {fileID: 105634566}
   - component: {fileID: 105634565}
   - component: {fileID: 105634564}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -1764,7 +1764,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 153229103}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0.05795999, z: -0, w: 0.9983189}
+  m_LocalRotation: {x: -0, y: -0.07652004, z: -0, w: 0.99706805}
   m_LocalPosition: {x: 3.755, y: 0.769, z: -6.66}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -1775,7 +1775,7 @@ Transform:
   - {fileID: 825136065}
   - {fileID: 216277154}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: -6.645, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -8.777, z: 0}
 --- !u!1 &163626720
 GameObject:
   m_ObjectHideFlags: 0
@@ -1788,7 +1788,7 @@ GameObject:
   - component: {fileID: 163626724}
   - component: {fileID: 163626723}
   - component: {fileID: 163626722}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -1897,7 +1897,7 @@ GameObject:
   - component: {fileID: 170598763}
   - component: {fileID: 170598762}
   - component: {fileID: 170598761}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ceilings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2134,13 +2134,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 216277153}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+  m_LocalRotation: {x: -0, y: 0.11818966, z: -0, w: 0.9929911}
   m_LocalPosition: {x: 0.092, y: 0.164, z: -0.005}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 153229106}
-  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 13.575, z: 0}
 --- !u!114 &216277155
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2158,7 +2158,7 @@ MonoBehaviour:
   m_RequiresOpaqueTextureOption: 2
   m_CameraType: 0
   m_Cameras: []
-  m_RendererIndex: -1
+  m_RendererIndex: 1
   m_VolumeLayerMask:
     serializedVersion: 2
     m_Bits: 1
@@ -2697,7 +2697,7 @@ GameObject:
   - component: {fileID: 287959041}
   - component: {fileID: 287959040}
   - component: {fileID: 287959039}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ceilings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3284,7 +3284,7 @@ GameObject:
   m_Component:
   - component: {fileID: 349394148}
   - component: {fileID: 349394149}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -3849,7 +3849,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 438594329}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: 'Room_5 [Bedroom]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3889,7 +3889,7 @@ GameObject:
   - component: {fileID: 447574441}
   - component: {fileID: 447574440}
   - component: {fileID: 447574439}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ceilings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4046,7 +4046,7 @@ GameObject:
   - component: {fileID: 463070168}
   - component: {fileID: 463070167}
   - component: {fileID: 463070166}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Dining Table(Clone)
   m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
@@ -4212,7 +4212,7 @@ GameObject:
   - component: {fileID: 474769872}
   - component: {fileID: 474769871}
   - component: {fileID: 474769870}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ceilings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4334,7 +4334,7 @@ GameObject:
   - component: {fileID: 481836417}
   - component: {fileID: 481836416}
   - component: {fileID: 481836415}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floors
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4443,7 +4443,7 @@ GameObject:
   - component: {fileID: 504656716}
   - component: {fileID: 504656718}
   - component: {fileID: 504656717}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: BedBase
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9690,7 +9690,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 565317373}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: 'Room_6 [Bedroom]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9726,7 +9726,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 576302043}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: 'Room_2 [Dining Room]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9768,7 +9768,7 @@ GameObject:
   - component: {fileID: 594715507}
   - component: {fileID: 594715506}
   - component: {fileID: 594715505}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -10333,7 +10333,7 @@ GameObject:
   m_Component:
   - component: {fileID: 698708652}
   - component: {fileID: 698708653}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -10780,7 +10780,7 @@ GameObject:
   - component: {fileID: 732667524}
   - component: {fileID: 732667523}
   - component: {fileID: 732667522}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Walls
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11056,7 +11056,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 764158966}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: 'Room_3 [Kitchen]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11157,7 +11157,7 @@ GameObject:
   - component: {fileID: 784661485}
   - component: {fileID: 784661484}
   - component: {fileID: 784661483}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Walls
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11432,7 +11432,7 @@ GameObject:
   - component: {fileID: 800996553}
   - component: {fileID: 800996552}
   - component: {fileID: 800996551}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Chair(Clone)
   m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
@@ -11563,7 +11563,7 @@ GameObject:
   - component: {fileID: 810853256}
   - component: {fileID: 810853255}
   - component: {fileID: 810853254}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Walls
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11773,13 +11773,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 825136064}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: -0, y: -0.61857903, z: -0, w: 0.7857226}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.13408099, y: 0.05685443, z: 0.09140223}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 153229106}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -76.425, z: 0}
 --- !u!65 &825136066
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -11912,7 +11912,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 833027087}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Bed(Clone)
   m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
@@ -11991,7 +11991,7 @@ GameObject:
   m_Component:
   - component: {fileID: 874546561}
   - component: {fileID: 874546562}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -12388,7 +12388,7 @@ GameObject:
   - component: {fileID: 904498762}
   - component: {fileID: 904498761}
   - component: {fileID: 904498760}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Walls
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12497,7 +12497,7 @@ GameObject:
   - component: {fileID: 906553177}
   - component: {fileID: 906553176}
   - component: {fileID: 906553175}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -13678,7 +13678,7 @@ GameObject:
   - component: {fileID: 968664503}
   - component: {fileID: 968664501}
   - component: {fileID: 968664502}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Yard
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -13788,7 +13788,7 @@ GameObject:
   - component: {fileID: 974237640}
   - component: {fileID: 974237639}
   - component: {fileID: 974237638}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Chair(Clone)
   m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
@@ -14263,7 +14263,7 @@ GameObject:
   - component: {fileID: 1050169239}
   - component: {fileID: 1050169238}
   - component: {fileID: 1050169237}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Walls
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -14373,7 +14373,7 @@ GameObject:
   - component: {fileID: 1056485081}
   - component: {fileID: 1056485080}
   - component: {fileID: 1056485079}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ceilings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -14495,7 +14495,7 @@ GameObject:
   - component: {fileID: 1062078120}
   - component: {fileID: 1062078119}
   - component: {fileID: 1062078118}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -14829,7 +14829,7 @@ GameObject:
   - component: {fileID: 1101355965}
   - component: {fileID: 1101355964}
   - component: {fileID: 1101355963}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -14934,7 +14934,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1121569800}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Bed(Clone)
   m_TagString: Active Hazard
   m_Icon: {fileID: 0}
@@ -14971,7 +14971,7 @@ GameObject:
   - component: {fileID: 1122974608}
   - component: {fileID: 1122974607}
   - component: {fileID: 1122974606}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floors
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15406,7 +15406,7 @@ GameObject:
   - component: {fileID: 1178786056}
   - component: {fileID: 1178786058}
   - component: {fileID: 1178786057}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Metal
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15733,7 +15733,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1243739554}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: 'Room_0 [Hallway]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -15807,7 +15807,7 @@ GameObject:
   - component: {fileID: 1254745653}
   - component: {fileID: 1254745652}
   - component: {fileID: 1254745651}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -15913,7 +15913,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1276353625}
   - component: {fileID: 1276353626}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -16195,7 +16195,7 @@ GameObject:
   - component: {fileID: 1304278982}
   - component: {fileID: 1304278981}
   - component: {fileID: 1304278983}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: TV(Clone)
   m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
@@ -16303,7 +16303,7 @@ GameObject:
   - component: {fileID: 1310733525}
   - component: {fileID: 1310733524}
   - component: {fileID: 1310733523}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -16519,7 +16519,7 @@ GameObject:
   - component: {fileID: 1339018230}
   - component: {fileID: 1339018229}
   - component: {fileID: 1339018228}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -16627,7 +16627,7 @@ GameObject:
   - component: {fileID: 1341132746}
   - component: {fileID: 1341132745}
   - component: {fileID: 1341132744}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -16735,7 +16735,7 @@ GameObject:
   - component: {fileID: 1349614060}
   - component: {fileID: 1349614059}
   - component: {fileID: 1349614058}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floors
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -16844,7 +16844,7 @@ GameObject:
   - component: {fileID: 1363287489}
   - component: {fileID: 1363287491}
   - component: {fileID: 1363287490}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: BedPillows
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17179,7 +17179,7 @@ GameObject:
   - component: {fileID: 1413452057}
   - component: {fileID: 1413452059}
   - component: {fileID: 1413452058}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cloth
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17263,7 +17263,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1415619794}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: House
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17314,13 +17314,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1422041658}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: -0, y: -0.61857903, z: -0, w: 0.7857226}
   m_LocalPosition: {x: 0, y: 0.157, z: 0}
   m_LocalScale: {x: 0.18274124, y: 0.13102816, z: 0.1645977}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 153229106}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -76.425, z: 0}
 --- !u!65 &1422041660
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -17407,7 +17407,7 @@ GameObject:
   - component: {fileID: 1439424925}
   - component: {fileID: 1439424924}
   - component: {fileID: 1439424923}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -17766,7 +17766,7 @@ GameObject:
   - component: {fileID: 1464269021}
   - component: {fileID: 1464269020}
   - component: {fileID: 1464269019}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -17873,7 +17873,7 @@ GameObject:
   - component: {fileID: 1471713717}
   - component: {fileID: 1471713719}
   - component: {fileID: 1471713718}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Wood
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -17958,7 +17958,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1475546463}
   - component: {fileID: 1475546464}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -18074,7 +18074,7 @@ GameObject:
   - component: {fileID: 1478809199}
   - component: {fileID: 1478809201}
   - component: {fileID: 1478809200}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cloth
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -18159,7 +18159,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1486851304}
   - component: {fileID: 1486851305}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -18511,7 +18511,7 @@ GameObject:
   - component: {fileID: 1530350498}
   - component: {fileID: 1530350500}
   - component: {fileID: 1530350499}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: BedPillows
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -18849,7 +18849,7 @@ GameObject:
   - component: {fileID: 1607709269}
   - component: {fileID: 1607709268}
   - component: {fileID: 1607709267}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Door(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -19285,7 +19285,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1630739336}
   - component: {fileID: 1630739337}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -19469,7 +19469,7 @@ GameObject:
   - component: {fileID: 1656255012}
   - component: {fileID: 1656255011}
   - component: {fileID: 1656255010}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floors
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -19576,7 +19576,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1678972321}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Fridge+Oven(Clone)
   m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
@@ -20052,7 +20052,7 @@ GameObject:
   - component: {fileID: 1731703804}
   - component: {fileID: 1731703803}
   - component: {fileID: 1731703802}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Walls
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20190,7 +20190,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1736705090}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: 'Room_4 [Living Room]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20343,7 +20343,7 @@ GameObject:
   - component: {fileID: 1751099689}
   - component: {fileID: 1751099688}
   - component: {fileID: 1751099687}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ceilings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20480,13 +20480,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1751654049}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.7071068, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: -0.0940001, y: 0.15939999, z: 0}
+  m_LocalRotation: {x: -0, y: 0.11818966, z: -0, w: 0.9929911}
+  m_LocalPosition: {x: -0.021, y: 0.15939999, z: -0.096}
   m_LocalScale: {x: 0.115859486, y: 0.096904874, z: 0.115859486}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 153229106}
-  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 13.575, z: 0}
 --- !u!64 &1751654051
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -20574,7 +20574,7 @@ GameObject:
   - component: {fileID: 1759974902}
   - component: {fileID: 1759974901}
   - component: {fileID: 1759974900}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -20683,7 +20683,7 @@ GameObject:
   - component: {fileID: 1760129356}
   - component: {fileID: 1760129355}
   - component: {fileID: 1760129354}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Ceilings
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20802,7 +20802,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1766688383}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: 'Room_1 [Bathroom]'
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -20927,7 +20927,7 @@ GameObject:
   - component: {fileID: 1782985241}
   - component: {fileID: 1782985240}
   - component: {fileID: 1782985239}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -21201,7 +21201,7 @@ GameObject:
   - component: {fileID: 1833563995}
   - component: {fileID: 1833563994}
   - component: {fileID: 1833563997}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floors
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -21340,7 +21340,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1862115511}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Floor_0
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -21385,7 +21385,7 @@ GameObject:
   - component: {fileID: 1928856214}
   - component: {fileID: 1928856216}
   - component: {fileID: 1928856215}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Tub(Clone)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -21585,7 +21585,7 @@ GameObject:
   - component: {fileID: 1991628455}
   - component: {fileID: 1991628454}
   - component: {fileID: 1991628453}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Window(Clone)
   m_TagString: Structural
   m_Icon: {fileID: 0}
@@ -21693,7 +21693,7 @@ GameObject:
   - component: {fileID: 2005727217}
   - component: {fileID: 2005727216}
   - component: {fileID: 2005727218}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Couch(Clone)
   m_TagString: Possible Hazard
   m_Icon: {fileID: 0}
@@ -21903,7 +21903,7 @@ GameObject:
   - component: {fileID: 2047380206}
   - component: {fileID: 2047380205}
   - component: {fileID: 2047380204}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Cube
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -26859,13 +26859,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2079239173}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: -0, y: -0.61857903, z: -0, w: 0.7857226}
   m_LocalPosition: {x: 0, y: 0.051999986, z: 0}
   m_LocalScale: {x: 0.08756595, y: 0.13102816, z: 0.08380144}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 153229106}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -76.425, z: 0}
 --- !u!65 &2079239175
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -26950,7 +26950,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2098338537}
   - component: {fileID: 2098338538}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Teleport Area Invisible
   m_TagString: No Hazard
   m_Icon: {fileID: 0}
@@ -27217,7 +27217,7 @@ GameObject:
   - component: {fileID: 2138052043}
   - component: {fileID: 2138052042}
   - component: {fileID: 2138052041}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Walls
   m_TagString: Untagged
   m_Icon: {fileID: 0}
