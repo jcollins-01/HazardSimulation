@@ -91,9 +91,21 @@ public class Spray : MonoBehaviour
                 // If we hit a brand new hazard, start a new timer routine
                 if (currentHazard != hazard)
                 {
-                    ResetExtinguishTracking();
+                    ResetExtinguishTracking(); // This will safely re-ignite the old hazard if we switched targets
                     currentHazard = hazard;
-                    extinguishCoroutine = StartCoroutine(ExtinguishRoutine(currentHazard));
+
+                    // Roll the duration upfront so both systems can use it
+                    float requiredTime = Random.Range(5f, 20f);
+
+                    if (currentHazard.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
+                    {
+                        // Calculate exactly how fast it needs to cool down to hit 0 right when the timer ends
+                        temp.coolDownSpeed = temp.temperature / requiredTime;
+                        temp.Extinguish();
+                    }
+
+                    // Pass the rolled time into the coroutine
+                    extinguishCoroutine = StartCoroutine(ExtinguishRoutine(currentHazard, requiredTime));
                 }
                 return;
             }
@@ -110,15 +122,22 @@ public class Spray : MonoBehaviour
             StopCoroutine(extinguishCoroutine);
             extinguishCoroutine = null;
         }
+
+        // If we stop spraying or miss, the fire flares back up!
+        if (currentHazard != null)
+        {
+            if (currentHazard.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
+            {
+                temp.Ignite();
+            }
+        }
+
         currentHazard = null;
     }
 
-    private IEnumerator ExtinguishRoutine(GameObject hazard)
+    private IEnumerator ExtinguishRoutine(GameObject hazard, float requiredTime)
     {
-        // Roll a random duration between 5 and 20 seconds
-        float requiredTime = Random.Range(5f, 20f);
         float elapsedTime = 0f;
-
         Debug.Log($"Started spraying {hazard.name}. Needs {requiredTime:F1} seconds to extinguish.");
 
         while (elapsedTime < requiredTime)
@@ -133,6 +152,8 @@ public class Spray : MonoBehaviour
         if (hazardController != null)
         {
             Debug.Log($"{hazard.name} extinguished successfully!");
+            // Clear this BEFORE running the cleanup process to stop ResetExtinguishTracking from accidentally calling Ignite()
+            currentHazard = null;
             hazardController.resetSingleObject(hazard);
         }
         else

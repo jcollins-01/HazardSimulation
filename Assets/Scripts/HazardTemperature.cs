@@ -9,6 +9,7 @@ public class HazardTemperature : MonoBehaviour
 
     private bool isIgnited = false;
     public float heatUpSpeed = 0.5f; // Controls how fast it turns red (higher = faster)
+    public float coolDownSpeed = 0.5f; // Track dynamic cooling as the user sprays
 
     void Start()
     {
@@ -61,7 +62,7 @@ public class HazardTemperature : MonoBehaviour
         else
         {
             // Gradually cool back down toward 0 (Cold)
-            temperature = Mathf.MoveTowards(temperature, 0.0f, heatUpSpeed * Time.fixedDeltaTime);
+            temperature = Mathf.MoveTowards(temperature, 0.0f, coolDownSpeed * Time.fixedDeltaTime);
         }
     }
 }
