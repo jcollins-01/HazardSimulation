@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5f20dc80a78da9a4eb14f6d1b0c17ff2
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Prefabs/URP-Post-process Volume.prefab
+  uploadId: 708962

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cae0615295fcbc649921f57a841cae58
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Scenes/Volumes/HDRPDefaultResources/DefaultScene.prefab
+  uploadId: 708962

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d0e0820187b59e843806981d356c5c77
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Compatibility/CompatibleSettings/TVE/TVE.asset
+  uploadId: 708962

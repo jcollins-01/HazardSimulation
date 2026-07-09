@@ -1,0 +1,7 @@
+PLEASE FOLLOW THE INSTRUCTIONS PROVIDED IN README OR USER INSTRUCTIONS. FLAMES WILL NOT SHOW UP BEFORE YOU HAVE INSTALLED THE RIGHT PACKAGES.
+Then open the RIGHT demo sample scene according to your rendering pipeline. Other two sample scenes WILL naturally show pink materials.
+
+If you don't know what is rendering pipeline then you probably are using Built-in Rendering pipeline.
+Built-in = Original/Default Unity RP
+URP = Universal Rendering Pipeline
+HDRP = High Definition Rendering Pipeline

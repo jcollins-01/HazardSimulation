@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a6bdd0c99b69279469967b986dc1d2c7
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Shaders/Shader documentation.txt
+  uploadId: 708962

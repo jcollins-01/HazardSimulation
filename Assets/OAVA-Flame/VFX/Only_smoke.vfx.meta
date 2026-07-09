@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 158ce64907b871644bda849f3c0fa16b
+VisualEffectImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/VFX/Only_smoke.vfx
+  uploadId: 708962

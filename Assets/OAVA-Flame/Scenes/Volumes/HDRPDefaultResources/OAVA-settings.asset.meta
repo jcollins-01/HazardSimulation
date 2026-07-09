@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cc5a973a5b269794aada9edc5aa71ea8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Scenes/Volumes/HDRPDefaultResources/OAVA-settings.asset
+  uploadId: 708962

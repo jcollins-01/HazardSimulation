@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cf4f722838a94934b928e101e16b9b59
+VisualEffectImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/VFX/Flame_box_gentle.vfx
+  uploadId: 708962

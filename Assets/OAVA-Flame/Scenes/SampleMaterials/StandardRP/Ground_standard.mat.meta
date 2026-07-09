@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 21d54a879d18b0447b29eb29e7fabf1d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Scenes/SampleMaterials/StandardRP/Ground_standard.mat
+  uploadId: 708962

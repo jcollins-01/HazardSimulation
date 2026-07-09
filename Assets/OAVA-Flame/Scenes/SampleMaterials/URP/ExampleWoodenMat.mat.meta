@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 5f1b905c9e6e8104286b90ce15d250c1
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Scenes/SampleMaterials/URP/ExampleWoodenMat.mat
+  uploadId: 708962

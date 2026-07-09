@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3573a8ab2bb03bf4da8f1307579ce335
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Demo_presets/URP/TVE_Small_Grass/TVE_Small_Grass.preset
+  uploadId: 708962

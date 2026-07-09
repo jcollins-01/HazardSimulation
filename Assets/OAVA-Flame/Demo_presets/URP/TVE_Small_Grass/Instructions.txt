@@ -1,0 +1,3 @@
+Here you have the preset used in TVE small grass patch.
+
+Convert grass to Flammable vegetation (see User_Instructions.pdf) and apply the preset to the flammableobject.cs

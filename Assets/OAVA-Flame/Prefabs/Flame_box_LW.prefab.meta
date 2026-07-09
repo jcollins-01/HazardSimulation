@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d4e1c69dd1a1c7143a358d1e446bf3e0
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Prefabs/Flame_box_LW.prefab
+  uploadId: 708962

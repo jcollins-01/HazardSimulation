@@ -1,0 +1,24 @@
+The shader properties are generally used through script, 
+but here is a small documentation to get you started in case you want to customize the shader.
+
+_BaseMap to _Offset: Same as in Lit Shaders.
+Mat_Alpha: Alpha of the material. Only clips the material out when alpha < Alpha threshold in opaque materials.
+Fire_tile: Tiling of the flame effect
+Fire_map: BaseMap texture for fire. Texture is included in package.
+Fire_softness: Fresnel effect around the edges of the fire.
+Fire_bright: 0-1, Lerps between fire_min_brightness and fire_max_brightness. How bright is the effect currently.
+Fire_color: The color of the effect.
+Voronoi_move: To produce the flashing, crackling fire effect, voronoi is used. This controls how fast it crackles.
+Fire_dir: Which direction the fire is strongest. By default the fire is strongest on the top of the object.
+Fire_side_multiplier: How much fire sides get compared to the top (fire_dir).
+Fire_move_dir: For getting fire to life. It is moved just a little bit. This can be of course adjusted.
+Fire_origin: Where is the origin point where fire caught up. The spread is calculated from this point.
+Fire_spread: Distance in meters, how much has fire spread.
+Fire_max_brightness: What is the max brightness the emission can reach. Adjust this if you cannot see the crackling effect.
+Fire_min_brightness: What is the min brightness the emission starts. Adjust this if you cannot see the crackling effect.
+Charred_wood_tex: The charred wood texture. Included in the package.
+Charred_wood_blend: How much the charred wood is blended in the basemap
+Charred_tiling: Tiling of the charred tex.
+Charred_wood_normal: Normal map of the charred wood. Included in the package.
+Charred_wood_normal_strength: Strength of the normal used.
+

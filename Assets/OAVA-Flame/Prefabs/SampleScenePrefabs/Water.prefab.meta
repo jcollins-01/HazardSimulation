@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 403fcc14337262647a0d78bcf3c9296e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Prefabs/SampleScenePrefabs/Water.prefab
+  uploadId: 708962

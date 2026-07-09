@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 038a68351f30ff0458ec0587174d21a0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2655988077585873504
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Demo_presets/HDRP/Nature_demo_tree_medium.preset
+  uploadId: 708962

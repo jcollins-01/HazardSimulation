@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: cfa53d9942935d14d8e68645391083a3
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Scenes/Built-in-RP_Sample.unity
+  uploadId: 708962

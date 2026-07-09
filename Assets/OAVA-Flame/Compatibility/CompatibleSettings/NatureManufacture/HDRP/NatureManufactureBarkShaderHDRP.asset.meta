@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3213657fc8057ac439add5d0ec89236a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Compatibility/CompatibleSettings/NatureManufacture/HDRP/NatureManufactureBarkShaderHDRP.asset
+  uploadId: 708962

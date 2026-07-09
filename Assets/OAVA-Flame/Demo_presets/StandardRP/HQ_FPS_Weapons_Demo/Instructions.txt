@@ -1,0 +1,12 @@
+Here are presets used in the HQ FPS Animated Weapons video.
+
+To use the post processing you need Post Processing v2 installed from the package manager and applied to the scene.
+
+Convert object (e.g. box) to flammable just like in user_instructions.pdf, then apply preset to the FlammableObject.cs.
+
+If your weapon (e.g. molotov) does not yet have a script to set the flammable object to fire, you need to add it.
+- Add RaycastIgnite.cs component to your lingering fire/explosion particle system. 
+- Modify the start offset by y = 2 or with highest position you want flames to reach. You can also modify raycast dir to y = 1 for raycasting up (depends on your setup which one you want).
+- Modify the Raycast radius by amount you want flame to affect (e.g. 2)
+- Done. Your weapon should ignite flames now.
+- You can also use ParticleIgnite.cs if your weapon uses particles and has particle collions on.

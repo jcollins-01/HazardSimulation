@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: eabb1686ae795b74fb6fe3b2cd3ffcb9
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Scenes/URP_Sample/LightingData.asset
+  uploadId: 708962

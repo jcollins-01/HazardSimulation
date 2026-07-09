@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ef87fd6a42a6bc042a2fdda12a3efb5b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Compatibility/CompatibleSettings/Unity/HDRPLit.asset
+  uploadId: 708962

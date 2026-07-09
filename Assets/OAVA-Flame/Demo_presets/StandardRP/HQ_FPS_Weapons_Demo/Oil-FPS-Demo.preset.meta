@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cb1a8792f488ea14d8b2a26df3e52f9a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Demo_presets/StandardRP/HQ_FPS_Weapons_Demo/Oil-FPS-Demo.preset
+  uploadId: 708962

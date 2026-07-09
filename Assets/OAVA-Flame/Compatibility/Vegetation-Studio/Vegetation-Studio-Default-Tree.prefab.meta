@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 236cf1f9bf0d946499723cdc5f8e4c22
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Compatibility/Vegetation-Studio/Vegetation-Studio-Default-Tree.prefab
+  uploadId: 708962

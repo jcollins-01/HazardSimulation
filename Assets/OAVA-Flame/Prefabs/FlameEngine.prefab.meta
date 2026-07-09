@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c240efe879a8bc249b3f1332f485edc1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Prefabs/FlameEngine.prefab
+  uploadId: 708962

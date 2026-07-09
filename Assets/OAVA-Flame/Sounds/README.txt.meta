@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 37d6a8e6b0057934aa5fe0c8b88aa147
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Sounds/README.txt
+  uploadId: 708962

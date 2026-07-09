@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: aa430eaf7e339f449be87ff892fec260
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Scenes/SampleMaterials/URP/WaterParticle.mat
+  uploadId: 708962

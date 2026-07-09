@@ -1,0 +1,32 @@
+Fire_box parameters:
+Spread: Sphere - fire spreading origin and radius.
+Box: Box - Particle spawning box.
+FlameColor: Color - Blended color to the flame
+FireParticleMultiplier: Float - VFX amount multiplier.
+FlameColorBlend: Float[0, 1] - How much FlameColor is blended to the final result 0-1.
+FlameLength: Float - Average length of flame in seconds.
+Rotation: Vector3 - Rotation of the spawn box.
+BurnOutMultiplier: Float[0, 1] - Gradually changes the VFX to smaller amount if fire is burning out. 1 = full effect, 0 = no effect.
+LODMaxDist: Float - Distance from the main camera when the effect is full AKA most particles AKA LOD0.
+CullingDist: Float - Distance from the main camera when the effect is culled fully. The effect is gradually decreased between LODMaxDist and CullingDist.
+WindForce: Vector3 - How much wind force is affecting the particles.
+PutOutArea: Sphere - Extinguished area center and radius. Particles will die instantly on this area and never spawn.
+SteamPos: Vector3 - Position to spawn the steam. 
+FlameLiveliness: Float - How lively is the flames (Essentially a Drag of the living VectorField)
+FlameSpeed: Float - How much force (natural upwards and wind) is applied to the flame (Essentially a Drag of Force)
+SizeChangeRange: Vector2 - Min and Max multiplier of spawning box perlin noise size change.
+BurstDelayRange: Vector2 - Min and Max of fire particle bursts. Seconds.
+SmokeVFXMultiplier: Float - How much smoke there is compared to flames? LocalVFXMultiplier*global*SmokeMultiplier = total
+SmokeAlpha: Float - Smoke Alpha multiplier
+SmokeColor: Color - Color multiplier of the smoke
+WindMultiplier: Float - How much wind affects the particle.
+AdditionalCameraPosition: Vector3 - Additional culling camera position. Closest position between this and main camera is chosen
+EmbersVFXMultiplier: float - Multiplier for general output of embers vfx.
+EmbersBurstVFXMultiplier: float - Multiplier for ember burst which happens at EmbersBurstDelay intervals.
+EmbersBurstDelayMinMax: Vector2 - x = min, y = max. min and max times for the ember burst random interval.
+FlameParticleSize: float - How big are the fire particles.
+EmbersParticleSize: float - How big are the ember particles.
+FireVFXMultiplier: float - Local fire VFX multiplier. Only affects the flame flakes.
+
+Fire_box Trigger events:
+SteamBurst - Triggers steam burst to SteamPos

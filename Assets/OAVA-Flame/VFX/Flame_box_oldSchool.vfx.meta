@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f6ec7ecdc213e784fba5c91defb0e7ce
+VisualEffectImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/VFX/Flame_box_oldSchool.vfx
+  uploadId: 708962

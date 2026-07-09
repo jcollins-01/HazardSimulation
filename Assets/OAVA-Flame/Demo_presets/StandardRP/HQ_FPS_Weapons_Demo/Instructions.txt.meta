@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0071c0c6a6b05664fbb5d2a18cd74fbe
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/Demo_presets/StandardRP/HQ_FPS_Weapons_Demo/Instructions.txt
+  uploadId: 708962

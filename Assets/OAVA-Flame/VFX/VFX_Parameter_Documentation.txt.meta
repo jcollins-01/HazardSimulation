@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8efaab908d8de5d4d930f6cb33d9878e
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 181079
+  packageName: Ignis - Interactive Fire - URP/HDRP
+  packageVersion: 2.1.7
+  assetPath: Assets/OAVA-Flame/VFX/VFX_Parameter_Documentation.txt
+  uploadId: 708962
