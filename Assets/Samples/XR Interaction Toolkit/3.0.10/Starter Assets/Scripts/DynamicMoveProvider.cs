@@ -142,10 +142,7 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
 
                 case MovementDirection.HandRelative:
                     if (m_LeftControllerTransform != null)
-                    {
                         m_LeftMovementPose = m_LeftControllerTransform.GetWorldPose();
-                        Debug.Log("Detected left hand movement");
-                    }
 
                     break;
 
@@ -165,10 +162,7 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
 
                 case MovementDirection.HandRelative:
                     if (m_RightControllerTransform != null)
-                    {
                         m_RightMovementPose = m_RightControllerTransform.GetWorldPose();
-                        Debug.Log("Detected right hand movement");
-                    }
 
                     break;
 
@@ -189,7 +183,7 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
             var combinedPosition = Vector3.Lerp(m_RightMovementPose.position, m_LeftMovementPose.position, leftHandBlend);
             var combinedRotation = Quaternion.Slerp(m_RightMovementPose.rotation, m_LeftMovementPose.rotation, leftHandBlend);
             m_CombinedTransform.SetPositionAndRotation(combinedPosition, combinedRotation);
-            Debug.Log("Applying movement change");
+
             return base.ComputeDesiredMove(input);
         }
     }

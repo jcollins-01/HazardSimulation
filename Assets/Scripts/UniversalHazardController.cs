@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem;
+using Ignis;
 
 public class UniversalHazardController : MonoBehaviour
 {
@@ -47,12 +48,17 @@ public class UniversalHazardController : MonoBehaviour
 
     // Vars for functions
     private Coroutine scaleCoroutine;
+    // currently active hazards and their original colors in the simulation
     private Dictionary<GameObject, Material> originalColors = new Dictionary<GameObject, Material>();
+    // hazards that have been sucessfully extinguished
+    private List<GameObject> extinguishedHazards = new List<GameObject>();
+    private List<GameObject> activeHazards = new List<GameObject>();
+    HazardTagging tagging;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        
+        tagging = FindFirstObjectByType<HazardTagging>();
     }
 
     void Update()
@@ -166,6 +172,9 @@ public class UniversalHazardController : MonoBehaviour
                 pair.Key.GetComponent<Renderer>().material = pair.Value;
                 pair.Key.tag = "Possible Hazard";
 
+                // pass the list to tagging system so it can update, too
+                tagging.CheckHazardStatus(originalColors);
+
                 // track the heat on the object
                 if (pair.Key.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
                 {
@@ -260,16 +269,25 @@ public class UniversalHazardController : MonoBehaviour
     public void Spreading(HazardBehaviorModel model)
     {
         // Set the object we're touching as an Active Hazard
-        model.lastTouchedObject.tag = "Active Hazard";
+        GameObject hazard = model.lastTouchedObject;
+        hazard.tag = "Active Hazard";
+        //Debug.Log($"{hazard.name} was set as an active hazard");
 
         // Use TryAdd so that it only adds the material the first time (doesn't overwrite the original material as touching continues)
-        originalColors.TryAdd(model.lastTouchedObject, model.lastTouchedObject.GetComponent<Renderer>().material);
+        originalColors.TryAdd(hazard, hazard.GetComponent<Renderer>().material);
+        tagging.CheckHazardStatus(originalColors);
+        
+        // Subscribe to the listener event on the FlammableObject on the gameObject
+        if (hazard.TryGetComponent<FlammableObject>(out FlammableObject flame))
+        {
+            
+        }
 
         // Adding the hazard temp component
-        if (!model.lastTouchedObject.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
+        if (!hazard.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
         {
             // Assign the newly added component to 'temp' and ignite it so we can use it right away
-            temp = model.lastTouchedObject.AddComponent<HazardTemperature>();
+            temp = hazard.AddComponent<HazardTemperature>();
             temp.Ignite();
         }
         else
@@ -279,7 +297,7 @@ public class UniversalHazardController : MonoBehaviour
         }
 
         // Change its color to red to visually mark the difference
-        model.lastTouchedObject.GetComponent<Renderer>().material = Resources.Load<Material>("Materials/Red");
+        //model.lastTouchedObject.GetComponent<Renderer>().material = Resources.Load<Material>("Materials/Red");
     }
 
     // The Coroutine that handles the actual frame-by-frame interpolation

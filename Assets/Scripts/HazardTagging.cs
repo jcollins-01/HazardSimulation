@@ -23,6 +23,35 @@ public class HazardTagging : MonoBehaviour
     [Tooltip("Tracks the specific objects that have been assigned as active hazards.")]
     public List<GameObject> activeHazards = new List<GameObject>();
 
+    //[Tooltip("List of hazards that have been successfully extinguished.")]
+    //public List<GameObject> extinguishedHazards = new List<GameObject>();
+
+
+    // called by the hazard controller when an object is touched / made active
+    public void CheckHazardStatus(Dictionary<GameObject, Material> hazards)
+    {
+        // Check all objects to see what their tags are + update as needed
+        foreach (var pair in hazards)
+        {
+            if (pair.Key.tag == "Active Hazard")
+            {
+                // Remove the gameobject from possible hazards and put it in active
+                if (possibleHazards.Contains(pair.Key))
+                    possibleHazards.Remove(pair.Key);
+                if (!activeHazards.Contains(pair.Key))
+                    activeHazards.Add(pair.Key);
+            }
+            else if (pair.Key.tag == "Possible Hazard")
+            {
+                if (!possibleHazards.Contains(pair.Key))
+                    possibleHazards.Add(pair.Key);
+                if (activeHazards.Contains(pair.Key))
+                    activeHazards.Remove(pair.Key);
+            }
+        }
+    }
+
+
     // Scans the generated house and automatically applies 'Possible Hazard' tags based on room type and contents.
     public void RunAutoTagging()
     {
@@ -228,6 +257,50 @@ public class HazardTagging : MonoBehaviour
         }
     }
 
+    public void RefreshHazards()
+    {
+#if UNITY_EDITOR
+        Undo.RecordObject(this, "Refresh Hazards");
+#endif
+
+        // Handle assignment based on the selected Mode
+        Transform[] allChildren = GetComponentsInChildren<Transform>();
+
+        // Clear the tracking array so we can rebuild it purely from the manual tags
+        possibleHazards.Clear();
+        activeHazards.Clear();
+
+        List<GameObject> hazardTaggedItems = new List<GameObject>();
+
+        // Find everything the user manually tagged and rebuild the possibleHazards list
+        foreach (var child in allChildren)
+        {
+            if (child.gameObject.tag == "Possible Hazard")
+            {
+                hazardTaggedItems.Add(child.gameObject);
+                possibleHazards.Add(child.gameObject); // Track it for the inspector!
+#if UNITY_EDITOR
+                EditorUtility.SetDirty(child.gameObject);
+#endif
+            }
+            else if (child.gameObject.CompareTag("Active Hazard"))
+            {
+                hazardTaggedItems.Add(child.gameObject);
+                possibleHazards.Add(child.gameObject);
+                child.gameObject.tag = "Possible Hazard"; // reset it to possible, we don't want any active hazards at the moment
+#if UNITY_EDITOR
+                EditorUtility.SetDirty(child.gameObject);
+#endif
+            }
+        }
+
+        if (hazardTaggedItems.Count == 0)
+        {
+            Debug.LogWarning("HazardTagging: You have no objects manually tagged as 'Possible Hazard'.");
+            return;
+        }
+    }
+
     private bool ContainsFlammableKeyword(string objectName)
     {
         foreach (var keyword in flammableKeywords)
@@ -303,6 +376,13 @@ public class HazardTaggingEditor : Editor
         if (GUILayout.Button("2. Assign Active Hazards", GUILayout.Height(35)))
         {
             script.AssignActiveHazards();
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        }
+
+        GUI.backgroundColor = new Color(0.3f, 1.0f, 0.3f);
+        if (GUILayout.Button("3. Refresh Hazards", GUILayout.Height(35)))
+        {
+            script.RefreshHazards();
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         }
     }
