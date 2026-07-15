@@ -1,6 +1,8 @@
 {
   "dependencies": {
+    "com.normalvr.normcore": "3.5.1",
     "com.unity.ai.navigation": "2.0.9",
+    "com.unity.animation.rigging": "1.4.1",
     "com.unity.collab-proxy": "2.11.2",
     "com.unity.ide.rider": "3.0.38",
     "com.unity.ide.visualstudio": "2.0.26",
@@ -47,5 +49,15 @@
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0"
-  }
+  },
+  "scopedRegistries": [
+    {
+      "name": "Normal",
+      "url": "https://normcore-registry.normcore.io",
+      "scopes": [
+        "com.normalvr",
+        "io.normcore"
+      ]
+    }
+  ]
 }
