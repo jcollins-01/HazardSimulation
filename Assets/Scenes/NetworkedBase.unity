@@ -12866,6 +12866,8 @@ GameObject:
   - component: {fileID: 902763349}
   - component: {fileID: 902763348}
   - component: {fileID: 902763354}
+  - component: {fileID: 902763356}
+  - component: {fileID: 902763355}
   m_Layer: 0
   m_Name: Hose
   m_TagString: Untagged
@@ -13133,6 +13135,47 @@ MonoBehaviour:
   maxSprayDistance: 10
   startRadius: 0.5
   radiusIncrementSpeed: 0.5
+--- !u!114 &902763355
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 902763347}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1029778088, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _interpolate: 1
+  _syncPosition: 1
+  _syncRotation: 1
+  _syncScale: 1
+  _syncVelocity: 1
+  _maintainOwnershipWhileSleeping: 0
+  _autoRequestOwnership: 1
+--- !u!114 &902763356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 902763347}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _realtime: {fileID: 0}
+  _sceneViewUUID: 
+  _viewUUID: 1a28b3c8-c128-426e-b2b8-b14524800694
+  _sceneViewPreventOwnershipTakeover: 0
+  _sceneViewDestroyWhenLastClientLeaves: 1
+  _components:
+  - componentID: 1
+    component: {fileID: 902763355}
+    isDeprecated: 0
+  _childViews: []
 --- !u!1001 &903380122
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -21499,8 +21542,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1735593595}
-  - component: {fileID: 1735593597}
-  - component: {fileID: 1735593596}
   m_Layer: 0
   m_Name: Hose
   m_TagString: Untagged
@@ -21524,47 +21565,6 @@ Transform:
   - {fileID: 902763353}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1735593596
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1735593594}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1029778088, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _interpolate: 1
-  _syncPosition: 1
-  _syncRotation: 1
-  _syncScale: 1
-  _syncVelocity: 1
-  _maintainOwnershipWhileSleeping: 0
-  _autoRequestOwnership: 1
---- !u!114 &1735593597
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1735593594}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _realtime: {fileID: 0}
-  _sceneViewUUID: 
-  _viewUUID: d9d24127-4ffb-48b8-a67b-9e11e8b04a1e
-  _sceneViewPreventOwnershipTakeover: 0
-  _sceneViewDestroyWhenLastClientLeaves: 1
-  _components:
-  - componentID: 1
-    component: {fileID: 1735593596}
-    isDeprecated: 0
-  _childViews: []
 --- !u!1 &1736705089
 GameObject:
   m_ObjectHideFlags: 0
