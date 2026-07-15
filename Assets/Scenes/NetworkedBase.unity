@@ -1876,7 +1876,7 @@ MonoBehaviour:
   m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _realtime: {fileID: 0}
+  _realtime: {fileID: 288839861}
   _sceneViewUUID: 
   _viewUUID: 0e2ad6a6-704c-4419-a903-a2b5c066ee37
   _sceneViewPreventOwnershipTakeover: 0
@@ -3119,6 +3119,17 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 287959037}
   m_Mesh: {fileID: 340979152}
+--- !u!114 &288839861 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6542930594152820187, guid: a21bb49bd31c5bb4399e6ff0e5562714, type: 3}
+  m_PrefabInstance: {fileID: 2089091277}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1424795628, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -14141,11 +14152,11 @@ MonoBehaviour:
   m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _realtime: {fileID: 0}
+  _realtime: {fileID: 288839861}
   _sceneViewUUID: 
   _viewUUID: adaf2982-460f-470a-b2e6-a38e37c68dcf
   _sceneViewPreventOwnershipTakeover: 0
-  _sceneViewDestroyWhenLastClientLeaves: 0
+  _sceneViewDestroyWhenLastClientLeaves: 1
   _components:
   - componentID: 1
     component: {fileID: 942681354}
@@ -17856,7 +17867,7 @@ MonoBehaviour:
   m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _realtime: {fileID: 0}
+  _realtime: {fileID: 288839861}
   _sceneViewUUID: 
   _viewUUID: 5fc5b817-5587-4682-8227-ad5b262f14f4
   _sceneViewPreventOwnershipTakeover: 0
