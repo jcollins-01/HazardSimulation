@@ -4395,7 +4395,7 @@ Transform:
   m_GameObject: {fileID: 417902776}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.72, y: 1.09, z: -5.71}
+  m_LocalPosition: {x: 3.72, y: 1.09, z: -5.099}
   m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 1
   m_Children: []
@@ -4418,7 +4418,7 @@ MonoBehaviour:
   _syncRotation: 1
   _syncScale: 1
   _syncVelocity: 1
-  _maintainOwnershipWhileSleeping: 0
+  _maintainOwnershipWhileSleeping: 1
   _autoRequestOwnership: 1
 --- !u!114 &417902784
 MonoBehaviour:
@@ -4434,7 +4434,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _realtime: {fileID: 0}
   _sceneViewUUID: 
-  _viewUUID: 5c263b04-af6d-46f8-9e96-2893f84b687e
+  _viewUUID: 7512895e-85d1-4df0-9972-8d3b3ffc25bb
   _sceneViewPreventOwnershipTakeover: 0
   _sceneViewDestroyWhenLastClientLeaves: 1
   _components:
@@ -10558,8 +10558,6 @@ GameObject:
   - component: {fileID: 620976720}
   - component: {fileID: 620976719}
   - component: {fileID: 620976718}
-  - component: {fileID: 620976717}
-  - component: {fileID: 620976716}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -10567,47 +10565,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &620976716
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 620976715}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -1029778088, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _interpolate: 1
-  _syncPosition: 1
-  _syncRotation: 1
-  _syncScale: 1
-  _syncVelocity: 1
-  _maintainOwnershipWhileSleeping: 0
-  _autoRequestOwnership: 1
---- !u!114 &620976717
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 620976715}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _realtime: {fileID: 0}
-  _sceneViewUUID: 
-  _viewUUID: c8b16bfd-dde7-4671-91d7-1a01039daaf8
-  _sceneViewPreventOwnershipTakeover: 0
-  _sceneViewDestroyWhenLastClientLeaves: 1
-  _components:
-  - componentID: 1
-    component: {fileID: 620976716}
-    isDeprecated: 0
-  _childViews: []
 --- !u!114 &620976718
 MonoBehaviour:
   m_ObjectHideFlags: 0
