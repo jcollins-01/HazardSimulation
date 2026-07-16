@@ -14753,6 +14753,8 @@ GameObject:
   - component: {fileID: 1043648967}
   - component: {fileID: 1043648972}
   - component: {fileID: 1043648971}
+  - component: {fileID: 1043648973}
+  - component: {fileID: 1043648974}
   m_Layer: 0
   m_Name: Hazard
   m_TagString: Active Hazard
@@ -14772,7 +14774,8 @@ Transform:
   m_LocalPosition: {x: 9.411, y: -1.35, z: 5.413}
   m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1711989908}
   m_Father: {fileID: 1519417125}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1043648967
@@ -14876,7 +14879,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45fa1a403ac351a47a29cea99a046537, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxSpread: 10000
+  maxSpread: 5
   fireCrawlSpeed: 1
   overrideFireVFX: 0
   overrideVFXVariant: 3
@@ -14886,12 +14889,12 @@ MonoBehaviour:
   flameLength: 2
   smokeColor: {r: 0.18039216, g: 0.18039216, b: 0.18039216, a: 1}
   smokeColorIntensity: 10
-  smokeAlpha: 0.7
-  smokeVFXMultiplier: 0.5
+  smokeAlpha: 2.5
+  smokeVFXMultiplier: 1
   smokeParticleSize: 1
   embersVFXMultiplier: 1
   embersBurstVFXMultiplier: 1
-  embersBurstDelayMinMax: {x: 4, y: 6}
+  embersBurstDelayMinMax: {x: 2, y: 4}
   embersParticleSize: 1
   useExtinguishSteam: 1
   enableMaterialAnimation: 1
@@ -14909,9 +14912,9 @@ MonoBehaviour:
   fireSpread: 0
   onFireTimer: 0
   isEffectOnForever: 0
-  burnOutStart_s: 30
+  burnOutStart_s: 120
   burnOutLength_s: 10
-  isReignitable: 0
+  isReignitable: 2
   deleteAfterBurnout: 0
   useMeshFire: 0
   meshFireCount: 10
@@ -14926,7 +14929,7 @@ MonoBehaviour:
   flameLivelinessSpeed: 1
   flameParticleSize: 1
   flameBurstDelayMinMax: {x: 0, y: 0}
-  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1.1}
+  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1}
   flameVFXMultiplier: 1
   onFire: 0
   flammableColliders: []
@@ -14935,7 +14938,7 @@ MonoBehaviour:
   customFireSFX: {fileID: 0}
   customFireOriginOnStart: {fileID: 0}
   flameLights: []
-  fullExtinguishToughness: 0.7
+  fullExtinguishToughness: 0.5
   backSpreadCoolDown_s: 5
   spreadLayerMask:
     serializedVersion: 2
@@ -14957,12 +14960,49 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 3, y: 3, z: 3}
   m_Center: {x: -0.0000037550926, y: 0.00000011920929, z: -0.0000005662441}
+--- !u!114 &1043648973
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1043648965}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a8763ca304103b489f9f9a1705acc9c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  temperature: 0
+  heatUpSpeed: 0.5
+  coolDownSpeed: 0.5
+--- !u!114 &1043648974
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1043648965}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxTemperature: 1000
+  currentTemperature: 1000
+  currentProfile: 2
+  tempRegenRate: 250
+  tempDrainPerParticle: 5
+  regenDelay: 1
+  smolderThreshold: 100
+  reigniteChance: 0.5
+  autoFizzleRate: 0.01
+  readyForSmolder: 0
 --- !u!1 &1050169235
 GameObject:
   m_ObjectHideFlags: 0
@@ -20742,6 +20782,59 @@ Mesh:
     offset: 0
     size: 0
     path: 
+--- !u!1 &1711989907
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1711989908}
+  - component: {fileID: 1711989909}
+  m_Layer: 7
+  m_Name: Hitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1711989908
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1711989907}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1043648966}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &1711989909
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1711989907}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 3, y: 3, z: 3}
+  m_Center: {x: -0.0000037550926, y: 0.00000011920929, z: -0.0000005662441}
 --- !u!43 &1727144392
 Mesh:
   m_ObjectHideFlags: 0
