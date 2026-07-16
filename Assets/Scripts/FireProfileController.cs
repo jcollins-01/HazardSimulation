@@ -30,6 +30,21 @@ public class FireProfileController : MonoBehaviour
     private float baseVFXMultiplier;
     private float baseParticleSize;
 
+    [Header("Uncertainty & Smoldering Settings")]
+    [Tooltip("The temperature below which the fire enters the uncertainty phase.")]
+    public float smolderThreshold = 100f;
+    [Tooltip("Chance (0.0 to 1.0) that the fire will reignite when left alone in the smolder zone.")]
+    [Range(0f, 1f)]
+    public float reigniteChance = 0.5f;
+    [Tooltip("How fast the temperature drops to 0 if it fails the reignite roll.")]
+    public float autoFizzleRate = 0.01f; // very low fizzle rate
+    [HideInInspector] public bool readyForSmolder = false; // flag to keep track of if the system has visually burnt-out or not
+
+    // State trackers for the smolder phase
+    private bool hasRolledSmolder = false;
+    private bool willReignite = true;
+    private float reigniteRegenRate = 1.0f; // a slow regrowth rate 
+
     private FlammableObject flammableObject;
     private BoxCollider collider; // parent collider that determines ability to be touched/tracked in our hazard system
     private float lastWaterHitTime = 0f;
@@ -54,15 +69,8 @@ public class FireProfileController : MonoBehaviour
 
     void Update()
     {
-        // Regenerate Temperature over time if not actively being sprayed
-        if (Time.time - lastWaterHitTime > regenDelay && currentTemperature < maxTemperature)
-        {
-            currentTemperature += tempRegenRate * Time.deltaTime;
-
-            // Clamp it back to max
-            if (currentTemperature > maxTemperature)
-                currentTemperature = maxTemperature;
-        }
+        // Adjust the temperature each frame based on water spray + chance for smolder/reignite if < 100
+        CheckSprayAndSmolder();
 
         // Call a fire scaling function every frame based on temperature
         UpdateFireVisuals();
@@ -236,10 +244,117 @@ public class FireProfileController : MonoBehaviour
         Debug.Log($"Applied {currentProfile} profile to {gameObject.name}");
     }
 
+    public void RollForSmolder()
+    {
+        Debug.Log("Fire visually extinguished by Ignis. Rolling for smolder.");
+        readyForSmolder = true;
+    }
+
+    private void CheckSprayAndSmolder()
+    {
+        // Determine if we are in the smolder zone
+        bool inSmolderZone = (currentTemperature > 0 && currentTemperature <= smolderThreshold);
+        bool isSprayedRecently = (Time.time - lastWaterHitTime <= regenDelay);
+
+        Debug.Log($"Current Temp: {currentTemperature}, InSmolderZone: {inSmolderZone}, Sprayed: {isSprayedRecently}");
+
+        if (inSmolderZone && !isSprayedRecently)
+        {
+            if (readyForSmolder)
+            {
+                Debug.Log("Roll for smolder");
+                // We are in the uncertainty zone. Roll the dice once!
+                if (!hasRolledSmolder)
+                {
+                    hasRolledSmolder = true;
+                    willReignite = Random.value <= reigniteChance;
+                    Debug.Log("Rolled to reignite");
+                }
+
+                // Execute the result of the roll
+                if (willReignite)
+                {
+                    currentTemperature += reigniteRegenRate * Time.deltaTime;
+                    flammableObject.TryToSetOnFire(transform.position, reigniteRegenRate);
+                }
+                else
+                {
+                    // Artificially drain the fire to 0 to simulate it dying out on its own
+                    currentTemperature -= autoFizzleRate * Time.deltaTime;
+                    if (currentTemperature < 0) currentTemperature = 0;
+                    Debug.Log("Slowly drain temperature");
+                }
+            }
+        }
+        // ONLY if we are NOT in the smolder zone do we allow normal regen
+        else if (!isSprayedRecently && currentTemperature < maxTemperature)
+        {
+            currentTemperature += tempRegenRate * Time.deltaTime;
+
+            // Reset flags only when we successfully climb out of the smolder zone
+            hasRolledSmolder = false;
+            readyForSmolder = false;
+        }
+        /*
+        // Logic triggers only if the fire is not actively being sprayed
+        if (Time.time - lastWaterHitTime > regenDelay)
+        {
+            if (readyForSmolder && currentTemperature > 0 && currentTemperature <= smolderThreshold)
+            {
+                Debug.Log("Roll for smolder");
+                // We are in the uncertainty zone. Roll the dice once!
+                if (!hasRolledSmolder)
+                {
+                    hasRolledSmolder = true;
+                    willReignite = Random.value <= reigniteChance;
+                    Debug.Log("Rolled to reignite");
+                }
+
+                // Execute the result of the roll
+                if (willReignite)
+                {
+                    currentTemperature += tempRegenRate * Time.deltaTime;
+                    Debug.Log("Reigniting");
+                }
+                else
+                {
+                    // Artificially drain the fire to 0 to simulate it dying out on its own
+                    currentTemperature -= autoFizzleRate * Time.deltaTime;
+                    if (currentTemperature < 0) currentTemperature = 0;
+                    Debug.Log("Slowly drain temperature");
+                }
+            }
+            // Ignis hasn't visually extinguished it yet but is capable of doing so
+            else if (currentTemperature > 0 && currentTemperature <= smolderThreshold)
+            {
+                currentTemperature = smolderThreshold - 1; // hold temp in place at 99 degrees
+            }
+            else if (currentTemperature > smolderThreshold && currentTemperature < maxTemperature)
+            {
+                // Normal regeneration outside of the smolder zone
+                currentTemperature += tempRegenRate * Time.deltaTime;
+
+                // Reset the roll state in case it gets sprayed back down into the smolder zone later
+                hasRolledSmolder = false;
+                readyForSmolder = false;
+            }
+        }*/
+
+        // Clamp it back to max and min
+        if (currentTemperature > maxTemperature)
+            currentTemperature = maxTemperature;
+
+        if (currentTemperature < 0)
+            currentTemperature = 0;
+    }
+
     public float ProcessWaterHit(int particleCount)
     {
         lastWaterHitTime = Time.time;
         currentTemperature -= (particleCount * tempDrainPerParticle);
+
+        // Reset the smolder roll if the player starts spraying again while the fire is currently deciding its fate
+        hasRolledSmolder = false;
 
         if (currentTemperature == 0)
         {
@@ -267,7 +382,7 @@ public class FireProfileController : MonoBehaviour
 
         // Clamp this so the fire doesn't become COMPLETELY microscopic 
         // before hitting the 100-degree extinguish threshold
-        float visualRatio = Mathf.Max(tempRatio, 0.1f);
+        float visualRatio = Mathf.Max(tempRatio, 0.5f);
 
         // Apply the ratio to the current visual parameters
         flammableObject.flameLength = baseFlameLength * visualRatio;

@@ -4569,8 +4569,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  temperature: 3000
+  maxTemperature: 3000
+  currentTemperature: 3000
   currentProfile: 0
+  tempRegenRate: 500
+  tempDrainPerParticle: 0.1
+  regenDelay: 0.1
+  smolderThreshold: 100
+  reigniteChance: 0.5
+  autoFizzleRate: 25
+  readyForSmolder: 0
 --- !u!1 &465049477
 GameObject:
   m_ObjectHideFlags: 0
@@ -12353,8 +12361,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  temperature: 350
+  maxTemperature: 350
+  currentTemperature: 350
   currentProfile: 1
+  tempRegenRate: 50
+  tempDrainPerParticle: 10
+  regenDelay: 1
+  smolderThreshold: 100
+  reigniteChance: 0.5
+  autoFizzleRate: 25
+  readyForSmolder: 0
 --- !u!1 &810853252
 GameObject:
   m_ObjectHideFlags: 0
@@ -14946,8 +14962,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  temperature: 350
+  maxTemperature: 350
+  currentTemperature: 350
   currentProfile: 1
+  tempRegenRate: 50
+  tempDrainPerParticle: 10
+  regenDelay: 1
+  smolderThreshold: 100
+  reigniteChance: 0.5
+  autoFizzleRate: 25
+  readyForSmolder: 0
 --- !u!1 &987870151
 GameObject:
   m_ObjectHideFlags: 0
@@ -17424,8 +17448,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  temperature: 1000
+  maxTemperature: 1000
+  currentTemperature: 1000
   currentProfile: 2
+  tempRegenRate: 250
+  tempDrainPerParticle: 5
+  regenDelay: 1
+  smolderThreshold: 100
+  reigniteChance: 0.5
+  autoFizzleRate: 25
+  readyForSmolder: 0
 --- !u!114 &1304278985
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -22969,7 +23001,8 @@ GameObject:
   - component: {fileID: 2005727216}
   - component: {fileID: 2005727220}
   - component: {fileID: 2005727219}
-  - component: {fileID: 2005727218}
+  - component: {fileID: 2005727222}
+  - component: {fileID: 2005727221}
   m_Layer: 6
   m_Name: Couch(Clone)
   m_TagString: Possible Hazard
@@ -23046,20 +23079,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2005727214}
   m_Mesh: {fileID: 4300002, guid: cf23e865d5e97c44c8c805a8d33f140f, type: 3}
---- !u!114 &2005727218
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2005727214}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  temperature: 3000
-  currentProfile: 0
 --- !u!65 &2005727219
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -23093,22 +23112,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45fa1a403ac351a47a29cea99a046537, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxSpread: 10000
+  maxSpread: 5
   fireCrawlSpeed: 1
   overrideFireVFX: 0
   overrideVFXVariant: 3
   fireColor: {r: 0.7490196, g: 0.65882355, b: 0, a: 1}
   colorIntensityMultiplier: 3
   fireColorBlend: 0.1
-  flameLength: 5
+  flameLength: 2
   smokeColor: {r: 0.18039216, g: 0.18039216, b: 0.18039216, a: 1}
   smokeColorIntensity: 10
-  smokeAlpha: 5
-  smokeVFXMultiplier: 2
-  smokeParticleSize: 2
-  embersVFXMultiplier: 2
-  embersBurstVFXMultiplier: 2
-  embersBurstDelayMinMax: {x: 0.5, y: 6}
+  smokeAlpha: 2.5
+  smokeVFXMultiplier: 1
+  smokeParticleSize: 1
+  embersVFXMultiplier: 1
+  embersBurstVFXMultiplier: 1
+  embersBurstDelayMinMax: {x: 2, y: 4}
   embersParticleSize: 1
   useExtinguishSteam: 1
   enableMaterialAnimation: 1
@@ -23126,7 +23145,7 @@ MonoBehaviour:
   fireSpread: 0
   onFireTimer: 0
   isEffectOnForever: 0
-  burnOutStart_s: 9999
+  burnOutStart_s: 120
   burnOutLength_s: 10
   isReignitable: 2
   deleteAfterBurnout: 0
@@ -23137,14 +23156,14 @@ MonoBehaviour:
   affectedByWind: 1
   ignitionTime: 0
   enableFlameVFX: 1
-  flameEnvironmentalSpeed: 2
-  flameLiveliness: 2
+  flameEnvironmentalSpeed: 1
+  flameLiveliness: 1
   windForceMultiplier: 1
   flameLivelinessSpeed: 1
   flameParticleSize: 1
-  flameBurstDelayMinMax: {x: 0, y: 0.1}
-  flameAreaNoiseMinMaxMultiplier: {x: 1, y: 1.5}
-  flameVFXMultiplier: 2
+  flameBurstDelayMinMax: {x: 0, y: 0}
+  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1}
+  flameVFXMultiplier: 1
   onFire: 0
   flammableColliders: []
   flammableMaterialIndexes: 
@@ -23152,13 +23171,91 @@ MonoBehaviour:
   customFireSFX: {fileID: 0}
   customFireOriginOnStart: {fileID: 0}
   flameLights: []
-  fullExtinguishToughness: 1
-  backSpreadCoolDown_s: 0.01
+  fullExtinguishToughness: 0.5
+  backSpreadCoolDown_s: 5
   spreadLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
   openTabUpper: 4
   openTabLower: 1
+--- !u!114 &2005727221
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2005727214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ad2daa3b2c2e9249b900e82d8ed3eb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxBrightnessReachedInvoked: 0
+  burnOutStartedInvoked: 0
+  BeingExtinguished:
+    m_PersistentCalls:
+      m_Calls: []
+  Extinguished:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2005727222}
+        m_TargetAssemblyTypeName: FireProfileController, Assembly-CSharp
+        m_MethodName: RollForSmolder
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  BurntOut:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 2005727222}
+        m_TargetAssemblyTypeName: FireProfileController, Assembly-CSharp
+        m_MethodName: RollForSmolder
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  Ignited:
+    m_PersistentCalls:
+      m_Calls: []
+  MaxBrightnessReached:
+    m_PersistentCalls:
+      m_Calls: []
+  BurnOutStarted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &2005727222
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2005727214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxTemperature: 1000
+  currentTemperature: 1000
+  currentProfile: 2
+  tempRegenRate: 250
+  tempDrainPerParticle: 5
+  regenDelay: 1
+  smolderThreshold: 100
+  reigniteChance: 0.5
+  autoFizzleRate: 0.5
+  readyForSmolder: 0
 --- !u!4 &2012814290 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8418276165069635409, guid: a0a7b99491176b644bd86401507b7b15, type: 3}

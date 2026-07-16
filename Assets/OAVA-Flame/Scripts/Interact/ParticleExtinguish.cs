@@ -54,8 +54,13 @@ namespace Ignis
                     if (powerMultiplier > 0f)
                     {
                         flamObj.IncrementalExtinguish(pos, effectiveRadius, effectiveIncrement);
+                        if (powerMultiplier == 1f)
+                        {
+                            Debug.Log("Calling incremental extinguish for final extinguish at full power");
+                            // Notify the profile that the final extinguish phase has started
+                            profile.readyForSmolder = true;
+                        } 
                     }
-
                     i++;
                 }
             }
