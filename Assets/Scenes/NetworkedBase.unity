@@ -1667,6 +1667,9 @@ GameObject:
   - component: {fileID: 153229106}
   - component: {fileID: 153229105}
   - component: {fileID: 153229104}
+  - component: {fileID: 153229109}
+  - component: {fileID: 153229108}
+  - component: {fileID: 153229107}
   m_Layer: 0
   m_Name: TIC
   m_TagString: Untagged
@@ -1843,6 +1846,62 @@ Transform:
   - {fileID: 216277154}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: -8.777, z: 0}
+--- !u!114 &153229107
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 153229103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72530114532dc7448862cd45414a1efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _grabInteractable: {fileID: 153229104}
+  _realtimeView: {fileID: 153229109}
+  _realtimeTransform: {fileID: 153229108}
+--- !u!114 &153229108
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 153229103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1029778088, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _interpolate: 1
+  _syncPosition: 1
+  _syncRotation: 1
+  _syncScale: 1
+  _syncVelocity: 1
+  _maintainOwnershipWhileSleeping: 0
+  _autoRequestOwnership: 1
+--- !u!114 &153229109
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 153229103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -363599832, guid: ebae63e7edba59945a994528ada1f7a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _realtime: {fileID: 0}
+  _sceneViewUUID: 
+  _viewUUID: a3e40818-13a3-4f11-8528-ab7f13077b00
+  _sceneViewPreventOwnershipTakeover: 0
+  _sceneViewDestroyWhenLastClientLeaves: 1
+  _components:
+  - componentID: 1
+    component: {fileID: 153229108}
+    isDeprecated: 0
+  _childViews: []
 --- !u!1 &163626720
 GameObject:
   m_ObjectHideFlags: 0
@@ -13428,6 +13487,7 @@ GameObject:
   - component: {fileID: 902763354}
   - component: {fileID: 902763356}
   - component: {fileID: 902763355}
+  - component: {fileID: 902763357}
   m_Layer: 0
   m_Name: Hose
   m_TagString: Untagged
@@ -13736,6 +13796,21 @@ MonoBehaviour:
     component: {fileID: 902763355}
     isDeprecated: 0
   _childViews: []
+--- !u!114 &902763357
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 902763347}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72530114532dc7448862cd45414a1efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _grabInteractable: {fileID: 902763348}
+  _realtimeView: {fileID: 902763356}
+  _realtimeTransform: {fileID: 902763355}
 --- !u!1001 &903380122
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -14465,6 +14540,7 @@ GameObject:
   - component: {fileID: 942681353}
   - component: {fileID: 942681355}
   - component: {fileID: 942681354}
+  - component: {fileID: 942681356}
   m_Layer: 0
   m_Name: Fire Extinguisher
   m_TagString: Untagged
@@ -14722,6 +14798,21 @@ MonoBehaviour:
     component: {fileID: 942681354}
     isDeprecated: 0
   _childViews: []
+--- !u!114 &942681356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942681345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72530114532dc7448862cd45414a1efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _grabInteractable: {fileID: 942681351}
+  _realtimeView: {fileID: 942681355}
+  _realtimeTransform: {fileID: 942681354}
 --- !u!43 &951608128
 Mesh:
   m_ObjectHideFlags: 0
