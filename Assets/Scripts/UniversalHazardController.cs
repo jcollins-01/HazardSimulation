@@ -276,24 +276,12 @@ public class UniversalHazardController : MonoBehaviour
         // Use TryAdd so that it only adds the material the first time (doesn't overwrite the original material as touching continues)
         originalColors.TryAdd(hazard, hazard.GetComponent<Renderer>().material);
         tagging.CheckHazardStatus(originalColors);
-        
-        // Subscribe to the listener event on the FlammableObject on the gameObject
-        if (hazard.TryGetComponent<FlammableObject>(out FlammableObject flame))
-        {
-            
-        }
 
         // Adding the hazard temp component
         if (!hazard.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
         {
             // Assign the newly added component to 'temp' and ignite it so we can use it right away
             temp = hazard.AddComponent<HazardTemperature>();
-            temp.Ignite();
-        }
-        else
-        {
-            // If it already has the component, just make sure it's ignited
-            temp.Ignite();
         }
 
         // Change its color to red to visually mark the difference
