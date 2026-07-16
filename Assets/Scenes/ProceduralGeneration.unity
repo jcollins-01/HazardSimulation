@@ -483,6 +483,59 @@ Mesh:
     offset: 0
     size: 0
     path: 
+--- !u!1 &45784099
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 45784100}
+  - component: {fileID: 45784101}
+  m_Layer: 7
+  m_Name: Hitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &45784100
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 45784099}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 463070165}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &45784101
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 45784099}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.93778014, y: 1.3868085, z: 0.7950908}
+  m_Center: {x: 0.00000008940697, y: 0.00000023841858, z: 0.3975584}
 --- !u!1 &48135439
 GameObject:
   m_ObjectHideFlags: 0
@@ -640,7 +693,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -4306,6 +4359,7 @@ GameObject:
   - component: {fileID: 463070166}
   - component: {fileID: 463070171}
   - component: {fileID: 463070170}
+  - component: {fileID: 463070172}
   m_Layer: 6
   m_Name: Dining Table(Clone)
   m_TagString: Possible Hazard
@@ -4325,7 +4379,8 @@ Transform:
   m_LocalPosition: {x: -3, y: -0.17, z: 4}
   m_LocalScale: {x: 1.5353, y: 1.9805163, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 45784100}
   m_Father: {fileID: 576302043}
   m_LocalEulerAnglesHint: {x: 270, y: 0, z: 0}
 --- !u!95 &463070166
@@ -4443,15 +4498,15 @@ MonoBehaviour:
   fireColor: {r: 0.7490196, g: 0.65882355, b: 0, a: 1}
   colorIntensityMultiplier: 3
   fireColorBlend: 0.1
-  flameLength: 2
+  flameLength: 5
   smokeColor: {r: 0.18039216, g: 0.18039216, b: 0.18039216, a: 1}
   smokeColorIntensity: 10
-  smokeAlpha: 0.7
-  smokeVFXMultiplier: 0.5
-  smokeParticleSize: 1
-  embersVFXMultiplier: 1
-  embersBurstVFXMultiplier: 1
-  embersBurstDelayMinMax: {x: 4, y: 6}
+  smokeAlpha: 5
+  smokeVFXMultiplier: 2
+  smokeParticleSize: 2
+  embersVFXMultiplier: 2
+  embersBurstVFXMultiplier: 2
+  embersBurstDelayMinMax: {x: 0.5, y: 6}
   embersParticleSize: 1
   useExtinguishSteam: 1
   enableMaterialAnimation: 1
@@ -4469,9 +4524,9 @@ MonoBehaviour:
   fireSpread: 0
   onFireTimer: 0
   isEffectOnForever: 0
-  burnOutStart_s: 30
+  burnOutStart_s: 9999
   burnOutLength_s: 10
-  isReignitable: 0
+  isReignitable: 2
   deleteAfterBurnout: 0
   useMeshFire: 0
   meshFireCount: 10
@@ -4480,14 +4535,14 @@ MonoBehaviour:
   affectedByWind: 1
   ignitionTime: 0
   enableFlameVFX: 1
-  flameEnvironmentalSpeed: 1
-  flameLiveliness: 1
+  flameEnvironmentalSpeed: 2
+  flameLiveliness: 2
   windForceMultiplier: 1
   flameLivelinessSpeed: 1
   flameParticleSize: 1
-  flameBurstDelayMinMax: {x: 0, y: 0}
-  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1.1}
-  flameVFXMultiplier: 1
+  flameBurstDelayMinMax: {x: 0, y: 0.1}
+  flameAreaNoiseMinMaxMultiplier: {x: 1, y: 1.5}
+  flameVFXMultiplier: 2
   onFire: 0
   flammableColliders: []
   flammableMaterialIndexes: 
@@ -4495,13 +4550,27 @@ MonoBehaviour:
   customFireSFX: {fileID: 0}
   customFireOriginOnStart: {fileID: 0}
   flameLights: []
-  fullExtinguishToughness: 0.7
-  backSpreadCoolDown_s: 5
+  fullExtinguishToughness: 1
+  backSpreadCoolDown_s: 0.01
   spreadLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
   openTabUpper: 0
   openTabLower: 4
+--- !u!114 &463070172
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 463070164}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  temperature: 3000
+  currentProfile: 0
 --- !u!1 &465049477
 GameObject:
   m_ObjectHideFlags: 0
@@ -11328,6 +11397,59 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 732667520}
   m_Mesh: {fileID: 370683541}
+--- !u!1 &738818760
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 738818761}
+  - component: {fileID: 738818762}
+  m_Layer: 7
+  m_Name: Hitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &738818761
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 738818760}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 800996550}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &738818762
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 738818760}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.48617497, y: 0.52740365, z: 0.9479217}
+  m_Center: {x: 0, y: 0.00000029802322, z: 0.4739739}
 --- !u!1001 &739935515
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -12021,6 +12143,7 @@ GameObject:
   - component: {fileID: 800996551}
   - component: {fileID: 800996556}
   - component: {fileID: 800996555}
+  - component: {fileID: 800996557}
   m_Layer: 6
   m_Name: Chair(Clone)
   m_TagString: Possible Hazard
@@ -12040,7 +12163,8 @@ Transform:
   m_LocalPosition: {x: -2.9, y: -0.026, z: 6.04}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 738818761}
   m_Father: {fileID: 576302043}
   m_LocalEulerAnglesHint: {x: 270, y: -90, z: 0}
 --- !u!95 &800996551
@@ -12151,22 +12275,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45fa1a403ac351a47a29cea99a046537, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxSpread: 10000
+  maxSpread: 1
   fireCrawlSpeed: 1
   overrideFireVFX: 0
   overrideVFXVariant: 3
   fireColor: {r: 0.7490196, g: 0.65882355, b: 0, a: 1}
   colorIntensityMultiplier: 3
   fireColorBlend: 0.1
-  flameLength: 2
+  flameLength: 0.5
   smokeColor: {r: 0.18039216, g: 0.18039216, b: 0.18039216, a: 1}
   smokeColorIntensity: 10
-  smokeAlpha: 0.7
-  smokeVFXMultiplier: 0.5
-  smokeParticleSize: 1
-  embersVFXMultiplier: 1
-  embersBurstVFXMultiplier: 1
-  embersBurstDelayMinMax: {x: 4, y: 6}
+  smokeAlpha: 1
+  smokeVFXMultiplier: 0.2
+  smokeParticleSize: 0.5
+  embersVFXMultiplier: 0
+  embersBurstVFXMultiplier: 0
+  embersBurstDelayMinMax: {x: 5, y: 6}
   embersParticleSize: 1
   useExtinguishSteam: 1
   enableMaterialAnimation: 1
@@ -12184,9 +12308,9 @@ MonoBehaviour:
   fireSpread: 0
   onFireTimer: 0
   isEffectOnForever: 0
-  burnOutStart_s: 30
+  burnOutStart_s: 5
   burnOutLength_s: 10
-  isReignitable: 0
+  isReignitable: 2
   deleteAfterBurnout: 0
   useMeshFire: 0
   meshFireCount: 10
@@ -12199,10 +12323,10 @@ MonoBehaviour:
   flameLiveliness: 1
   windForceMultiplier: 1
   flameLivelinessSpeed: 1
-  flameParticleSize: 1
+  flameParticleSize: 0.8
   flameBurstDelayMinMax: {x: 0, y: 0}
-  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1.1}
-  flameVFXMultiplier: 1
+  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1}
+  flameVFXMultiplier: 0.4
   onFire: 0
   flammableColliders: []
   flammableMaterialIndexes: 
@@ -12210,13 +12334,27 @@ MonoBehaviour:
   customFireSFX: {fileID: 0}
   customFireOriginOnStart: {fileID: 0}
   flameLights: []
-  fullExtinguishToughness: 0.7
-  backSpreadCoolDown_s: 5
+  fullExtinguishToughness: 0
+  backSpreadCoolDown_s: 2
   spreadLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
   openTabUpper: 0
   openTabLower: 4
+--- !u!114 &800996557
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 800996549}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  temperature: 350
+  currentProfile: 1
 --- !u!1 &810853252
 GameObject:
   m_ObjectHideFlags: 0
@@ -12762,6 +12900,59 @@ MonoBehaviour:
   m_Teleporting:
     m_PersistentCalls:
       m_Calls: []
+--- !u!1 &886773215
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 886773216}
+  - component: {fileID: 886773217}
+  m_Layer: 7
+  m_Name: Hitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &886773216
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 886773215}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1304278980}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &886773217
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 886773215}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.5687217, y: 0.39110795, z: 0.15774976}
+  m_Center: {x: 0.00000047683716, y: 0.19561343, z: -0.01223294}
 --- !u!1 &902763347
 GameObject:
   m_ObjectHideFlags: 0
@@ -14545,6 +14736,7 @@ GameObject:
   - component: {fileID: 974237638}
   - component: {fileID: 974237643}
   - component: {fileID: 974237642}
+  - component: {fileID: 974237644}
   m_Layer: 6
   m_Name: Chair(Clone)
   m_TagString: Possible Hazard
@@ -14564,7 +14756,8 @@ Transform:
   m_LocalPosition: {x: -3, y: -0.026, z: 2.02}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1367135479}
   m_Father: {fileID: 576302043}
   m_LocalEulerAnglesHint: {x: 270, y: 0, z: 90}
 --- !u!95 &974237638
@@ -14675,22 +14868,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45fa1a403ac351a47a29cea99a046537, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxSpread: 10000
+  maxSpread: 1
   fireCrawlSpeed: 1
   overrideFireVFX: 0
   overrideVFXVariant: 3
   fireColor: {r: 0.7490196, g: 0.65882355, b: 0, a: 1}
   colorIntensityMultiplier: 3
   fireColorBlend: 0.1
-  flameLength: 2
+  flameLength: 0.5
   smokeColor: {r: 0.18039216, g: 0.18039216, b: 0.18039216, a: 1}
   smokeColorIntensity: 10
-  smokeAlpha: 0.7
-  smokeVFXMultiplier: 0.5
-  smokeParticleSize: 1
-  embersVFXMultiplier: 1
-  embersBurstVFXMultiplier: 1
-  embersBurstDelayMinMax: {x: 4, y: 6}
+  smokeAlpha: 1
+  smokeVFXMultiplier: 0.2
+  smokeParticleSize: 0.5
+  embersVFXMultiplier: 0
+  embersBurstVFXMultiplier: 0
+  embersBurstDelayMinMax: {x: 5, y: 6}
   embersParticleSize: 1
   useExtinguishSteam: 1
   enableMaterialAnimation: 1
@@ -14708,9 +14901,9 @@ MonoBehaviour:
   fireSpread: 0
   onFireTimer: 0
   isEffectOnForever: 0
-  burnOutStart_s: 30
+  burnOutStart_s: 5
   burnOutLength_s: 10
-  isReignitable: 0
+  isReignitable: 2
   deleteAfterBurnout: 0
   useMeshFire: 0
   meshFireCount: 10
@@ -14723,10 +14916,10 @@ MonoBehaviour:
   flameLiveliness: 1
   windForceMultiplier: 1
   flameLivelinessSpeed: 1
-  flameParticleSize: 1
+  flameParticleSize: 0.8
   flameBurstDelayMinMax: {x: 0, y: 0}
-  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1.1}
-  flameVFXMultiplier: 1
+  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1}
+  flameVFXMultiplier: 0.4
   onFire: 0
   flammableColliders: []
   flammableMaterialIndexes: 
@@ -14734,13 +14927,27 @@ MonoBehaviour:
   customFireSFX: {fileID: 0}
   customFireOriginOnStart: {fileID: 0}
   flameLights: []
-  fullExtinguishToughness: 0.7
-  backSpreadCoolDown_s: 5
+  fullExtinguishToughness: 0
+  backSpreadCoolDown_s: 2
   spreadLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
   openTabUpper: 0
   openTabLower: 4
+--- !u!114 &974237644
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 974237636}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  temperature: 350
+  currentProfile: 1
 --- !u!1 &987870151
 GameObject:
   m_ObjectHideFlags: 0
@@ -17106,6 +17313,8 @@ GameObject:
   - component: {fileID: 1304278982}
   - component: {fileID: 1304278981}
   - component: {fileID: 1304278983}
+  - component: {fileID: 1304278985}
+  - component: {fileID: 1304278984}
   m_Layer: 6
   m_Name: TV(Clone)
   m_TagString: Possible Hazard
@@ -17125,7 +17334,8 @@ Transform:
   m_LocalPosition: {x: 10, y: -0.00014829636, z: 5}
   m_LocalScale: {x: 2.4885, y: 2.4885, z: 2.4885}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 886773216}
   m_Father: {fileID: 1736705090}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!23 &1304278981
@@ -17196,12 +17406,104 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 0.5687217, y: 0.39110795, z: 0.15774976}
   m_Center: {x: 0.00000047683716, y: 0.19561343, z: -0.01223294}
+--- !u!114 &1304278984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1304278979}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  temperature: 1000
+  currentProfile: 2
+--- !u!114 &1304278985
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1304278979}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45fa1a403ac351a47a29cea99a046537, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxSpread: 5
+  fireCrawlSpeed: 1
+  overrideFireVFX: 0
+  overrideVFXVariant: 3
+  fireColor: {r: 0.7490196, g: 0.65882355, b: 0, a: 1}
+  colorIntensityMultiplier: 3
+  fireColorBlend: 0.1
+  flameLength: 2
+  smokeColor: {r: 0.18039216, g: 0.18039216, b: 0.18039216, a: 1}
+  smokeColorIntensity: 10
+  smokeAlpha: 2.5
+  smokeVFXMultiplier: 1
+  smokeParticleSize: 1
+  embersVFXMultiplier: 1
+  embersBurstVFXMultiplier: 1
+  embersBurstDelayMinMax: {x: 2, y: 4}
+  embersParticleSize: 1
+  useExtinguishSteam: 1
+  enableMaterialAnimation: 1
+  shaderEmissionColor: {r: 0.94509804, g: 0.4745098, b: 0.043137256, a: 1}
+  shaderBurntColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
+  shaderToBurntInterpolateSpeed: 0.03
+  shaderEmissionMultiplier: 1
+  achieveMaxBrightness_s: 20
+  shaderColorNoise: 0.05
+  shaderColorNoiseSpeed: 1
+  useMaterialAnimationOnAllRenderers: 1
+  animateMaterialsRenderers: []
+  flameCatchAreaAddition: {x: 0.5, y: 0.5, z: 0.5}
+  setThisOnFireOnStart: 0
+  fireSpread: 0
+  onFireTimer: 0
+  isEffectOnForever: 0
+  burnOutStart_s: 120
+  burnOutLength_s: 10
+  isReignitable: 2
+  deleteAfterBurnout: 0
+  useMeshFire: 0
+  meshFireCount: 10
+  meshFireMeshFilters: []
+  calculateFlammationAreaFromMesh: 0
+  affectedByWind: 1
+  ignitionTime: 0
+  enableFlameVFX: 1
+  flameEnvironmentalSpeed: 1
+  flameLiveliness: 1
+  windForceMultiplier: 1
+  flameLivelinessSpeed: 1
+  flameParticleSize: 1
+  flameBurstDelayMinMax: {x: 0, y: 0}
+  flameAreaNoiseMinMaxMultiplier: {x: 0.9, y: 1}
+  flameVFXMultiplier: 1
+  onFire: 0
+  flammableColliders: []
+  flammableMaterialIndexes: 
+  useFireSFX: 1
+  customFireSFX: {fileID: 0}
+  customFireOriginOnStart: {fileID: 0}
+  flameLights: []
+  fullExtinguishToughness: 0.5
+  backSpreadCoolDown_s: 5
+  spreadLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  openTabUpper: 0
+  openTabLower: 4
 --- !u!1 &1310733521
 GameObject:
   m_ObjectHideFlags: 0
@@ -17876,6 +18178,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1367135478
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1367135479}
+  - component: {fileID: 1367135480}
+  m_Layer: 7
+  m_Name: Hitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1367135479
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1367135478}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 974237637}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &1367135480
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1367135478}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.48617497, y: 0.52740365, z: 0.9479217}
+  m_Center: {x: 0, y: 0.000000059604645, z: 0.4739739}
 --- !u!1001 &1395329943
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -22703,6 +23058,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 339088f2a4c02f34680657a5ec4c027c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  temperature: 3000
   currentProfile: 0
 --- !u!65 &2005727219
 BoxCollider:
@@ -22797,12 +23153,12 @@ MonoBehaviour:
   customFireOriginOnStart: {fileID: 0}
   flameLights: []
   fullExtinguishToughness: 1
-  backSpreadCoolDown_s: 2
+  backSpreadCoolDown_s: 0.01
   spreadLayerMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  openTabUpper: 0
-  openTabLower: 4
+  openTabUpper: 4
+  openTabLower: 1
 --- !u!4 &2012814290 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8418276165069635409, guid: a0a7b99491176b644bd86401507b7b15, type: 3}

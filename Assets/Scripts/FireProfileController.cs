@@ -13,11 +13,26 @@ public class FireProfileController : MonoBehaviour
         SlowBurn
     }
 
+    [Tooltip("The max HP of the fire.")]
+    public int maxTemperature;
+    [Tooltip("The current HP of the fire.")]
+    public float currentTemperature;
+
     [Tooltip("Select the desired fire behavior profile.")]
     public FireProfile currentProfile = FireProfile.SlowBurn;
+
+    [Header("Regeneration Settings")]
+    public float tempRegenRate; // Degrees recovered per second when not sprayed
+    public float tempDrainPerParticle; // Degrees lost per single water particle
+    public float regenDelay;
+    // Vars to handle the visual state during extinguish/regeneration
+    private float baseFlameLength;
+    private float baseVFXMultiplier;
+    private float baseParticleSize;
+
     private FlammableObject flammableObject;
     private BoxCollider collider; // parent collider that determines ability to be touched/tracked in our hazard system
-    private BoxCollider fireCollider; // child collider that is used in extinguishing system
+    private float lastWaterHitTime = 0f;
 
     // Automatically runs in the Editor when the script is added
     void Reset()
@@ -35,6 +50,22 @@ public class FireProfileController : MonoBehaviour
     void Start()
     {
         ApplyProfile();
+    }
+
+    void Update()
+    {
+        // Regenerate Temperature over time if not actively being sprayed
+        if (Time.time - lastWaterHitTime > regenDelay && currentTemperature < maxTemperature)
+        {
+            currentTemperature += tempRegenRate * Time.deltaTime;
+
+            // Clamp it back to max
+            if (currentTemperature > maxTemperature)
+                currentTemperature = maxTemperature;
+        }
+
+        // Call a fire scaling function every frame based on temperature
+        UpdateFireVisuals();
     }
 
     // This allows us to see the profile changes without entering Play Mode whenever we switch enums
@@ -72,8 +103,6 @@ public class FireProfileController : MonoBehaviour
                 newCollider.center = parentCollider.center;
                 newCollider.size = parentCollider.size;
             }
-
-            fireCollider = newCollider;
         }
     }
 
@@ -88,6 +117,13 @@ public class FireProfileController : MonoBehaviour
         switch (currentProfile)
         {
             case FireProfile.MaxResilience:
+                // Our pre-programmed temperature that the fire will reach at max
+                // basically, an HP that will reduce slowly as water is sprayed and increase back to max when it's not
+                maxTemperature = 3000;
+                tempRegenRate = 500f; // Degrees recovered per second when not sprayed
+                tempDrainPerParticle = 0.1f; // Degrees lost per single water particle
+                regenDelay = 0.1f; // time to start regenerating between water sprays
+
                 // An intense fire that burns for a very long time and is extremely tough to extinguish
                 flammableObject.ignitionTime = 0f; // usually 2, 0 for testing
                 flammableObject.burnOutStart_s = 9999f; // High value to ensure it burns for a very long time
@@ -95,7 +131,7 @@ public class FireProfileController : MonoBehaviour
                 flammableObject.fullExtinguishToughness = 1f;
                 flammableObject.isReignitable = FlammableObject.ReIgnitable.Always; // at any point in its lifecycle, it can reignite, including post-extinguish
                 flammableObject.maxSpread = 10000; // as far as possible
-                flammableObject.backSpreadCoolDown_s = 2f; // short amount of time before it tries to reignite
+                flammableObject.backSpreadCoolDown_s = 0.01f; // short amount of time before it tries to reignite
 
                 // Flame Visuals
                 flammableObject.flameLength = 5f; // long lifespan of fire particles going up
@@ -118,6 +154,11 @@ public class FireProfileController : MonoBehaviour
                 break;
 
             case FireProfile.InstantExtinguish:
+                maxTemperature = 350;
+                tempRegenRate = 50f; // Degrees recovered per second when not sprayed
+                tempDrainPerParticle = 10.0f; // Degrees lost per single water particle
+                regenDelay = 1.0f; // time to start regenerating between water sprays
+
                 // A smaller fire that will go out very quickly and will be extinguished easily
                 flammableObject.ignitionTime = 0f; // usually 1f
                 flammableObject.burnOutStart_s = 5f; // Short time before flame starts burning out
@@ -148,6 +189,11 @@ public class FireProfileController : MonoBehaviour
                 break;
 
             case FireProfile.SlowBurn:
+                maxTemperature = 1000;
+                tempRegenRate = 250f; // Degrees recovered per second when not sprayed
+                tempDrainPerParticle = 5.0f; // Degrees lost per single water particle
+                regenDelay = 1.0f; // time to start regenerating between water sprays
+
                 // Takes a while to catch on fire, holds a fire for a while, mid-level difficulty to extinguish
                 // High ignition time delays how long it takes for the object to catch fire
                 flammableObject.ignitionTime = 0f; // usually 15f;
@@ -179,6 +225,53 @@ public class FireProfileController : MonoBehaviour
                 break;
         }
 
+        // Initialize current temperature to the max allowed by the profile
+        currentTemperature = maxTemperature;
+
+        // Cache the base visual settings right after the switch statement determines them
+        baseFlameLength = flammableObject.flameLength;
+        baseVFXMultiplier = flammableObject.flameVFXMultiplier;
+        baseParticleSize = flammableObject.flameParticleSize;
+
         Debug.Log($"Applied {currentProfile} profile to {gameObject.name}");
+    }
+
+    public float ProcessWaterHit(int particleCount)
+    {
+        lastWaterHitTime = Time.time;
+        currentTemperature -= (particleCount * tempDrainPerParticle);
+
+        if (currentTemperature == 0)
+        {
+            currentTemperature = 0; // lock it to 0 so it doesn't increase again after being extinguished
+            return 1.0f; // still full power
+        }
+        else if (currentTemperature <= 100)
+        {
+            Debug.Log("Spraying at full power!");
+            return 1.0f; // Grant the water 100% of its extinguish power.
+        }
+
+        Debug.Log("Spraying at reduced power to artificially maintain fire life.");
+        // HP > 100. Nerf the extinguish power so the fire visually shrinks but doesn't easily die.
+        return 0.02f;
+    }
+
+    // Dynamically scale fire visuals based on fire health/temperature
+    private void UpdateFireVisuals()
+    {
+        if (flammableObject == null || maxTemperature == 0) return;
+
+        // Calculate the percentage of temperature remaining (0.0f to 1.0f)
+        float tempRatio = currentTemperature / maxTemperature;
+
+        // Clamp this so the fire doesn't become COMPLETELY microscopic 
+        // before hitting the 100-degree extinguish threshold
+        float visualRatio = Mathf.Max(tempRatio, 0.1f);
+
+        // Apply the ratio to the current visual parameters
+        flammableObject.flameLength = baseFlameLength * visualRatio;
+        flammableObject.flameVFXMultiplier = baseVFXMultiplier * visualRatio;
+        flammableObject.flameParticleSize = baseParticleSize * visualRatio;
     }
 }

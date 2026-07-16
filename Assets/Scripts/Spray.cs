@@ -55,14 +55,6 @@ public class Spray : MonoBehaviour
         }
     }
 
-    void Update()
-    {
-        /*if (isSpraying)
-        {
-            CheckHazardCollision();
-        }*/
-    }
-
     private void OnTriggerPulled(ActivateEventArgs args)
     {
         //Debug.Log("Trigger pulled! XRI Event fired successfully.");
@@ -85,7 +77,6 @@ public class Spray : MonoBehaviour
     {
         isSpraying = false;
         if (waterParticles != null) waterParticles.Stop();
-        //ResetExtinguishTracking();
     }
 
     // Called automatically by Unity when a particle hits a collider 
@@ -105,67 +96,6 @@ public class Spray : MonoBehaviour
             }
         }
     }
-
-    /*private void CheckHazardCollision()
-    {
-        // Cast a ray forward from the nozzle tip
-        if (Physics.Raycast(nozzleTransform.position, nozzleTransform.forward, out RaycastHit hit, maxSprayDistance))
-        {
-            // Check for the Ignis FlammableObject script on a burning object
-            if (hit.collider.CompareTag("Active Hazard") && hit.collider.TryGetComponent<FlammableObject>(out FlammableObject ignisHazard))
-            {
-                Debug.Log("Hitting an Ignis fire object");
-                currentHazard = ignisHazard.gameObject;
-
-                // Calculate the extinguish radius expansion based on frame time
-                float radiusIncrement = radiusIncrementSpeed * Time.deltaTime;
-
-                // Ignis natively calculates the extinguish radius and cool-down automatically.
-                // If you stop spraying before it is fully extinguished, Ignis will automatically
-                // reignite and spread the fire based on its internal properties.
-                ignisHazard.IncrementalExtinguish(hit.point, startRadius, radiusIncrement);
-
-                // Start a lightweight monitor to watch this specific hazard's boolean state
-                extinguishCoroutine = StartCoroutine(MonitorHazardState(ignisHazard));
-            }
-        }
-
-
-        // OLD VERSION BEFORE IGNIS
-        RaycastHit hit;
-        // Cast a ray forward from the nozzle tip
-        if (Physics.Raycast(nozzleTransform.position, nozzleTransform.forward, out hit, maxSprayDistance))
-        {
-            if (hit.collider.CompareTag("Active Hazard"))
-            {
-                GameObject hazard = hit.collider.gameObject;
-
-                // If we hit a brand new hazard, start a new timer routine
-                if (currentHazard != hazard)
-                {
-                    ResetExtinguishTracking(); // This will safely re-ignite the old hazard if we switched targets
-                    currentHazard = hazard;
-
-                    // Roll the duration upfront so both systems can use it
-                    float requiredTime = Random.Range(5f, 20f);
-
-                    if (currentHazard.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
-                    {
-                        // Calculate exactly how fast it needs to cool down to hit 0 right when the timer ends
-                        temp.coolDownSpeed = temp.temperature / requiredTime;
-                        temp.Extinguish();
-                    }
-
-                    // Pass the rolled time into the coroutine
-                    extinguishCoroutine = StartCoroutine(ExtinguishRoutine(currentHazard, requiredTime));
-                }
-                return;
-            }
-        }
-
-        // If the ray hits nothing or misses the hazard, stop progress
-        ResetExtinguishTracking();
-    }*/
 
     private IEnumerator MonitorHazardState(FlammableObject hazard)
     {
@@ -216,33 +146,4 @@ public class Spray : MonoBehaviour
 
         currentHazard = null;
     }
-
-    /*private IEnumerator ExtinguishRoutine(GameObject hazard, float requiredTime)
-    {
-        float elapsedTime = 0f;
-        Debug.Log($"Started spraying {hazard.name}. Needs {requiredTime:F1} seconds to extinguish.");
-
-        while (elapsedTime < requiredTime)
-        {
-            elapsedTime += Time.deltaTime;
-            yield return null; // Wait for the next frame
-        }
-
-        // Timer finished successfully! Find the controller and reset the object
-        UniversalHazardController hazardController = FindAnyObjectByType<UniversalHazardController>();
-
-        if (hazardController != null)
-        {
-            Debug.Log($"{hazard.name} extinguished successfully!");
-            // Clear this BEFORE running the cleanup process to stop ResetExtinguishTracking from accidentally calling Ignite()
-            currentHazard = null;
-            hazardController.resetSingleObject(hazard);
-        }
-        else
-        {
-            Debug.LogError("UniversalHazardController script was not found in the scene!");
-        }
-
-        ResetExtinguishTracking();
-    }*/
 }
