@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e807c36ff11a0e3459975f9e6dbad346
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 14290
+  packageName: Final IK
+  packageVersion: 2.5
+  assetPath: Assets/Plugins/RootMotion/FinalIK/Tools/obj/Debug/net10.0/VRIKCalibrator.AssemblyInfoInputs.cache
+  uploadId: 897846

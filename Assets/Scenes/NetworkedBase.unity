@@ -10639,7 +10639,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &620976718
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -29206,6 +29206,10 @@ PrefabInstance:
     - target: {fileID: 3862191497255292067, guid: a21bb49bd31c5bb4399e6ff0e5562714, type: 3}
       propertyPath: m_Name
       value: Realtime + VR Player Complete Prefab
+      objectReference: {fileID: 0}
+    - target: {fileID: 3862191497255292067, guid: a21bb49bd31c5bb4399e6ff0e5562714, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5785005815344872604, guid: a21bb49bd31c5bb4399e6ff0e5562714, type: 3}
       propertyPath: _localPlayer.head
