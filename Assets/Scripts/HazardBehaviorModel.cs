@@ -32,6 +32,9 @@ public class HazardBehaviorModel : MonoBehaviour
     // Constant player attributes
     private Vector3 currentPlayerPosition;
 
+    // Networking: the shared fire/authority state on this hazard (null when not networked)
+    private NetworkedFireState fireState;
+
     // Hazard behavioral vars
     public int aggressionLevel;
     public int cautionLevel;
@@ -72,6 +75,8 @@ public class HazardBehaviorModel : MonoBehaviour
             rb = gameObject.AddComponent<Rigidbody>();
             rb.isKinematic = true;
         }
+
+        fireState = GetComponent<NetworkedFireState>();
     }
 
     // Update is called once per frame
@@ -79,6 +84,16 @@ public class HazardBehaviorModel : MonoBehaviour
     {
         if (gameObject.tag == "Active Hazard") // If the object was set as active via HazardTagging / manual testing
         {
+            // NETWORKING: behavior, spread and random patrol decisions run on the fire
+            // authority only. Other clients are driven by the synced RealtimeTransform.
+            bool isAuthority = fireState == null || fireState.IsAuthority;
+
+            if (agent != null && agent.enabled != isAuthority)
+                agent.enabled = isAuthority; // let RealtimeTransform drive puppets
+
+            if (!isAuthority)
+                return;
+
             // Called from the start - always need to be checking where the hazard is compared to the player
             if (agent != null)
             {

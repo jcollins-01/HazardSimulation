@@ -32,6 +32,13 @@ namespace Ignis
             Ignis.FlammableObject flamObj = other.GetComponentInParent<Ignis.FlammableObject>();
             if (flamObj)
             {
+                // NETWORKING GATE: particle collisions run locally on every client, but
+                // only the fire's authority (NetworkedFireState owner) may turn them into
+                // permanent extinguish progress. Fires without NetworkedFireState keep
+                // the legacy local behavior. This prevents divergent fire states.
+                if (!NetworkedFireState.LocalClientMayAffectFire(flamObj))
+                    return;
+
                 while (i < numCollisionEvents)
                 {
                     Vector3 pos = collisionEvents[i].intersection;

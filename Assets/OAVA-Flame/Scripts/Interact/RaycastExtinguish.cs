@@ -60,6 +60,12 @@ namespace Ignis
                     Ignis.FlammableObject flam = hit.collider.gameObject.GetComponentInParent<Ignis.FlammableObject>();
                     if (flam)
                     {
+                        // NETWORKING GATE: this raycast runs on every client. Only the
+                        // fire's authority may convert it into permanent extinguish
+                        // progress (fires without NetworkedFireState keep legacy behavior).
+                        if (!NetworkedFireState.LocalClientMayAffectFire(flam))
+                            continue;
+
                         if (goThroughObjects)
                         {
                             flam.IncrementalExtinguish(hit.point, raycastRadius, radiusIncrement);
@@ -69,7 +75,7 @@ namespace Ignis
                             hitPoint = hit.point;
                             hitFlam = flam;
                         }
-                        
+
                     }
                     else
                     {

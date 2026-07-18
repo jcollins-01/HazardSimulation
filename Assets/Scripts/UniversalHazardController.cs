@@ -296,6 +296,13 @@ public class UniversalHazardController : MonoBehaviour
             temp.Ignite();
         }
 
+        // NETWORKING: replicate the heat visual so remote clients show the same
+        // thermal-camera glow (this method only runs on the fire authority).
+        if (hazard.TryGetComponent<NetworkedFireState>(out NetworkedFireState fireState))
+        {
+            fireState.SetHeatVisual(true);
+        }
+
         // Change its color to red to visually mark the difference
         //model.lastTouchedObject.GetComponent<Renderer>().material = Resources.Load<Material>("Materials/Red");
     }
