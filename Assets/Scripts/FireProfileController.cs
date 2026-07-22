@@ -2,6 +2,10 @@ using UnityEngine;
 using Ignis;
 using System.Collections;
 
+/*#if UNITY_EDITOR
+using UnityEditor.Events;
+#endif*/
+
 // Forces Unity to add these in the Editor automatically once the script is applied
 [RequireComponent(typeof(FlammableObject))]
 [RequireComponent(typeof(BoxCollider))]
@@ -56,6 +60,10 @@ public class FireProfileController : MonoBehaviour
     void Reset()
     {
         SetupHitbox();
+        /*
+#if UNITY_EDITOR
+        SetupPersistentFlameEvents();
+#endif*/
     }
 
     void Awake()
@@ -68,6 +76,9 @@ public class FireProfileController : MonoBehaviour
     void Start()
     {
         ApplyProfile();
+
+        // Automatically set up event bindings to allow for a smolder/reignite
+        //SetupFlameEvents();
     }
 
     void Update()
@@ -116,6 +127,52 @@ public class FireProfileController : MonoBehaviour
             }
         }
     }
+
+    // Adds the FlameEventInvoker if missing and wires up the UnityEvents
+    private void SetupFlameEvents()
+    {
+        // Get or add the FlameEventInvoker component as instructed by the Ignis API
+        FlameEventInvoker eventInvoker = GetComponent<FlameEventInvoker>();
+        if (eventInvoker == null)
+        {
+            eventInvoker = gameObject.AddComponent<FlameEventInvoker>();
+        }
+
+        // Subscribe to the events programmatically (remove the listener first to make sure it doesn't get double-added)
+        if (eventInvoker != null)
+        {
+            eventInvoker.Extinguished.RemoveListener(RollForSmolder);
+            eventInvoker.Extinguished.AddListener(RollForSmolder);
+
+            eventInvoker.BurntOut.RemoveListener(RollForSmolder);
+            eventInvoker.BurntOut.AddListener(RollForSmolder);
+        }
+    }
+
+    /*
+    // This block only compiles in the Unity Editor to physically populate the Inspector slots
+#if UNITY_EDITOR
+    private void SetupPersistentFlameEvents()
+    {
+        FlameEventInvoker eventInvoker = GetComponent<FlameEventInvoker>();
+        if (eventInvoker == null)
+        {
+            eventInvoker = gameObject.AddComponent<FlameEventInvoker>();
+        }
+
+        // Clear existing to avoid duplicate entries in the Inspector if you click "Reset" multiple times
+        UnityEventTools.RemovePersistentListener(eventInvoker.Extinguished, RollForSmolder);
+        UnityEventTools.RemovePersistentListener(eventInvoker.BurntOut, RollForSmolder);
+
+        // Add persistent listeners (these WILL show up in the Unity Inspector GUI)
+        UnityEventTools.AddPersistentListener(eventInvoker.Extinguished, RollForSmolder);
+        UnityEventTools.AddPersistentListener(eventInvoker.BurntOut, RollForSmolder);
+
+        // Tells Unity to save the changes we just made to the Inspector
+        UnityEditor.EditorUtility.SetDirty(eventInvoker);
+    }
+#endif
+    */
 
     // Adds a FlammableObject component if missing and applies the selected profile settings.
     public void ApplyProfile()
@@ -353,7 +410,7 @@ public class FireProfileController : MonoBehaviour
     private void UpdateFireVisuals()
     {
         if (flammableObject == null || maxTemperature == 0) return;
-
+        //Debug.Log("Looking at fire visuals");
         // Calculate the percentage of temperature remaining (0.0f to 1.0f)
         float tempRatio = currentTemperature / maxTemperature;
 
