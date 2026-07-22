@@ -5,6 +5,7 @@ using System.Collections;
 // Forces Unity to add these in the Editor automatically once the script is applied
 [RequireComponent(typeof(FlammableObject))]
 [RequireComponent(typeof(BoxCollider))]
+[RequireComponent(typeof(HazardTemperature))]
 public class FireProfileController : MonoBehaviour
 {
     public enum FireProfile
