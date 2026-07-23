@@ -141,6 +141,29 @@ public sealed class ThermalHeatTrailManager : MonoBehaviour
         }
     }
 
+    public bool TrySampleHeat(Vector3 worldPoint, out float normalizedHeat)
+    {
+        normalizedHeat = 0f;
+
+        foreach (HeatMark mark in marks)
+        {
+            if (mark.gameObject == null)
+                continue;
+
+            float radius = Mathf.Max(0.01f, mark.gameObject.transform.lossyScale.x * 0.5f);
+            float distance = Vector3.Distance(worldPoint, mark.gameObject.transform.position);
+            if (distance > radius)
+                continue;
+
+            float remaining = 1f - Mathf.Clamp01(mark.age / Mathf.Max(0.001f, mark.lifetime));
+            float radialHeat = 1f - Mathf.Clamp01(distance / radius);
+            float sampledHeat = mark.intensity * remaining * Mathf.Lerp(0.35f, 1f, radialHeat);
+            normalizedHeat = Mathf.Max(normalizedHeat, sampledHeat);
+        }
+
+        return normalizedHeat > 0f;
+    }
+
     private HeatMark FindNearbyMark(int sourceId, Vector3 point, float mergeDistance)
     {
         float maximumDistanceSquared = mergeDistance * mergeDistance;
