@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -8,6 +9,9 @@ using UnityEditor;
 
 public class RoomGeneration : MonoBehaviour
 {
+    private const string TeleportInteractionLayerName = "Teleport";
+    private const string TeleportSurfacePhysicsLayerName = "Default";
+
     #region Variables and Classes
     [Header("Rapid Generation Vars")]
 
@@ -1462,19 +1466,6 @@ public class RoomGeneration : MonoBehaviour
         data.originalMaterial = ceilingGroup.GetComponent<MeshRenderer>().sharedMaterial;
         allRoomRoofs.Add(ceilingGroup);
 
-        // Add the teleportation capability to the floor
-        GameObject teleportInstance = Instantiate(Resources.Load<GameObject>("Locomotion/Teleport Area Invisible"), floorGroup.transform);
-        teleportInstance.name = "Teleport Area Invisible";
-
-        MeshCollider floorCollider = floorGroup.GetComponent<MeshCollider>();
-
-        if (floorCollider != null)
-        {
-            TeleportationArea teleportScript = teleportInstance.GetComponent<TeleportationArea>();
-            teleportScript.colliders.Clear();
-            teleportScript.colliders.Add(floorCollider);
-        }
-
         return roomParent;
     }
 
@@ -2753,13 +2744,41 @@ public class RoomGeneration : MonoBehaviour
         else
             mr.sharedMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
 
-        // Add colliders so that the house is walkable
+        // Preserve the existing collider behavior for all combined geometry.
         MeshCollider mc = parent.AddComponent<MeshCollider>();
         mc.sharedMesh = combinedMesh;
 
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(parent.transform.GetChild(i).gameObject);
+
+        if (addTeleportationArea)
+            ConfigureTeleportationSurface(parent, mc);
+    }
+
+    void ConfigureTeleportationSurface(GameObject surface, Collider surfaceCollider)
+    {
+        if (surface == null || surfaceCollider == null)
+            return;
+
+        int physicsLayer = LayerMask.NameToLayer(TeleportSurfacePhysicsLayerName);
+        if (physicsLayer >= 0)
+            surface.layer = physicsLayer;
+
+        TeleportationArea teleportationArea = surface.GetComponent<TeleportationArea>();
+        if (teleportationArea == null)
+            teleportationArea = surface.AddComponent<TeleportationArea>();
+
+        bool wasEnabled = teleportationArea.enabled;
+        if (Application.isPlaying && wasEnabled)
+            teleportationArea.enabled = false;
+
+        teleportationArea.colliders.Clear();
+        teleportationArea.colliders.Add(surfaceCollider);
+        teleportationArea.interactionLayers = InteractionLayerMask.GetMask(TeleportInteractionLayerName);
+
+        if (Application.isPlaying && wasEnabled)
+            teleportationArea.enabled = true;
     }
     #endregion
 
