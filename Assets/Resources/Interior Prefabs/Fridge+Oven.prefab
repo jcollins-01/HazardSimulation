@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6796525313948665000}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Fridge+Oven
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 5904421506575716225}
   - component: {fileID: 8265681064507771101}
   - component: {fileID: 2903862416793282228}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Metal
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -131,7 +131,7 @@ GameObject:
   - component: {fileID: 4566069747308746471}
   - component: {fileID: 8506954023026980957}
   - component: {fileID: 7428320901081471339}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Wood
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -281,7 +281,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
     private void AddFireProfileCollider(GameObject prefab)
     {
         // Grab the Mesh Renderer for this prefab to size the collider
-        MeshRenderer mesh = prefab.GetComponent<MeshRenderer>();
+        MeshRenderer mesh = prefab.GetComponentInChildren<MeshRenderer>();
 
         // Add a FireProfileController and a BoxCollider so that walls, floors, and ceilings can be flammable
         FireProfileController fireController = prefab.AddComponent<FireProfileController>();
@@ -311,8 +311,11 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         // Define a small box area to check for collisions (adjust size based on your tile scale)
         Vector3 halfExtents = new Vector3(0.4f, 0.4f, 0.4f);
 
+        // Tell the physics check to ONLY look at the "Furniture" layer
+        int furnitureLayer = LayerMask.GetMask("Furniture");
+
         // Check if anything is already in this space
-        if (Physics.CheckBox(pos, halfExtents, Quaternion.identity))
+        if (Physics.CheckBox(pos, halfExtents, Quaternion.identity, furnitureLayer))
         {
             return false; // Space occupied, abort
         }

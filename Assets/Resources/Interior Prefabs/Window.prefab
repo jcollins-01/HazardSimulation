@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1906241244494404053}
   - component: {fileID: 1494380604546354480}
   - component: {fileID: 4419992712115607226}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Window
   m_TagString: Structural
   m_Icon: {fileID: 0}
