@@ -154,13 +154,8 @@ public sealed class ThermalTemperatureDisplay : MonoBehaviour
             typeof(RectTransform),
             typeof(Canvas),
             typeof(CanvasScaler));
-        overlayObject.layer = gameObject.layer;
-        overlayObject.transform.SetParent(transform, false);
 
         Canvas canvas = overlayObject.GetComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceCamera;
-        canvas.worldCamera = thermalCamera;
-        canvas.planeDistance = Mathf.Max(thermalCamera.nearClipPlane + 0.01f, 0.1f);
         canvas.sortingOrder = 1000;
 
         CanvasScaler scaler = overlayObject.GetComponent<CanvasScaler>();
@@ -168,6 +163,35 @@ public sealed class ThermalTemperatureDisplay : MonoBehaviour
         scaler.referenceResolution = new Vector2(1024f, 1024f);
         scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
         scaler.matchWidthOrHeight = 0.5f;
+
+        Transform physicalScreen = FindPhysicalScreen();
+        if (physicalScreen != null)
+        {
+            overlayObject.layer = physicalScreen.gameObject.layer;
+            overlayObject.transform.SetParent(physicalScreen, false);
+
+            RectTransform overlayRect = overlayObject.GetComponent<RectTransform>();
+            overlayRect.anchorMin = new Vector2(0.5f, 0.5f);
+            overlayRect.anchorMax = new Vector2(0.5f, 0.5f);
+            overlayRect.pivot = new Vector2(0.5f, 0.5f);
+            overlayRect.sizeDelta = new Vector2(1024f, 1024f);
+            overlayRect.localPosition = new Vector3(0f, 0f, -0.01f);
+            overlayRect.localRotation = Quaternion.identity;
+            overlayRect.localScale = Vector3.one / 1024f;
+
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.worldCamera = null;
+        }
+        else
+        {
+            // Preserve the render-texture overlay as a fallback for TIC prefabs
+            // whose physical screen is not a sibling of the thermal camera.
+            overlayObject.layer = gameObject.layer;
+            overlayObject.transform.SetParent(transform, false);
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = thermalCamera;
+            canvas.planeDistance = Mathf.Max(thermalCamera.nearClipPlane + 0.01f, 0.1f);
+        }
 
         Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         temperatureText = CreateText(
@@ -198,6 +222,26 @@ public sealed class ThermalTemperatureDisplay : MonoBehaviour
         reticleRect.pivot = new Vector2(0.5f, 0.5f);
         reticleRect.anchoredPosition = Vector2.zero;
         reticleRect.sizeDelta = new Vector2(64f, 64f);
+    }
+
+    private Transform FindPhysicalScreen()
+    {
+        Transform ticRoot = transform.parent;
+        if (ticRoot == null)
+            return null;
+
+        Transform directScreen = ticRoot.Find("Screen");
+        if (directScreen != null)
+            return directScreen;
+
+        Renderer[] renderers = ticRoot.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer rendererToCheck in renderers)
+        {
+            if (rendererToCheck.name == "Screen")
+                return rendererToCheck.transform;
+        }
+
+        return null;
     }
 
     private static Text CreateText(
