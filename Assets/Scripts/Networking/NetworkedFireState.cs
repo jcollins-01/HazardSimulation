@@ -125,6 +125,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
                 currentModel.extinguishProgress = 0f;
                 currentModel.putOutCenterLocal = Vector3.zero;
                 currentModel.heatVisual = false;
+                currentModel.extinguishFadeStartRoomTime = 0.0;
+                currentModel.extinguishFadeDuration = 0f;
             }
             else
             {
@@ -210,6 +212,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
         ApplySprayHits();
         ObserveIgnisAndWriteModel();
+        ApplySynchronizedExtinguishFade();
     }
 
     /// <summary>
@@ -254,6 +257,28 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         bool extinguished = _flammableObject.IsExtinguished();
         bool burnedOut = _flammableObject.hasBurnedOut();
 
+        // Publish the timing values as soon as the authority observes extinguish.
+        // Puppets wait until both values are present before using the shared clock,
+        // so property delivery order cannot produce an invalid timeline.
+        if (extinguished &&
+            model.extinguishFadeStartRoomTime <= 0.0 &&
+            realtime != null &&
+            realtime.connected)
+        {
+            float duration = Mathf.Max(0.0001f, _flammableObject.burnOutLength_s);
+            float fadeProgressSeconds = Mathf.Max(0f, _flammableObject.onFireTimer - _flammableObject.burnOutStart_s);
+
+            model.extinguishFadeDuration = duration;
+            model.extinguishFadeStartRoomTime = realtime.roomTime - fadeProgressSeconds;
+        }
+        else if (!extinguished && model.isExtinguished)
+        {
+            // The fire was reset/reignited. Retire the previous cycle's clock so a
+            // later extinguish publishes a fresh start time and duration.
+            model.extinguishFadeStartRoomTime = 0.0;
+            model.extinguishFadeDuration = 0f;
+        }
+
         if (model.isBurning != burning)
             model.isBurning = burning;
         if (model.isExtinguished != extinguished)
@@ -287,6 +312,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     private void PuppetUpdate()
     {
         NeuterLocalIgnition();
+        ApplySynchronizedExtinguishFade();
 
         if (model.isBurning)
         {
@@ -386,6 +412,37 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _flammableObject.onFireTimer = skipToBurnedOut
             ? _flammableObject.burnOutStart_s + _flammableObject.burnOutLength_s + 0.01f
             : _flammableObject.burnOutStart_s + 0.01f;
+    }
+
+    /// <summary>
+    /// Drives the post-extinguish Ignis timer from Normcore's synchronized room
+    /// clock. Both the authority and puppets run this path, so all clients finish
+    /// the fade at the same logical server time. A late joiner immediately derives
+    /// the correct in-progress point instead of restarting the fade locally.
+    /// </summary>
+    private void ApplySynchronizedExtinguishFade()
+    {
+        if (model == null ||
+            !model.isExtinguished ||
+            model.extinguishFadeStartRoomTime <= 0.0 ||
+            model.extinguishFadeDuration <= 0f ||
+            realtime == null ||
+            !realtime.connected ||
+            !_flammableObject.onFire)
+        {
+            return;
+        }
+
+        float duration = model.extinguishFadeDuration;
+        double elapsedRoomTime = realtime.roomTime - model.extinguishFadeStartRoomTime;
+        float elapsed = Mathf.Clamp((float)elapsedRoomTime, 0f, duration + 0.01f);
+
+        // Ignis compares onFireTimer against its local burnOutLength_s, so apply
+        // the authority's duration before positioning the timer on the shared
+        // timeline. Assigning (rather than only advancing) also corrects clients
+        // whose local simulation ran slightly ahead.
+        _flammableObject.burnOutLength_s = duration;
+        _flammableObject.onFireTimer = _flammableObject.burnOutStart_s + elapsed;
     }
 
     // ------------------------------------------------------------------

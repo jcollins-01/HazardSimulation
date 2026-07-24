@@ -5983,7 +5983,7 @@ MonoBehaviour:
   onFireTimer: 0
   isEffectOnForever: 0
   burnOutStart_s: 9999
-  burnOutLength_s: 120
+  burnOutLength_s: 30
   isReignitable: 2
   deleteAfterBurnout: 0
   useMeshFire: 0

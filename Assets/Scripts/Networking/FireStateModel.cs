@@ -42,4 +42,15 @@ public partial class FireStateModel
     // authority-side HazardTemperature.Ignite() from the hazard spread logic).
     [RealtimeProperty(6, true, true)]
     private bool _heatVisual;
+
+    // Normcore room time at which Ignis entered its post-extinguish burnout fade.
+    // Every client derives fade progress from the same server clock, so message
+    // latency and local frame rate cannot shift the logical completion time.
+    [RealtimeProperty(7, true, true)]
+    private double _extinguishFadeStartRoomTime;
+
+    // The authority's Ignis burnOutLength_s for this extinguish cycle. This makes
+    // the authority's configured duration canonical even if scene copies differ.
+    [RealtimeProperty(8, true, true)]
+    private float _extinguishFadeDuration;
 }
