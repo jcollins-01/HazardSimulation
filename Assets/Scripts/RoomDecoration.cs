@@ -182,7 +182,8 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
                     if (room.Tiles.Contains(tableTile))
                     {
                         Vector3 tablePos = new Vector3(tableTile.x, 0, tableTile.y);
-                        Instantiate(tablePrefab, tablePos, Quaternion.identity, room.RoomObject.transform);
+                        GameObject table = Instantiate(tablePrefab, tablePos, Quaternion.identity, room.RoomObject.transform);
+                        AddFireProfileCollider(table);
                     }
                 }
             }
@@ -261,7 +262,8 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         if (tablePrefab != null)
         {
             Vector3 centerPos = new Vector3(centerTile.x, 0, centerTile.y);
-            Instantiate(tablePrefab, centerPos, Quaternion.identity, room.RoomObject.transform);
+            GameObject table = Instantiate(tablePrefab, centerPos, Quaternion.identity, room.RoomObject.transform);
+            AddFireProfileCollider(table);
         }
 
         // Clutter spawn
@@ -274,6 +276,22 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
                 SpawnFurniture(shelfPrefab, edge.tile, edge.forward, room.RoomObject.transform);
             }
         }
+    }
+
+    private void AddFireProfileCollider(GameObject prefab)
+    {
+        // Grab the Mesh Renderer for this prefab to size the collider
+        MeshRenderer mesh = prefab.GetComponent<MeshRenderer>();
+
+        // Add a FireProfileController and a BoxCollider so that walls, floors, and ceilings can be flammable
+        FireProfileController fireController = prefab.AddComponent<FireProfileController>();
+
+        // Grab the collider from the controller
+        BoxCollider fireBox = fireController.collider;
+
+        // Size the collider to match the newly combined mesh dimensions as closely as possible
+        fireBox.center = mesh.bounds.center;
+        fireBox.size = mesh.bounds.size;
     }
 
     /*private void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
@@ -301,6 +319,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
         // Instantiate if clear
         GameObject instance = Instantiate(prefab, pos, Quaternion.LookRotation(forward), parent);
+        AddFireProfileCollider(instance);
 
         // Apply your vertical offset logic
         float yOffset = CalculateVerticalOffset(instance);

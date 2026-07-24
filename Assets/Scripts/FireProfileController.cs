@@ -52,8 +52,8 @@ public class FireProfileController : MonoBehaviour
     private bool willReignite = true;
     private float reigniteRegenRate = 1.0f; // a slow regrowth rate 
 
-    private FlammableObject flammableObject;
-    private BoxCollider collider; // parent collider that determines ability to be touched/tracked in our hazard system
+    public FlammableObject flammableObject;
+    public BoxCollider collider; // parent collider that determines ability to be touched/tracked in our hazard system
     private float lastWaterHitTime = 0f;
 
     // Automatically runs in the Editor when the script is added
@@ -88,6 +88,9 @@ public class FireProfileController : MonoBehaviour
 
         // Call a fire scaling function every frame based on temperature
         UpdateFireVisuals();
+
+        // Update the tag
+        CheckIfBurning();
     }
 
     // This allows us to see the profile changes without entering Play Mode whenever we switch enums
@@ -193,7 +196,7 @@ public class FireProfileController : MonoBehaviour
                 regenDelay = 0.1f; // time to start regenerating between water sprays
 
                 // An intense fire that burns for a very long time and is extremely tough to extinguish
-                flammableObject.ignitionTime = 0f; // usually 2, 0 for testing
+                flammableObject.ignitionTime = 2f; // usually 2, 0 for testing
                 flammableObject.burnOutStart_s = 9999f; // High value to ensure it burns for a very long time
                 // 1 = Whole object needs to be extinguished before the burn out will start
                 flammableObject.fullExtinguishToughness = 1f;
@@ -228,7 +231,7 @@ public class FireProfileController : MonoBehaviour
                 regenDelay = 1.0f; // time to start regenerating between water sprays
 
                 // A smaller fire that will go out very quickly and will be extinguished easily
-                flammableObject.ignitionTime = 0f; // usually 1f
+                flammableObject.ignitionTime = 1f;
                 flammableObject.burnOutStart_s = 5f; // Short time before flame starts burning out
                 // 0 = A single drop of water will start the burn out in the whole object
                 flammableObject.fullExtinguishToughness = 0f;
@@ -264,13 +267,14 @@ public class FireProfileController : MonoBehaviour
 
                 // Takes a while to catch on fire, holds a fire for a while, mid-level difficulty to extinguish
                 // High ignition time delays how long it takes for the object to catch fire
-                flammableObject.ignitionTime = 0f; // usually 15f;
+                flammableObject.ignitionTime = 15f;
                 flammableObject.burnOutStart_s = 120f;
                 // Mid-level difficulty to fully extinguish
                 flammableObject.fullExtinguishToughness = 0.5f;
                 flammableObject.isReignitable = FlammableObject.ReIgnitable.Always;
-                flammableObject.maxSpread = 5; // controlled area of spread, doesn't move as much
+                flammableObject.maxSpread = 1000; // controlled area of spread, can spread far if allowed
                 flammableObject.backSpreadCoolDown_s = 5f; // some amount of time before it tries to reignite/can be reignited
+                flammableObject.fireCrawlSpeed = 0.1f;
 
                 // Flame Visuals
                 flammableObject.flameLength = 2f; // avg lifespan
@@ -422,5 +426,19 @@ public class FireProfileController : MonoBehaviour
         flammableObject.flameLength = baseFlameLength * visualRatio;
         flammableObject.flameVFXMultiplier = baseVFXMultiplier * visualRatio;
         flammableObject.flameParticleSize = baseParticleSize * visualRatio;
+    }
+
+    // Check if this object is on fire, update hazard tag in hazard layer if so
+    private void CheckIfBurning()
+    {
+        if (flammableObject == null) return;
+
+        // Setting the tag to Active Hazard
+        if (flammableObject.onFire)
+        {
+            // This helps us catch any object that catches on fire without labeling all walls, ceilings, floors etc.
+            // as possible hazards that can be set as fire sources
+            flammableObject.gameObject.tag = "Active Hazard";
+        }
     }
 }

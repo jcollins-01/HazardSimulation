@@ -2757,6 +2757,16 @@ public class RoomGeneration : MonoBehaviour
         MeshCollider mc = parent.AddComponent<MeshCollider>();
         mc.sharedMesh = combinedMesh;
 
+        // Add a FireProfileController and a BoxCollider so that walls, floors, and ceilings can be flammable
+        FireProfileController fireController = parent.AddComponent<FireProfileController>();
+
+        // Grab the collider from the controller
+        BoxCollider fireBox = fireController.collider;
+
+        // Size the collider to match the newly combined mesh dimensions as closely as possible
+        fireBox.center = combinedMesh.bounds.center;
+        fireBox.size = combinedMesh.bounds.size;
+
         // Remove the old individual cube objects
         for (int i = parent.transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(parent.transform.GetChild(i).gameObject);
