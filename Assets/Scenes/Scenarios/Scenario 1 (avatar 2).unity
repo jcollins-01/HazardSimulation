@@ -5950,7 +5950,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxSpread: 10000
-  fireCrawlSpeed: 5
+  fireCrawlSpeed: 1
   overrideFireVFX: 0
   overrideVFXVariant: 3
   fireColor: {r: 0.7490196, g: 0.65882355, b: 0, a: 1}
@@ -5983,7 +5983,7 @@ MonoBehaviour:
   onFireTimer: 0
   isEffectOnForever: 0
   burnOutStart_s: 9999
-  burnOutLength_s: 30
+  burnOutLength_s: 10
   isReignitable: 2
   deleteAfterBurnout: 0
   useMeshFire: 0
@@ -49169,6 +49169,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 5000562671733237514, guid: cf89dd394f016e349b14b0c0bd1016c9, type: 3}
+      propertyPath: m_TagString
+      value: Possible Hazard
+      objectReference: {fileID: 0}
     - target: {fileID: 6720287873845176289, guid: cf89dd394f016e349b14b0c0bd1016c9, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.943

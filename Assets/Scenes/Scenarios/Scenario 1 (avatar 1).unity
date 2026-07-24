@@ -5879,8 +5879,8 @@ MonoBehaviour:
   sprayHitMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  progressCatchUpSpeed: 6
-  phantomFireGraceSeconds: 1.5
+  progressCatchUpSpeed: 0.5
+  phantomFireGraceSeconds: 0.5
 --- !u!114 &384700459
 MonoBehaviour:
   m_ObjectHideFlags: 0
