@@ -31,6 +31,7 @@ public class HazardTemperature : MonoBehaviour
     private float heatSpreadProgress;
     private float timeSinceIgnition;
     private bool wasOnFire;
+    private bool isIgnited;
 
     private static readonly int TemperatureId = Shader.PropertyToID("_Temperature");
     private static readonly int HeatOriginId = Shader.PropertyToID("_HeatOrigin");
@@ -69,6 +70,11 @@ public class HazardTemperature : MonoBehaviour
             targetTemperature = GetFlammableTemperature();
         }
 
+        // NetworkedFireState replicates an explicit heat-visual flag. Preserve that
+        // contract even on clients where the local fire simulation is only a puppet.
+        if (isIgnited)
+            targetTemperature = Mathf.Max(targetTemperature, 1f);
+
         UpdateTemperature(targetTemperature);
         ApplyTemperatureToRenderer();
     }
@@ -79,7 +85,7 @@ public class HazardTemperature : MonoBehaviour
 
         if (targetTemperature > temperature)
         {
-            bool canHeatUp = flammableObject == null || flammableObject.onFire;
+            bool canHeatUp = isIgnited || flammableObject == null || flammableObject.onFire;
             if (!canHeatUp || timeSinceIgnition < heatUpDelay)
                 return;
 
@@ -117,11 +123,13 @@ public class HazardTemperature : MonoBehaviour
 
     private void UpdateHeatSpread()
     {
-        bool isOnFire = flammableObject != null && flammableObject.onFire;
+        bool isOnFire = isIgnited || (flammableObject != null && flammableObject.onFire);
 
         if (isOnFire && !wasOnFire)
         {
-            heatOriginWorld = flammableObject.GetFireOrigin();
+            heatOriginWorld = flammableObject != null
+                ? flammableObject.GetFireOrigin()
+                : transform.position;
             heatOriginLocal = transform.InverseTransformPoint(heatOriginWorld);
             heatSpreadProgress = 0f;
             timeSinceIgnition = 0f;
@@ -198,9 +206,21 @@ public class HazardTemperature : MonoBehaviour
         }
     }
 
+    // Retained for the Normcore heat-visual replication contract.
+    public void Ignite()
+    {
+        isIgnited = true;
+    }
+
+    public void Extinguish()
+    {
+        isIgnited = false;
+    }
+
     // Call this when the simulation is ready for a full reset
     public void ResetTemperature()
     {
+        isIgnited = false;
         temperature = 0.0f;
         heatOriginWorld = transform.position;
         heatOriginLocal = Vector3.zero;
