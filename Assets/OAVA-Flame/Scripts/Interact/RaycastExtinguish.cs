@@ -103,7 +103,6 @@ namespace Ignis
                     if (!objectsInFront)
                     {
                         hitFlam.IncrementalExtinguish(hitPoint, raycastRadius, radiusIncrement);
-                        Debug.Log("Calling incremental extinguish");
                     }
                 }
 

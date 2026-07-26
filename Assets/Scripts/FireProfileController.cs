@@ -1,9 +1,15 @@
 using UnityEngine;
 using Ignis;
+using System.Collections;
+
+/*#if UNITY_EDITOR
+using UnityEditor.Events;
+#endif*/
 
 // Forces Unity to add these in the Editor automatically once the script is applied
 [RequireComponent(typeof(FlammableObject))]
 [RequireComponent(typeof(BoxCollider))]
+[RequireComponent(typeof(HazardTemperature))]
 public class FireProfileController : MonoBehaviour
 {
     public enum FireProfile
@@ -13,16 +19,51 @@ public class FireProfileController : MonoBehaviour
         SlowBurn
     }
 
+    [Tooltip("The max HP of the fire.")]
+    public int maxTemperature;
+    [Tooltip("The current HP of the fire.")]
+    public float currentTemperature;
+
     [Tooltip("Select the desired fire behavior profile.")]
     public FireProfile currentProfile = FireProfile.SlowBurn;
+
+    [Header("Regeneration Settings")]
+    public float tempRegenRate; // Degrees recovered per second when not sprayed
+    public float tempDrainPerParticle; // Degrees lost per single water particle
+    public float regenDelay;
+    // Vars to handle the visual state during extinguish/regeneration
+    private float baseFlameLength;
+    private float baseVFXMultiplier;
+    private float baseParticleSize;
+
+    [Header("Uncertainty & Smoldering Settings")]
+    [Tooltip("The temperature below which the fire enters the uncertainty phase.")]
+    public float smolderThreshold = 100f;
+    [Tooltip("Chance (0.0 to 1.0) that the fire will reignite when left alone in the smolder zone.")]
+    [Range(0f, 1f)]
+    public float reigniteChance = 0.5f;
+    [Tooltip("How fast the temperature drops to 0 if it fails the reignite roll.")]
+    public float autoFizzleRate = 0.01f; // very low fizzle rate
+    [HideInInspector] public bool readyForSmolder = false; // flag to keep track of if the system has visually burnt-out or not
+    private Coroutine reigniteCoroutine;
+
+    // State trackers for the smolder phase
+    private bool hasRolledSmolder = false;
+    private bool willReignite = true;
+    private float reigniteRegenRate = 1.0f; // a slow regrowth rate 
+
     private FlammableObject flammableObject;
     private BoxCollider collider; // parent collider that determines ability to be touched/tracked in our hazard system
-    private BoxCollider fireCollider; // child collider that is used in extinguishing system
+    private float lastWaterHitTime = 0f;
 
     // Automatically runs in the Editor when the script is added
     void Reset()
     {
         SetupHitbox();
+        /*
+#if UNITY_EDITOR
+        SetupPersistentFlameEvents();
+#endif*/
     }
 
     void Awake()
@@ -35,6 +76,18 @@ public class FireProfileController : MonoBehaviour
     void Start()
     {
         ApplyProfile();
+
+        // Automatically set up event bindings to allow for a smolder/reignite
+        //SetupFlameEvents();
+    }
+
+    void Update()
+    {
+        // Adjust the temperature each frame based on water spray + chance for smolder/reignite if < 100
+        CheckSprayAndSmolder();
+
+        // Call a fire scaling function every frame based on temperature
+        UpdateFireVisuals();
     }
 
     // This allows us to see the profile changes without entering Play Mode whenever we switch enums
@@ -72,10 +125,54 @@ public class FireProfileController : MonoBehaviour
                 newCollider.center = parentCollider.center;
                 newCollider.size = parentCollider.size;
             }
-
-            fireCollider = newCollider;
         }
     }
+
+    // Adds the FlameEventInvoker if missing and wires up the UnityEvents
+    private void SetupFlameEvents()
+    {
+        // Get or add the FlameEventInvoker component as instructed by the Ignis API
+        FlameEventInvoker eventInvoker = GetComponent<FlameEventInvoker>();
+        if (eventInvoker == null)
+        {
+            eventInvoker = gameObject.AddComponent<FlameEventInvoker>();
+        }
+
+        // Subscribe to the events programmatically (remove the listener first to make sure it doesn't get double-added)
+        if (eventInvoker != null)
+        {
+            eventInvoker.Extinguished.RemoveListener(RollForSmolder);
+            eventInvoker.Extinguished.AddListener(RollForSmolder);
+
+            eventInvoker.BurntOut.RemoveListener(RollForSmolder);
+            eventInvoker.BurntOut.AddListener(RollForSmolder);
+        }
+    }
+
+    /*
+    // This block only compiles in the Unity Editor to physically populate the Inspector slots
+#if UNITY_EDITOR
+    private void SetupPersistentFlameEvents()
+    {
+        FlameEventInvoker eventInvoker = GetComponent<FlameEventInvoker>();
+        if (eventInvoker == null)
+        {
+            eventInvoker = gameObject.AddComponent<FlameEventInvoker>();
+        }
+
+        // Clear existing to avoid duplicate entries in the Inspector if you click "Reset" multiple times
+        UnityEventTools.RemovePersistentListener(eventInvoker.Extinguished, RollForSmolder);
+        UnityEventTools.RemovePersistentListener(eventInvoker.BurntOut, RollForSmolder);
+
+        // Add persistent listeners (these WILL show up in the Unity Inspector GUI)
+        UnityEventTools.AddPersistentListener(eventInvoker.Extinguished, RollForSmolder);
+        UnityEventTools.AddPersistentListener(eventInvoker.BurntOut, RollForSmolder);
+
+        // Tells Unity to save the changes we just made to the Inspector
+        UnityEditor.EditorUtility.SetDirty(eventInvoker);
+    }
+#endif
+    */
 
     // Adds a FlammableObject component if missing and applies the selected profile settings.
     public void ApplyProfile()
@@ -88,6 +185,13 @@ public class FireProfileController : MonoBehaviour
         switch (currentProfile)
         {
             case FireProfile.MaxResilience:
+                // Our pre-programmed temperature that the fire will reach at max
+                // basically, an HP that will reduce slowly as water is sprayed and increase back to max when it's not
+                maxTemperature = 3000;
+                tempRegenRate = 500f; // Degrees recovered per second when not sprayed
+                tempDrainPerParticle = 0.1f; // Degrees lost per single water particle
+                regenDelay = 0.1f; // time to start regenerating between water sprays
+
                 // An intense fire that burns for a very long time and is extremely tough to extinguish
                 flammableObject.ignitionTime = 0f; // usually 2, 0 for testing
                 flammableObject.burnOutStart_s = 9999f; // High value to ensure it burns for a very long time
@@ -95,7 +199,7 @@ public class FireProfileController : MonoBehaviour
                 flammableObject.fullExtinguishToughness = 1f;
                 flammableObject.isReignitable = FlammableObject.ReIgnitable.Always; // at any point in its lifecycle, it can reignite, including post-extinguish
                 flammableObject.maxSpread = 10000; // as far as possible
-                flammableObject.backSpreadCoolDown_s = 2f; // short amount of time before it tries to reignite
+                flammableObject.backSpreadCoolDown_s = 0.01f; // short amount of time before it tries to reignite
 
                 // Flame Visuals
                 flammableObject.flameLength = 5f; // long lifespan of fire particles going up
@@ -118,6 +222,11 @@ public class FireProfileController : MonoBehaviour
                 break;
 
             case FireProfile.InstantExtinguish:
+                maxTemperature = 350;
+                tempRegenRate = 50f; // Degrees recovered per second when not sprayed
+                tempDrainPerParticle = 10.0f; // Degrees lost per single water particle
+                regenDelay = 1.0f; // time to start regenerating between water sprays
+
                 // A smaller fire that will go out very quickly and will be extinguished easily
                 flammableObject.ignitionTime = 0f; // usually 1f
                 flammableObject.burnOutStart_s = 5f; // Short time before flame starts burning out
@@ -148,6 +257,11 @@ public class FireProfileController : MonoBehaviour
                 break;
 
             case FireProfile.SlowBurn:
+                maxTemperature = 1000;
+                tempRegenRate = 250f; // Degrees recovered per second when not sprayed
+                tempDrainPerParticle = 5.0f; // Degrees lost per single water particle
+                regenDelay = 1.0f; // time to start regenerating between water sprays
+
                 // Takes a while to catch on fire, holds a fire for a while, mid-level difficulty to extinguish
                 // High ignition time delays how long it takes for the object to catch fire
                 flammableObject.ignitionTime = 0f; // usually 15f;
@@ -179,6 +293,134 @@ public class FireProfileController : MonoBehaviour
                 break;
         }
 
+        // Initialize current temperature to the max allowed by the profile
+        currentTemperature = maxTemperature;
+
+        // Cache the base visual settings right after the switch statement determines them
+        baseFlameLength = flammableObject.flameLength;
+        baseVFXMultiplier = flammableObject.flameVFXMultiplier;
+        baseParticleSize = flammableObject.flameParticleSize;
+
         Debug.Log($"Applied {currentProfile} profile to {gameObject.name}");
+    }
+
+    public void RollForSmolder()
+    {
+        Debug.Log("Fire visually extinguished by Ignis. Rolling for smolder.");
+        readyForSmolder = true;
+    }
+
+    private void CheckSprayAndSmolder()
+    {
+        // Determine if we are in the smolder zone
+        bool inSmolderZone = (currentTemperature > 0 && currentTemperature <= smolderThreshold);
+        bool isSprayedRecently = (Time.time - lastWaterHitTime <= regenDelay);
+
+        //Debug.Log($"Current Temp: {currentTemperature}, InSmolderZone: {inSmolderZone}, Sprayed: {isSprayedRecently}");
+
+        if (inSmolderZone && !isSprayedRecently)
+        {
+            if (readyForSmolder)
+            {
+                // We are in the uncertainty zone. Roll the dice once!
+                if (!hasRolledSmolder)
+                {
+                    hasRolledSmolder = true;
+                    willReignite = Random.value <= reigniteChance;
+                    Debug.Log("Rolled to reignite");
+                }
+
+                // Execute the result of the roll
+                if (willReignite)
+                {
+                    // Stop any existing coroutine if already running
+                    if (reigniteCoroutine != null) StopCoroutine(reigniteCoroutine);
+                    reigniteCoroutine = StartCoroutine(ReigniteRoutine());
+
+                    //currentTemperature += reigniteRegenRate * Time.deltaTime;
+                    //flammableObject.TryToSetOnFire(transform.position, reigniteRegenRate);
+                }
+                else
+                {
+                    // Artificially drain the fire to 0 to simulate it dying out on its own
+                    currentTemperature -= autoFizzleRate * Time.deltaTime;
+                    if (currentTemperature < 0) currentTemperature = 0;
+                    Debug.Log("Slowly drain temperature");
+                }
+            }
+        }
+        // ONLY if we are NOT in the smolder zone do we allow normal regen
+        else if (!isSprayedRecently && currentTemperature < maxTemperature)
+        {
+            currentTemperature += tempRegenRate * Time.deltaTime;
+
+            // Reset flags only when we successfully climb out of the smolder zone
+            hasRolledSmolder = false;
+            readyForSmolder = false;
+        }
+
+        // Clamp it back to max and min
+        if (currentTemperature > maxTemperature)
+            currentTemperature = maxTemperature;
+
+        if (currentTemperature < 0)
+            currentTemperature = 0;
+    }
+
+    private IEnumerator ReigniteRoutine()
+    {
+        // Wait for a random amount of time between 10 and 30 seconds
+        float waitTime = Random.Range(10f, 30f);
+        yield return new WaitForSeconds(waitTime);
+        Debug.Log("Done waiting should reignite");
+        // Only proceed if the temperature is still above 0
+        if (currentTemperature > 0)
+        {
+            Debug.Log("Reigniting");
+            currentTemperature += reigniteRegenRate * Time.deltaTime;
+            flammableObject.TryToSetOnFire(transform.position, reigniteRegenRate);
+        }
+    }
+
+    public float ProcessWaterHit(int particleCount)
+    {
+        lastWaterHitTime = Time.time;
+        currentTemperature -= (particleCount * tempDrainPerParticle);
+
+        // Reset the smolder roll if the player starts spraying again while the fire is currently deciding its fate
+        hasRolledSmolder = false;
+
+        if (currentTemperature == 0)
+        {
+            currentTemperature = 0; // lock it to 0 so it doesn't increase again after being extinguished
+            return 1.0f; // still full power
+        }
+        else if (currentTemperature <= 100)
+        {
+            //Debug.Log("Spraying at full power!");
+            return 1.0f; // Grant the water 100% of its extinguish power.
+        }
+
+        //Debug.Log("Spraying at reduced power to artificially maintain fire life.");
+        // HP > 100. Nerf the extinguish power so the fire visually shrinks but doesn't easily die.
+        return 0.02f;
+    }
+
+    // Dynamically scale fire visuals based on fire health/temperature
+    private void UpdateFireVisuals()
+    {
+        if (flammableObject == null || maxTemperature == 0) return;
+        //Debug.Log("Looking at fire visuals");
+        // Calculate the percentage of temperature remaining (0.0f to 1.0f)
+        float tempRatio = currentTemperature / maxTemperature;
+
+        // Clamp this so the fire doesn't become COMPLETELY microscopic 
+        // before hitting the 100-degree extinguish threshold
+        float visualRatio = Mathf.Max(tempRatio, 0.5f);
+
+        // Apply the ratio to the current visual parameters
+        flammableObject.flameLength = baseFlameLength * visualRatio;
+        flammableObject.flameVFXMultiplier = baseVFXMultiplier * visualRatio;
+        flammableObject.flameParticleSize = baseParticleSize * visualRatio;
     }
 }

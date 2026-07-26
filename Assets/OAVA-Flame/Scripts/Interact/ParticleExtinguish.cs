@@ -27,9 +27,9 @@ namespace Ignis
         {
             int numCollisionEvents = part.GetCollisionEvents(other, collisionEvents);
 
-            int i = 0;
-
             Ignis.FlammableObject flamObj = other.GetComponentInParent<Ignis.FlammableObject>();
+            FireProfileController profile = other.GetComponentInParent<FireProfileController>();
+
             if (flamObj)
             {
                 // NETWORKING GATE: particle collisions run locally on every client, but
@@ -39,14 +39,38 @@ namespace Ignis
                 if (!NetworkedFireState.LocalClientMayAffectFire(flamObj))
                     return;
 
+                // Default to 100% power if there is no custom profile controller attached
+                float powerMultiplier = 1f;
+
+                if (profile != null)
+                {
+                    // Ping the controller. If temp > 0, it returns a heavily nerfed multiplier.
+                    powerMultiplier = profile.ProcessWaterHit(numCollisionEvents);
+                }
+
+                int i = 0;
                 while (i < numCollisionEvents)
                 {
                     Vector3 pos = collisionEvents[i].intersection;
-                    flamObj.IncrementalExtinguish(pos, particleExtinquishRadius, incrementalPower);
+
+                    // Apply the multiplier to BOTH the starting radius and the increment
+                    float effectiveRadius = particleExtinquishRadius * powerMultiplier;
+                    float effectiveIncrement = incrementalPower * powerMultiplier;
+
+                    // Only process the visual extinguish if the fire is taking damage
+                    if (powerMultiplier > 0f)
+                    {
+                        flamObj.IncrementalExtinguish(pos, effectiveRadius, effectiveIncrement);
+                        if (powerMultiplier == 1f && profile != null)
+                        {
+                            Debug.Log("Calling incremental extinguish for final extinguish at full power");
+                            // Notify the profile that the final extinguish phase has started
+                            profile.readyForSmolder = true;
+                        }
+                    }
                     i++;
                 }
             }
-
         }
     }
 }
