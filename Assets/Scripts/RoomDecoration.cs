@@ -278,20 +278,83 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         }
     }
 
-    private void AddFireProfileCollider(GameObject prefab)
+    private void AddFireProfileCollider(GameObject furniture)
     {
-        // Grab the Mesh Renderer for this prefab to size the collider
-        MeshRenderer mesh = prefab.GetComponentInChildren<MeshRenderer>();
+        Renderer[] renderers = furniture.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            Debug.LogWarning($"Cannot add a fire profile to {furniture.name}: no renderer was found.", furniture);
+            return;
+        }
 
-        // Add a FireProfileController and a BoxCollider so that walls, floors, and ceilings can be flammable
-        FireProfileController fireController = prefab.AddComponent<FireProfileController>();
+        // FireProfileController requires the Ignis, temperature, and box-collider
+        // components, so adding it completes the runtime fire setup.
+        FireProfileController fireController = furniture.GetComponent<FireProfileController>();
+        if (fireController == null)
+            fireController = furniture.AddComponent<FireProfileController>();
 
-        // Grab the collider from the controller
         BoxCollider fireBox = fireController.collider;
+        if (fireBox == null)
+        {
+            fireBox = furniture.GetComponent<BoxCollider>();
+            fireController.collider = fireBox;
+        }
 
-        // Size the collider to match the newly combined mesh dimensions as closely as possible
-        fireBox.center = mesh.bounds.center;
-        fireBox.size = mesh.bounds.size;
+        if (fireBox == null)
+        {
+            Debug.LogError($"Cannot configure the fire volume for {furniture.name}: no BoxCollider was created.", furniture);
+            return;
+        }
+
+        // Renderer.bounds is in world space while BoxCollider center/size are local.
+        // Convert every renderer-bound corner into the furniture root's local space
+        // so Ignis places its flame VFX on the visible object.
+        Bounds localBounds = CalculateLocalRendererBounds(furniture.transform, renderers);
+        fireBox.center = localBounds.center;
+        fireBox.size = localBounds.size;
+    }
+
+    private static Bounds CalculateLocalRendererBounds(Transform root, Renderer[] renderers)
+    {
+        Bounds combinedBounds = default;
+        bool hasBounds = false;
+
+        foreach (Renderer rendererToMeasure in renderers)
+        {
+            if (rendererToMeasure == null || rendererToMeasure is ParticleSystemRenderer)
+                continue;
+
+            Bounds rendererBounds = rendererToMeasure.localBounds;
+            Vector3 center = rendererBounds.center;
+            Vector3 extents = rendererBounds.extents;
+
+            for (int x = -1; x <= 1; x += 2)
+            {
+                for (int y = -1; y <= 1; y += 2)
+                {
+                    for (int z = -1; z <= 1; z += 2)
+                    {
+                        Vector3 rendererLocalCorner = center + Vector3.Scale(
+                            extents,
+                            new Vector3(x, y, z));
+                        Vector3 rootLocalCorner = root.InverseTransformPoint(
+                            rendererToMeasure.transform.TransformPoint(rendererLocalCorner));
+
+                        if (!hasBounds)
+                        {
+                            combinedBounds = new Bounds(rootLocalCorner, Vector3.zero);
+                            hasBounds = true;
+                        }
+                        else
+                        {
+                            combinedBounds.Encapsulate(rootLocalCorner);
+                        }
+                    }
+                }
+            }
+        }
+
+        return hasBounds ? combinedBounds : new Bounds(Vector3.zero, Vector3.one);
     }
 
     /*private void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)

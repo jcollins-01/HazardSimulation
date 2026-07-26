@@ -19,24 +19,29 @@ public class FireProfileController : MonoBehaviour
         SlowBurn
     }
 
-    [Tooltip("The max HP of the fire.")]
+    [Header("Fire Health")]
+    [Tooltip("Maximum fire health/temperature. This is filled automatically by the selected profile.")]
     public int maxTemperature;
-    [Tooltip("The current HP of the fire.")]
+    [Tooltip("Current fire health/temperature. Water lowers it and regeneration raises it.")]
     public float currentTemperature;
 
-    [Tooltip("Select the desired fire behavior profile.")]
+    [Header("Profile Selection")]
+    [Tooltip("Selects the preset controlling ignition, resilience, flame appearance, smoke, and embers.")]
     public FireProfile currentProfile = FireProfile.SlowBurn;
 
-    [Header("Regeneration Settings")]
+    [Header("Water and Regeneration")]
+    [Tooltip("Fire health recovered per second after water has stopped.")]
     public float tempRegenRate; // Degrees recovered per second when not sprayed
+    [Tooltip("Fire health removed by each colliding water particle.")]
     public float tempDrainPerParticle; // Degrees lost per single water particle
+    [Tooltip("Seconds after the last water hit before fire health starts regenerating.")]
     public float regenDelay;
     // Vars to handle the visual state during extinguish/regeneration
     private float baseFlameLength;
     private float baseVFXMultiplier;
     private float baseParticleSize;
 
-    [Header("Uncertainty & Smoldering Settings")]
+    [Header("Smoldering and Reignition")]
     [Tooltip("The temperature below which the fire enters the uncertainty phase.")]
     public float smolderThreshold = 100f;
     [Tooltip("Chance (0.0 to 1.0) that the fire will reignite when left alone in the smolder zone.")]
@@ -52,7 +57,10 @@ public class FireProfileController : MonoBehaviour
     private bool willReignite = true;
     private float reigniteRegenRate = 1.0f; // a slow regrowth rate 
 
+    [Header("Automatic Component References")]
+    [Tooltip("Ignis component controlled by this fire profile. Assigned automatically.")]
     public FlammableObject flammableObject;
+    [Tooltip("Local fire volume used by hazard tracking and Ignis VFX placement. Assigned automatically.")]
     public BoxCollider collider; // parent collider that determines ability to be touched/tracked in our hazard system
     private float lastWaterHitTime = 0f;
 

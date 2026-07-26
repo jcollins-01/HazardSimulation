@@ -6,6 +6,8 @@ public class HazardTemperature : MonoBehaviour
     private FireProfileController fireController;
     private FlammableObject flammableObject;
 
+    [Header("Live Thermal State")]
+    [Tooltip("Normalized temperature sent to the thermal materials: 0 is cold and 1 is fully hot.")]
     [Range(0f, 1f)] public float temperature = 0.0f;
 
     private Renderer[] thermalRenderers;
@@ -15,14 +17,19 @@ public class HazardTemperature : MonoBehaviour
     public float NormalizedTemperature => temperature;
 
     [HideInInspector] public float heatUpSpeed = 0.5f; // Retained for existing serialized scenes.
+    [Tooltip("How quickly the displayed temperature falls when the object cools.")]
     public float coolDownSpeed = 0.5f; // Track dynamic cooling as the user sprays
 
     [Header("Temperature Response")]
+    [Tooltip("Delay after ignition before the thermal surface begins heating.")]
     [SerializeField, Min(0f)] private float heatUpDelay = 0.5f;
+    [Tooltip("Seconds for the thermal display to move from cold to fully hot.")]
     [SerializeField, Min(0.1f)] private float heatUpDuration = 10f;
 
     [Header("Heat Spread")]
+    [Tooltip("Seconds for localized heat to spread across the object.")]
     [SerializeField, Min(0.1f)] private float heatSpreadDuration = 8f;
+    [Tooltip("Final heat-radius multiplier relative to the renderer bounds.")]
     [SerializeField, Min(1f)] private float fullHeatRadiusMultiplier = 12f;
 
     private Vector3 heatOriginWorld;
