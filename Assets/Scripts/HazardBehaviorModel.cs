@@ -91,6 +91,12 @@ public class HazardBehaviorModel : MonoBehaviour
             if (agent != null && agent.enabled != isAuthority)
                 agent.enabled = isAuthority; // let RealtimeTransform drive puppets
 
+            // Every client observes the synchronized hazard pose, but only the
+            // authority of the touched fire is allowed to advance its ignition.
+            // This lets two fires with different Normcore owners still spread.
+            if (spreading && isTouchingSomething && lastTouchedObject != null && controller != null)
+                controller.Spreading(this);
+
             if (!isAuthority)
                 return;
 
@@ -179,19 +185,8 @@ public class HazardBehaviorModel : MonoBehaviour
                 StartCoroutine(countdownToResetHazard());
             }
         }
-        else if (isTouchingSomething) // if we're touching another object and spreading is active
-        {
-            // If the hazard is capable of spreading
-            if (spreading)
-            {
-                if (lastTouchedObject != null)
-                {
-                    controller.Spreading(this); 
-                }
-            }
-        }
         // --- PASSIVE STATE ---
-        else
+        else if (!isTouchingSomething)
         {
             // Only trigger the reset transition once when the player moves out of range
             if (alreadyTriggeredByPlayer)

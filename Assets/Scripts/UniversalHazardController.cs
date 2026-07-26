@@ -268,14 +268,43 @@ public class UniversalHazardController : MonoBehaviour
 
     public void Spreading(HazardBehaviorModel model)
     {
-        // Set the object we're touching as an Active Hazard
+        if (model == null || model.lastTouchedObject == null)
+            return;
+
         GameObject hazard = model.lastTouchedObject;
+
+        FlammableObject sourceFire = model.GetComponent<FlammableObject>();
+        FlammableObject targetFire = hazard.GetComponent<FlammableObject>();
+        if (sourceFire == null || targetFire == null || !sourceFire.onFire)
+            return;
+
+        // This method runs on every client so the authority of the touched fire can
+        // advance its own ignition even when the moving hazard has a different owner.
+        if (!NetworkedFireState.LocalClientMayAffectFire(targetFire))
+            return;
+
+        Collider targetCollider = hazard.GetComponent<Collider>();
+        Vector3 sourcePosition = sourceFire.GetFireOrigin();
+        Vector3 ignitionPoint = targetCollider != null
+            ? targetCollider.ClosestPoint(sourcePosition)
+            : sourcePosition;
+
+        // Respect the target's fire profile: contact adds ignition progress over
+        // time instead of forcing an instant fire or changing its on-start option.
+        targetFire.TryToSetOnFireIgniteProgressIncrease(ignitionPoint, Time.deltaTime);
+
+        // Contact alone is not an active fire. Wait until Ignis actually ignites it.
+        if (!targetFire.onFire)
+            return;
+
         hazard.tag = "Active Hazard";
-        //Debug.Log($"{hazard.name} was set as an active hazard");
 
         // Use TryAdd so that it only adds the material the first time (doesn't overwrite the original material as touching continues)
-        originalColors.TryAdd(hazard, hazard.GetComponent<Renderer>().material);
-        tagging.CheckHazardStatus(originalColors);
+        Renderer hazardRenderer = hazard.GetComponent<Renderer>();
+        if (hazardRenderer != null)
+            originalColors.TryAdd(hazard, hazardRenderer.material);
+        if (tagging != null)
+            tagging.CheckHazardStatus(originalColors);
 
         // Adding the hazard temp component
         if (!hazard.TryGetComponent<HazardTemperature>(out HazardTemperature temp))
@@ -289,6 +318,10 @@ public class UniversalHazardController : MonoBehaviour
         if (hazard.TryGetComponent<NetworkedFireState>(out NetworkedFireState fireState))
         {
             fireState.SetHeatVisual(true);
+        }
+        else
+        {
+            temp.Ignite();
         }
 
         // Change its color to red to visually mark the difference
