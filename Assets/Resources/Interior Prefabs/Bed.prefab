@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 2328309406902912921}
   - component: {fileID: 6074109929372654317}
   - component: {fileID: 2627722808100706848}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: BedBase
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -95,7 +95,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1645225931137005135}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Bed
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -131,7 +131,7 @@ GameObject:
   - component: {fileID: 6583915578304548036}
   - component: {fileID: 8832252035324058816}
   - component: {fileID: 7054613385314014059}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: BedPillows
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -217,7 +217,7 @@ GameObject:
   - component: {fileID: 8586765471193060598}
   - component: {fileID: 6866368116122674102}
   - component: {fileID: 3390379966508910446}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Cloth
   m_TagString: Untagged
   m_Icon: {fileID: 0}

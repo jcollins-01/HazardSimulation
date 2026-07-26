@@ -16,7 +16,7 @@ public class HazardTemperature : MonoBehaviour
     void Start()
     {
         fireController = GetComponent<FireProfileController>();
-        myRenderer = GetComponent<Renderer>();
+        myRenderer = GetComponentInChildren<Renderer>();
         propBlock = new MaterialPropertyBlock();
     }
 
@@ -26,7 +26,6 @@ public class HazardTemperature : MonoBehaviour
         {
             // Get current temperature and normalize it (0 to 1)
             temperature = Mathf.Clamp01(fireController.currentTemperature / MAX_TEMP);
-
             myRenderer.GetPropertyBlock(propBlock);
             propBlock.SetFloat("_Temperature", temperature);
             myRenderer.SetPropertyBlock(propBlock);

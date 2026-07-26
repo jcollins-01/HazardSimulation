@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6536838230069670817}
   - component: {fileID: 8392128626691470558}
   - component: {fileID: 2420726494299761026}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: wash_basin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -95,7 +95,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 465239649070374281}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Sink
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -130,7 +130,7 @@ GameObject:
   - component: {fileID: 106720837629086650}
   - component: {fileID: 4939727821394137638}
   - component: {fileID: 8745132205326465442}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: mirror
   m_TagString: Untagged
   m_Icon: {fileID: 0}

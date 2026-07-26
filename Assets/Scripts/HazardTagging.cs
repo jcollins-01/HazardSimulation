@@ -186,6 +186,13 @@ public class HazardTagging : MonoBehaviour
                         activeHazards.Add(chosenItem);
                         itemsInZone.RemoveAt(randomItemIndex);
 
+                        // If we have a fire profile controller
+                        if (chosenItem.GetComponent<FireProfileController>() != null)
+                        {
+                            // Set this object to be lit on fire when the scene starts/make it a fire source
+                            chosenItem.GetComponent<FireProfileController>().flammableObject.setThisOnFireOnStart = true;
+                        }
+
                         Debug.Log($"HazardTagging: {chosenItem.name} in zone {chosenZone.name} is now ACTIVE!");
 #if UNITY_EDITOR
                         EditorUtility.SetDirty(chosenItem);
@@ -247,6 +254,13 @@ public class HazardTagging : MonoBehaviour
                 chosenItem.tag = "Active Hazard";
                 activeHazards.Add(chosenItem);
                 manuallyTaggedItems.RemoveAt(randomItemIndex);
+
+                // If we have a fire profile controller
+                if (chosenItem.GetComponent<FireProfileController>() != null)
+                {
+                    // Set this object to be lit on fire when the scene starts/make it a fire source
+                    chosenItem.GetComponent<FireProfileController>().flammableObject.setThisOnFireOnStart = true;
+                }
 
                 Debug.Log($"HazardTagging (Manual): {chosenItem.name} has been activated as an ACTIVE HAZARD!");
 

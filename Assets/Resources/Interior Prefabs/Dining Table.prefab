@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 8777731751706491618}
   - component: {fileID: 869761251081131557}
   - component: {fileID: 1521111727284358565}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Dining Table
   m_TagString: Untagged
   m_Icon: {fileID: 0}
