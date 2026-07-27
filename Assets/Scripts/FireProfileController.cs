@@ -10,6 +10,7 @@ using UnityEditor.Events;
 [RequireComponent(typeof(FlammableObject))]
 [RequireComponent(typeof(BoxCollider))]
 [RequireComponent(typeof(HazardTemperature))]
+[RequireComponent(typeof(NetworkedFireState))]
 public class FireProfileController : MonoBehaviour
 {
     public enum FireProfile
