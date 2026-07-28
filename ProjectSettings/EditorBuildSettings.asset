@@ -5,15 +5,9 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 0
-    path: Assets/Scenes/ProceduralGeneration.unity
-    guid: 8045f1d2589f6a44fbd8f9189dc20a14
   - enabled: 1
-    path: Assets/Scenes/DecorativeDemo.unity
-    guid: f5340af71057c434bafeba3a8adfe7e8
+    path: Assets/Scenes/Scenarios/DECORATED/DAYTIME/Scenario 1 decorated DAYTIME.unity
+    guid: 87ecce5e8bf09c84c8b0cc8a938e4e04
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 58383a587d51b4ee6afc1fee4bc25715, type: 2}
