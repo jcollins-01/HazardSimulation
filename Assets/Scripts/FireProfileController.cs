@@ -281,9 +281,9 @@ public class FireProfileController : MonoBehaviour
                 // Mid-level difficulty to fully extinguish
                 flammableObject.fullExtinguishToughness = 0.5f;
                 flammableObject.isReignitable = FlammableObject.ReIgnitable.Always;
-                flammableObject.maxSpread = 1000; // controlled area of spread, can spread far if allowed
+                flammableObject.maxSpread = 20f; // cap spread to a contained 20 m area
                 flammableObject.backSpreadCoolDown_s = 5f; // some amount of time before it tries to reignite/can be reignited
-                flammableObject.fireCrawlSpeed = 0.1f;
+                flammableObject.fireCrawlSpeed = 0.05f;
 
                 // Flame Visuals
                 flammableObject.flameLength = 2f; // avg lifespan
