@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
 using Unity.AI.Navigation;
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem;
@@ -109,7 +111,9 @@ public class UniversalHazardController : MonoBehaviour
         Debug.Log($"Successfully initialized hazard models for {hazards.Length} objects.");
     }
 
-    // Allows us to set the behaviors on each hazard once we're done
+    // Allows us to set the behaviors on each hazard once we're done.
+    // This custom inspector must not be compiled into player/headset builds.
+#if UNITY_EDITOR
     [CustomEditor(typeof(UniversalHazardController))]
     public class HazardControllerEditor : Editor
     {
@@ -132,6 +136,7 @@ public class UniversalHazardController : MonoBehaviour
             }
         }
     }
+#endif
 
     public void resetHazard(NavMeshAgent agent, HazardBehaviorModel model)
     {
