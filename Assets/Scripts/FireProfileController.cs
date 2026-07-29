@@ -291,7 +291,7 @@ public class FireProfileController : MonoBehaviour
                 flammableObject.flameEnvironmentalSpeed = 1f;
                 flammableObject.flameLiveliness = 1f;
                 flammableObject.flameParticleSize = 1f;
-                flammableObject.flameAreaNoiseMinMaxMultiplier = new Vector2(0.9f, 1.0f);
+                flammableObject.flameAreaNoiseMinMaxMultiplier = new Vector2(0.9f, 1.0f); // was 0.9, 1.0  0.05f, 0.1f
                 flammableObject.flameBurstDelayMinMax = new Vector2(0f, 0f);
 
                 // Smoke Visuals
