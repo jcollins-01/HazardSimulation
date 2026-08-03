@@ -37,6 +37,10 @@ public class RoomGeneration : MonoBehaviour
     // These vars specifically pass to RoomDecoration
     [HideInInspector] public bool shrinkKitchenPassageway = false; // set to value of breakMinimumKitchenWalkway
 
+    [Header("Seed Settings")]
+    public bool useRandomSeed = true;
+    public int currentSeed;
+
     [Header("Customized Generation Vars")]
 
     [Header("House Dimensions")]
@@ -438,10 +442,24 @@ public class RoomGeneration : MonoBehaviour
         // Ensure the RoomGeneration object is set to the original transform values (in case it was accidentally moved)
         RestoreGeneratorTransform();
 
+        // Now that we've cleared all the lists/data, start a new seed
+        if (useRandomSeed)
+        {
+            currentSeed = System.DateTime.Now.GetHashCode();
+        }
+        // Since Random produces numbers in such a way that they jump around by a given amount in a way that appears random
+        // when initialized with a specific number, any Random calls will produce the same layout every time, tying it to that number
+        // All Random calls/nums produced in this generation will be tied to the seed hash we've passed it for the current date+time
+        Random.InitState(currentSeed);
+
         // Create a master House parent to hold the layout in
         GameObject houseParent = new GameObject("House");
         houseParent.transform.SetParent(this.transform);
         houseParent.transform.localPosition = Vector3.zero;
+
+        // Attach metadata container to hold this exact house's seed and settings
+        HouseLayoutData layoutData = houseParent.AddComponent<HouseLayoutData>();
+        layoutData.CaptureSettings(this, currentSeed, $"House_Layout_{currentSeed}");
 
         // Generate the overall layout of the house/house borders
         HashSet<Vector2Int> houseLayout = GenerateHouseLayout();
