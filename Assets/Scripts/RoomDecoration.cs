@@ -16,6 +16,56 @@ public class RoomDecoration : MonoBehaviour
 
     private float lastClutterAmount; // Used to check if the slider was changed in the editor
 
+    [Header("Prefabs for Decor")]
+    [Tooltip("Right-click this component and view options to restore all prefabs to their defaults in Resources.")]
+    public GameObject bedPrefab;
+    public GameObject nightstandPrefab;
+    public GameObject toiletPrefab;
+    public GameObject tubPrefab;
+    public GameObject sinkPrefab;
+    public GameObject couchPrefab;
+    public GameObject tvPrefab;
+    public GameObject tablePrefab;
+    public GameObject ovenPrefab;
+    public GameObject fridgePrefab;
+    public GameObject counterPrefab;
+    public GameObject diningTablePrefab;
+    public GameObject chairPrefab;
+    public GameObject sideTablePrefab;
+    public GameObject shelfPrefab;
+
+    [HideInInspector]
+    public bool defaultsLoaded = false; // Ensures we only auto-load defaults once
+
+    // This is called automatically when the script is first attached to a GameObject,
+    // or when we click "Reset" in the component's context menu.
+    private void Reset()
+    {
+        LoadDefaultPrefabs();
+        defaultsLoaded = true;
+    }
+
+    // Adds a right-click option on the component to manually reload the defaults at any time
+    [ContextMenu("Restore Default Resource Prefabs")]
+    private void LoadDefaultPrefabs()
+    {
+        if (bedPrefab == null) bedPrefab = Resources.Load<GameObject>("Interior Prefabs/Bed");
+        if (nightstandPrefab == null) nightstandPrefab = Resources.Load<GameObject>("Interior Prefabs/Nightstand");
+        if (toiletPrefab == null) toiletPrefab = Resources.Load<GameObject>("Interior Prefabs/Toilet");
+        if (tubPrefab == null) tubPrefab = Resources.Load<GameObject>("Interior Prefabs/Tub");
+        if (sinkPrefab == null) sinkPrefab = Resources.Load<GameObject>("Interior Prefabs/Sink");
+        if (couchPrefab == null) couchPrefab = Resources.Load<GameObject>("Interior Prefabs/Couch");
+        if (tvPrefab == null) tvPrefab = Resources.Load<GameObject>("Interior Prefabs/TV");
+        if (tablePrefab == null) tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
+        if (ovenPrefab == null) ovenPrefab = Resources.Load<GameObject>("Interior Prefabs/Stove");
+        if (fridgePrefab == null) fridgePrefab = Resources.Load<GameObject>("Interior Prefabs/Fridge+Oven");
+        if (counterPrefab == null) counterPrefab = Resources.Load<GameObject>("Interior Prefabs/Counter");
+        if (diningTablePrefab == null) diningTablePrefab = Resources.Load<GameObject>("Interior Prefabs/Dining Table");
+        if (chairPrefab == null) chairPrefab = Resources.Load<GameObject>("Interior Prefabs/Chair");
+        if (sideTablePrefab == null) sideTablePrefab = Resources.Load<GameObject>("Interior Prefabs/Small Table");
+        if (shelfPrefab == null) shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
+    }
+
     public void DecorateRooms(List<RoomGeneration.RoomData> rooms)
     {
         // If the list has no rooms in it, return
@@ -100,9 +150,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void SpawnBedroomFurniture(RoomGeneration.RoomData room)
     {
-        GameObject bedPrefab = Resources.Load<GameObject>("Interior Prefabs/Bed");
-        GameObject nightstandPrefab = Resources.Load<GameObject>("Interior Prefabs/Nightstand");
-
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
         if (edges.Count > 0 && bedPrefab != null)
@@ -129,10 +176,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void SpawnBathroomFurniture(RoomGeneration.RoomData room)
     {
-        GameObject toiletPrefab = Resources.Load<GameObject>("Interior Prefabs/Toilet");
-        GameObject tubPrefab = Resources.Load<GameObject>("Interior Prefabs/Tub");
-        GameObject sinkPrefab = Resources.Load<GameObject>("Interior Prefabs/Sink");
-
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
         // Standard placement for core bathroom fixtures
@@ -151,10 +194,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void SpawnLivingRoomFurniture(RoomGeneration.RoomData room)
     {
-        GameObject couchPrefab = Resources.Load<GameObject>("Interior Prefabs/Couch");
-        GameObject tvPrefab = Resources.Load<GameObject>("Interior Prefabs/TV");
-        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
-
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
         if (edges.Count > 0 && tvPrefab != null && couchPrefab != null)
@@ -192,10 +231,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void SpawnKitchenFurniture(RoomGeneration.RoomData room)
     {
-        GameObject ovenPrefab = Resources.Load<GameObject>("Interior Prefabs/Stove");
-        GameObject fridgePrefab = Resources.Load<GameObject>("Interior Prefabs/Fridge+Oven");
-        GameObject counterPrefab = Resources.Load<GameObject>("Interior Prefabs/Counter");
-
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
         // Kitchens need at least 3 walls to feel functional
@@ -215,15 +250,12 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void SpawnDiningRoomFurniture(RoomGeneration.RoomData room)
     {
-        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Dining Table");
-        GameObject chairPrefab = Resources.Load<GameObject>("Interior Prefabs/Chair");
-
-        if (tablePrefab == null) return;
+        if (diningTablePrefab == null) return;
 
         // Place table in center
         Vector2Int center = GetRoomCenter(room.Tiles);
         // Only spawn chairs if the table spawned successfully
-        if (SpawnFurniture(tablePrefab, center, Vector3.forward, room.RoomObject.transform))
+        if (SpawnFurniture(diningTablePrefab, center, Vector3.forward, room.RoomObject.transform))
         {
             Vector2Int[] chairOffsets = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
 
@@ -241,22 +273,18 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private void SpawnHallwayClutter(RoomGeneration.RoomData room)
     {
-        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Small Table");
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
 
         // Only spawn if enough room and high enough clutter setting
-        if (clutterAmount > 0.4f && edges.Count > 0 && tablePrefab != null)
+        if (clutterAmount > 0.4f && edges.Count > 0 && sideTablePrefab != null)
         {
             var edge = edges[Random.Range(0, edges.Count)];
-            SpawnFurniture(tablePrefab, edge.tile, edge.forward, room.RoomObject.transform);
+            SpawnFurniture(sideTablePrefab, edge.tile, edge.forward, room.RoomObject.transform);
         }
     }
 
     private void SpawnGenericFurniture(RoomGeneration.RoomData room)
     {
-        GameObject tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
-        GameObject shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
-
         // Base spawn
         Vector2Int centerTile = GetRoomCenter(room.Tiles);
         if (tablePrefab != null)
@@ -356,16 +384,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
         return hasBounds ? combinedBounds : new Bounds(Vector3.zero, Vector3.one);
     }
-
-    /*private void SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
-    {
-        // Spawns slightly above the ground, then drops down to calculate exact bottom
-        Vector3 pos = new Vector3(tile.x, 2f, tile.y);
-        GameObject instance = Instantiate(prefab, pos, Quaternion.LookRotation(forward), parent);
-
-        float yOffset = CalculateVerticalOffset(instance);
-        instance.transform.position = new Vector3(pos.x, yOffset, pos.z);
-    }*/
 
     private bool SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
     {
