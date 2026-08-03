@@ -49,21 +49,22 @@ public class RoomDecoration : MonoBehaviour
     [ContextMenu("Restore Default Resource Prefabs")]
     private void LoadDefaultPrefabs()
     {
-        if (bedPrefab == null) bedPrefab = Resources.Load<GameObject>("Interior Prefabs/Bed");
-        if (nightstandPrefab == null) nightstandPrefab = Resources.Load<GameObject>("Interior Prefabs/Nightstand");
-        if (toiletPrefab == null) toiletPrefab = Resources.Load<GameObject>("Interior Prefabs/Toilet");
-        if (tubPrefab == null) tubPrefab = Resources.Load<GameObject>("Interior Prefabs/Tub");
-        if (sinkPrefab == null) sinkPrefab = Resources.Load<GameObject>("Interior Prefabs/Sink");
-        if (couchPrefab == null) couchPrefab = Resources.Load<GameObject>("Interior Prefabs/Couch");
-        if (tvPrefab == null) tvPrefab = Resources.Load<GameObject>("Interior Prefabs/TV");
-        if (tablePrefab == null) tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
-        if (ovenPrefab == null) ovenPrefab = Resources.Load<GameObject>("Interior Prefabs/Stove");
-        if (fridgePrefab == null) fridgePrefab = Resources.Load<GameObject>("Interior Prefabs/Fridge+Oven");
-        if (counterPrefab == null) counterPrefab = Resources.Load<GameObject>("Interior Prefabs/Counter");
-        if (diningTablePrefab == null) diningTablePrefab = Resources.Load<GameObject>("Interior Prefabs/Dining Table");
-        if (chairPrefab == null) chairPrefab = Resources.Load<GameObject>("Interior Prefabs/Chair");
-        if (sideTablePrefab == null) sideTablePrefab = Resources.Load<GameObject>("Interior Prefabs/Small Table");
-        if (shelfPrefab == null) shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
+        // Do it regardless of it being null so that we can reset them back, even if we change them
+        bedPrefab = Resources.Load<GameObject>("Interior Prefabs/Bed");
+        nightstandPrefab = Resources.Load<GameObject>("Interior Prefabs/Nightstand");
+        toiletPrefab = Resources.Load<GameObject>("Interior Prefabs/Toilet");
+        tubPrefab = Resources.Load<GameObject>("Interior Prefabs/Tub");
+        sinkPrefab = Resources.Load<GameObject>("Interior Prefabs/Sink");
+        couchPrefab = Resources.Load<GameObject>("Interior Prefabs/Couch");
+        tvPrefab = Resources.Load<GameObject>("Interior Prefabs/TV");
+        tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
+        ovenPrefab = Resources.Load<GameObject>("Interior Prefabs/Stove");
+        fridgePrefab = Resources.Load<GameObject>("Interior Prefabs/Fridge+Oven");
+        counterPrefab = Resources.Load<GameObject>("Interior Prefabs/Counter");
+        diningTablePrefab = Resources.Load<GameObject>("Interior Prefabs/Dining Table");
+        chairPrefab = Resources.Load<GameObject>("Interior Prefabs/Chair");
+        sideTablePrefab = Resources.Load<GameObject>("Interior Prefabs/Small Table");
+        shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
     }
 
     public void DecorateRooms(List<RoomGeneration.RoomData> rooms)
