@@ -15,6 +15,8 @@ public class RoomGeneration : MonoBehaviour
     #region Variables and Classes
     [Header("Rapid Generation Vars")]
 
+    [HideInInspector] public int currentSeed; // no need to show the seed
+
     [Header("Preset Generation Settings")]
     public bool dormitory = false;
     public bool warehouse = false;
@@ -36,10 +38,6 @@ public class RoomGeneration : MonoBehaviour
 
     // These vars specifically pass to RoomDecoration
     [HideInInspector] public bool shrinkKitchenPassageway = false; // set to value of breakMinimumKitchenWalkway
-
-    [Header("Seed Settings")]
-    public bool useRandomSeed = true;
-    public int currentSeed;
 
     [Header("Customized Generation Vars")]
 
@@ -411,7 +409,7 @@ public class RoomGeneration : MonoBehaviour
     #endregion
 
     #region Main Method
-    public void GenerateAllRooms()
+    public void GenerateAllRooms(bool useRandomSeed = true) // default to true so we generate a new house every time
     {
         // Clear previous generation (optional, if calling multiple times)
         if (destroyPreviousGeneration)
@@ -443,7 +441,7 @@ public class RoomGeneration : MonoBehaviour
         RestoreGeneratorTransform();
 
         // Now that we've cleared all the lists/data, start a new seed
-        if (useRandomSeed)
+        if (useRandomSeed) // by default, this is true and it only changes if we've passed false in house layout + a specific seed
         {
             currentSeed = System.DateTime.Now.GetHashCode();
         }

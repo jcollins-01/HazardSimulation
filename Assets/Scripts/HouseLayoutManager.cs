@@ -230,12 +230,11 @@ public class HouseLayoutManager : MonoBehaviour
         // Apply stored settings back into the RoomGenerator
         ApplySettingsToGenerator(targetLayout.settings, roomGenerator);
 
-        // Lock seed and disable random seed mode - we're passing it our specific seed
-        roomGenerator.useRandomSeed = false;
+        // Pass the room generator our specific seed
         roomGenerator.currentSeed = targetLayout.seed;
 
         // Generate the exact same layout again
-        roomGenerator.GenerateAllRooms();
+        roomGenerator.GenerateAllRooms(false); // pass false to it to tell it not to use a random seed
 
         Debug.Log($"[HouseLayoutManager] Regenerated layout '{targetLayout.layoutName}' using Seed: {targetLayout.seed}.");
     }
