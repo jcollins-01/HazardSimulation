@@ -276,7 +276,7 @@ public class FireProfileController : MonoBehaviour
             case FireProfile.SlowBurn:
                 maxTemperature = 1000;
                 tempRegenRate = 250f; // Degrees recovered per second when not sprayed
-                tempDrainPerParticle = 5.0f; // Degrees lost per single water particle
+                tempDrainPerParticle = 0.5f; // Degrees lost per single water particle
                 regenDelay = 1.0f; // time to start regenerating between water sprays
 
                 // Takes a while to catch on fire, holds a fire for a while, mid-level difficulty to extinguish
@@ -315,7 +315,7 @@ public class FireProfileController : MonoBehaviour
                 // Mid-level heat, takes time to ignite, extinguishes reliably with water.
                 maxTemperature = 800;
                 tempRegenRate = 100f;
-                tempDrainPerParticle = 15.0f; // Water is highly effective
+                tempDrainPerParticle = 5.0f; // Water is highly effective
                 regenDelay = 1.5f;
 
                 flammableObject.ignitionTime = 15f; // Needs sustained heat to catch
@@ -352,7 +352,7 @@ public class FireProfileController : MonoBehaviour
                 // Ignites instantly, burns very hot, water is highly ineffective (and often dangerous).
                 maxTemperature = 1500;
                 tempRegenRate = 400f; // Vapors reignite very quickly if not completely smothered
-                tempDrainPerParticle = 1.0f; // Water barely dents the temperature
+                tempDrainPerParticle = 0.1f; // Water barely dents the temperature
                 regenDelay = 0.2f;
 
                 flammableObject.ignitionTime = 5f; // Ignites immediately upon contact with trigger
@@ -388,7 +388,7 @@ public class FireProfileController : MonoBehaviour
                 // Fast ignition, persistent heat source (simulating live current), heavy sparking.
                 maxTemperature = 1200;
                 tempRegenRate = 600f; // Extremely fast regen simulating uninterrupted electrical power
-                tempDrainPerParticle = 2.0f;
+                tempDrainPerParticle = 0.5f;
                 regenDelay = 0.05f; // Reheats almost immediately when water spray stops
 
                 flammableObject.ignitionTime = 10f;
