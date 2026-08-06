@@ -763,6 +763,47 @@ namespace Ignis
             }
         }
 
+        /// <summary>
+        /// Applies an authoritative extinguish state without accumulating another
+        /// local simulation step. Network puppets use this to correct both ahead
+        /// and behind states, including reductions caused by fire back-spread.
+        /// </summary>
+        public void ApplyNetworkExtinguishState(Vector3 position, float radius, bool shouldBeExtinguished)
+        {
+            if (!onFire)
+            {
+                return;
+            }
+
+            putOutAreaCenter = transform.InverseTransformPoint(position);
+            putOutRadius = Mathf.Max(0f, radius);
+            curBackSpreadCoolDown_s = backSpreadCoolDown_s;
+
+            foreach (VisualEffect fire in fires)
+            {
+                if (!fire)
+                {
+                    continue;
+                }
+
+                fire.SetFloat("PutOutArea_radius", putOutRadius);
+                fire.SetVector3("PutOutArea_center", position);
+            }
+
+            if (shouldBeExtinguished && !extinguished)
+            {
+                extinguished = true;
+                if (onFireTimer < burnOutStart_s)
+                {
+                    onFireTimer = burnOutStart_s + 0.1f;
+                }
+            }
+            else if (!shouldBeExtinguished && onFireTimer < burnOutStart_s)
+            {
+                extinguished = false;
+            }
+        }
+
         private void UpdateLights()
         {
             for (int i = 0; i < flameLights.Count; i++)

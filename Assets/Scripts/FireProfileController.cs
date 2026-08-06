@@ -63,7 +63,14 @@ public class FireProfileController : MonoBehaviour
     public FlammableObject flammableObject;
     [Tooltip("Local fire volume used by hazard tracking and Ignis VFX placement. Assigned automatically.")]
     public BoxCollider collider; // parent collider that determines ability to be touched/tracked in our hazard system
-    private float lastWaterHitTime = 0f;
+    private float lastWaterHitTime = float.NegativeInfinity;
+    private float reigniteAttemptTime = -1f;
+    private NetworkedFireState networkedFireState;
+
+    public bool HasRolledSmolder => hasRolledSmolder;
+    public bool WillReignite => willReignite;
+    public float LastWaterHitTime => lastWaterHitTime;
+    public float ReigniteAttemptTime => reigniteAttemptTime;
 
     // Automatically runs in the Editor when the script is added
     void Reset()
@@ -80,6 +87,7 @@ public class FireProfileController : MonoBehaviour
         // Grab the reference early during runtime initialization
         flammableObject = GetComponent<FlammableObject>();
         collider = GetComponent<BoxCollider>();
+        networkedFireState = GetComponent<NetworkedFireState>();
     }
 
     void Start()
@@ -92,8 +100,10 @@ public class FireProfileController : MonoBehaviour
 
     void Update()
     {
-        // Adjust the temperature each frame based on water spray + chance for smolder/reignite if < 100
-        CheckSprayAndSmolder();
+        // Only the NetworkedFireState authority advances gameplay state. Puppets
+        // receive temperature and smolder decisions from the shared model below.
+        if (networkedFireState == null || networkedFireState.IsAuthority)
+            CheckSprayAndSmolder();
 
         // Call a fire scaling function every frame based on temperature
         UpdateFireVisuals();
@@ -346,9 +356,10 @@ public class FireProfileController : MonoBehaviour
                 // Execute the result of the roll
                 if (willReignite)
                 {
-                    // Stop any existing coroutine if already running
-                    if (reigniteCoroutine != null) StopCoroutine(reigniteCoroutine);
-                    reigniteCoroutine = StartCoroutine(ReigniteRoutine());
+                    // Start the delay once. Restarting it every Update prevents the
+                    // coroutine from ever reaching its reignition attempt.
+                    if (reigniteCoroutine == null)
+                        reigniteCoroutine = StartCoroutine(ReigniteRoutine());
 
                     //currentTemperature += reigniteRegenRate * Time.deltaTime;
                     //flammableObject.TryToSetOnFire(transform.position, reigniteRegenRate);
@@ -370,6 +381,7 @@ public class FireProfileController : MonoBehaviour
             // Reset flags only when we successfully climb out of the smolder zone
             hasRolledSmolder = false;
             readyForSmolder = false;
+            CancelReigniteAttempt();
         }
 
         // Clamp it back to max and min
@@ -382,9 +394,14 @@ public class FireProfileController : MonoBehaviour
 
     private IEnumerator ReigniteRoutine()
     {
-        // Wait for a random amount of time between 10 and 30 seconds
-        float waitTime = Random.Range(10f, 30f);
-        yield return new WaitForSeconds(waitTime);
+        // Choose the deadline once. A replacement network authority receives the
+        // same deadline through FireStateModel and resumes the remaining wait.
+        if (reigniteAttemptTime <= Time.time)
+            reigniteAttemptTime = Time.time + Random.Range(10f, 30f);
+
+        while (Time.time < reigniteAttemptTime)
+            yield return null;
+
         Debug.Log("Done waiting should reignite");
         // Only proceed if the temperature is still above 0
         if (currentTemperature > 0)
@@ -393,15 +410,25 @@ public class FireProfileController : MonoBehaviour
             currentTemperature += reigniteRegenRate * Time.deltaTime;
             flammableObject.TryToSetOnFire(transform.position, reigniteRegenRate);
         }
+
+        reigniteAttemptTime = -1f;
+        reigniteCoroutine = null;
     }
 
     public float ProcessWaterHit(int particleCount)
     {
+        // Permanent fire-profile damage is authority-only. The surrounding Ignis
+        // interaction scripts already gate this, but keeping the guard here prevents
+        // future callers from accidentally creating divergent client health.
+        if (networkedFireState != null && !networkedFireState.IsAuthority)
+            return 0f;
+
         lastWaterHitTime = Time.time;
         currentTemperature -= (particleCount * tempDrainPerParticle);
 
         // Reset the smolder roll if the player starts spraying again while the fire is currently deciding its fate
         hasRolledSmolder = false;
+        CancelReigniteAttempt();
 
         if (currentTemperature == 0)
         {
@@ -417,6 +444,63 @@ public class FireProfileController : MonoBehaviour
         //Debug.Log("Spraying at reduced power to artificially maintain fire life.");
         // HP > 100. Nerf the extinguish power so the fire visually shrinks but doesn't easily die.
         return 0.02f;
+    }
+
+    /// <summary>
+    /// Applies the authoritative runtime profile state on a puppet or immediately
+    /// before this client takes over as fire authority.
+    /// </summary>
+    public void ApplyNetworkState(
+        float temperature,
+        bool isReadyForSmolder,
+        bool hasRolled,
+        bool shouldReignite,
+        float secondsSinceLastWaterHit,
+        float secondsUntilReignite)
+    {
+        if (reigniteCoroutine != null)
+        {
+            StopCoroutine(reigniteCoroutine);
+            reigniteCoroutine = null;
+        }
+
+        currentTemperature = maxTemperature > 0
+            ? Mathf.Clamp(temperature, 0f, maxTemperature)
+            : Mathf.Max(0f, temperature);
+        readyForSmolder = isReadyForSmolder;
+        hasRolledSmolder = hasRolled;
+        willReignite = shouldReignite;
+        lastWaterHitTime = float.IsPositiveInfinity(secondsSinceLastWaterHit)
+            ? float.NegativeInfinity
+            : Time.time - Mathf.Max(0f, secondsSinceLastWaterHit);
+        reigniteAttemptTime = secondsUntilReignite >= 0f
+            ? Time.time + secondsUntilReignite
+            : -1f;
+    }
+
+    /// <summary>
+    /// Restores the profile to the beginning of a fire cycle for a synchronized
+    /// teammate-join restart.
+    /// </summary>
+    public void ResetForNetworkRestart()
+    {
+        CancelReigniteAttempt();
+        currentTemperature = maxTemperature;
+        readyForSmolder = false;
+        hasRolledSmolder = false;
+        willReignite = true;
+        lastWaterHitTime = float.NegativeInfinity;
+    }
+
+    private void CancelReigniteAttempt()
+    {
+        if (reigniteCoroutine != null)
+        {
+            StopCoroutine(reigniteCoroutine);
+            reigniteCoroutine = null;
+        }
+
+        reigniteAttemptTime = -1f;
     }
 
     // Dynamically scale fire visuals based on fire health/temperature

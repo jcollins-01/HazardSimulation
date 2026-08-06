@@ -26,16 +26,16 @@ public partial class FireStateModel
     [RealtimeProperty(3, true, true)]
     private bool _isBurnedOut;
 
-    // --- Continuous progress: unreliable (frequent updates while being sprayed). ---
+    // --- Continuous progress: reliable and rate-limited by NetworkedFireState. ---
 
     // Normalized 0..1 extinguish progress (put-out radius relative to the
     // object's full-extinguish threshold computed from its size/toughness).
-    [RealtimeProperty(4, false, true)]
+    [RealtimeProperty(4, true, true)]
     private float _extinguishProgress;
 
     // Local-space center of the put-out area so remote clients can show the
     // extinguish "hole" in the same place on the object.
-    [RealtimeProperty(5, false, true)]
+    [RealtimeProperty(5, true, true)]
     private Vector3 _putOutCenterLocal;
 
     // Whether this object should glow hot on the thermal camera (mirrors the
@@ -53,4 +53,50 @@ public partial class FireStateModel
     // the authority's configured duration canonical even if scene copies differ.
     [RealtimeProperty(8, true, true)]
     private float _extinguishFadeDuration;
+
+    // --- Fire profile runtime state. ---
+
+    // FireProfileController uses temperature as fire health and to scale its
+    // flame visuals. This is rate-limited by the authority and reliable so a lost
+    // final update cannot leave one client showing a permanently hotter fire.
+    [RealtimeProperty(9, true, true)]
+    private float _profileTemperature;
+
+    // Smolder state is discrete gameplay state. These values are reliable so a
+    // replacement authority continues the same decision instead of rolling again.
+    [RealtimeProperty(10, true, true)]
+    private bool _profileReadyForSmolder;
+
+    [RealtimeProperty(11, true, true)]
+    private bool _profileHasRolledSmolder;
+
+    [RealtimeProperty(12, true, true)]
+    private bool _profileWillReignite;
+
+    // Room timestamps make authority handoff preserve the regeneration delay and
+    // the already-selected reignition deadline instead of restarting either timer.
+    [RealtimeProperty(13, true, true)]
+    private double _profileLastWaterHitRoomTime;
+
+    [RealtimeProperty(14, true, true)]
+    private double _profileReigniteAtRoomTime;
+
+    // --- Synchronized restart when a teammate joins. ---
+
+    // Each active fire authority advances this epoch once for a new join. Clients
+    // reset at resetAtRoomTime and wait for resetCompletedEpoch before consuming
+    // the authority's post-reset state.
+    // Timestamp and intent use lower property IDs so they deserialize before the
+    // epoch that makes a newly scheduled reset visible to clients.
+    [RealtimeProperty(15, true, true)]
+    private double _resetAtRoomTime;
+
+    [RealtimeProperty(16, true, true)]
+    private bool _resetShouldBurn;
+
+    [RealtimeProperty(17, true, true)]
+    private int _resetEpoch;
+
+    [RealtimeProperty(18, true, true)]
+    private int _resetCompletedEpoch;
 }
