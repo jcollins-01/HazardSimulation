@@ -17,7 +17,12 @@ public class FireProfileController : MonoBehaviour
     {
         MaxResilience,
         InstantExtinguish,
-        SlowBurn
+        SlowBurn,
+        ClassA, // Ordinary combustibles
+        ClassB, // Flammable liquids
+        ClassC, // Electrical
+        ClassD, // Combustible metals
+        ClassK // Grease fires
     }
 
     [Header("Fire Health")]
@@ -303,6 +308,189 @@ public class FireProfileController : MonoBehaviour
                 flammableObject.embersVFXMultiplier = 1f;
                 flammableObject.embersBurstVFXMultiplier = 1f;
                 flammableObject.embersBurstDelayMinMax = new Vector2(2f, 4f);
+                break;
+
+            case FireProfile.ClassA:
+                // Class A: Wood, paper, fabric. 
+                // Mid-level heat, takes time to ignite, extinguishes reliably with water.
+                maxTemperature = 800;
+                tempRegenRate = 100f;
+                tempDrainPerParticle = 15.0f; // Water is highly effective
+                regenDelay = 1.5f;
+
+                flammableObject.ignitionTime = 15f; // Needs sustained heat to catch
+                flammableObject.burnOutStart_s = 60f; // Burns steadily for a moderate time
+                flammableObject.fullExtinguishToughness = 0.5f; // Mid-level difficulty to extinguish the whole primitive
+                flammableObject.isReignitable = FlammableObject.ReIgnitable.Always; // allow it to reignite if still touching other burning objects
+                flammableObject.maxSpread = 1000; // all of these fires should spread as far as possible, given the chance
+                flammableObject.backSpreadCoolDown_s = 4f;
+                flammableObject.fireCrawlSpeed = 0.2f;
+
+                // Visuals: Standard flames, moderate smoke, leaves embers
+                // Flame Visuals
+                flammableObject.flameLength = 1.5f;
+                flammableObject.flameVFXMultiplier = 1f;
+                flammableObject.flameEnvironmentalSpeed = 1f;
+                flammableObject.flameLiveliness = 1f;
+                flammableObject.flameParticleSize = 1f;
+                flammableObject.flameAreaNoiseMinMaxMultiplier = new Vector2(0.8f, 1.2f);
+                flammableObject.flameBurstDelayMinMax = new Vector2(0f, 0f);
+
+                // Smoke Visuals
+                flammableObject.smokeAlpha = 2f;
+                flammableObject.smokeVFXMultiplier = 1f;
+                flammableObject.smokeParticleSize = 1f;
+
+                // Embers Visuals
+                flammableObject.embersVFXMultiplier = 1.5f;
+                flammableObject.embersBurstVFXMultiplier = 1.5f;
+                flammableObject.embersBurstDelayMinMax = new Vector2(2f, 5f);
+                break;
+
+            case FireProfile.ClassB:
+                // Class B: Flammable liquids (gasoline, oil). 
+                // Ignites instantly, burns very hot, water is highly ineffective (and often dangerous).
+                maxTemperature = 1500;
+                tempRegenRate = 400f; // Vapors reignite very quickly if not completely smothered
+                tempDrainPerParticle = 1.0f; // Water barely dents the temperature
+                regenDelay = 0.2f;
+
+                flammableObject.ignitionTime = 5f; // Ignites immediately upon contact with trigger
+                flammableObject.burnOutStart_s = 45f;
+                flammableObject.fullExtinguishToughness = 1f; // The entire object must be smothered
+                flammableObject.isReignitable = FlammableObject.ReIgnitable.Always;
+                flammableObject.maxSpread = 1000; // Liquids spread rapidly across the primitive's surface
+                flammableObject.backSpreadCoolDown_s = 0.5f;
+
+                // Visuals: Lively, erratic flames with heavy, dark smoke
+                // Flame Visuals
+                flammableObject.flameLength = 2.5f;
+                flammableObject.flameVFXMultiplier = 1.5f;
+                flammableObject.flameEnvironmentalSpeed = 1.5f;
+                flammableObject.flameLiveliness = 2.5f; // Highly erratic simulated airflow
+                flammableObject.flameParticleSize = 1.2f;
+                flammableObject.flameAreaNoiseMinMaxMultiplier = new Vector2(1f, 1.5f);
+                flammableObject.flameBurstDelayMinMax = new Vector2(0.1f, 0.3f);
+
+                // Smoke Visuals
+                flammableObject.smokeAlpha = 4f; // Thick smoke
+                flammableObject.smokeVFXMultiplier = 2f;
+                flammableObject.smokeParticleSize = 1.5f;
+
+                // Embers Visuals
+                flammableObject.embersVFXMultiplier = 0.5f; // Liquids produce fewer physical embers
+                flammableObject.embersBurstVFXMultiplier = 0.5f;
+                flammableObject.embersBurstDelayMinMax = new Vector2(4f, 8f);
+                break;
+
+            case FireProfile.ClassC:
+                // Class C: Electrical fires. 
+                // Fast ignition, persistent heat source (simulating live current), heavy sparking.
+                maxTemperature = 1200;
+                tempRegenRate = 600f; // Extremely fast regen simulating uninterrupted electrical power
+                tempDrainPerParticle = 2.0f;
+                regenDelay = 0.05f; // Reheats almost immediately when water spray stops
+
+                flammableObject.ignitionTime = 10f;
+                flammableObject.burnOutStart_s = 120f; // Persistent as long as "power" is simulated
+                flammableObject.fullExtinguishToughness = 0.8f;
+                flammableObject.isReignitable = FlammableObject.ReIgnitable.Always;
+                flammableObject.maxSpread = 5; // Generally contained to the electrical component itself
+                flammableObject.backSpreadCoolDown_s = 1f;
+
+                // Visuals: Lower flame profile but extreme ember/spark bursts
+                // Flame Visuals
+                flammableObject.flameLength = 1f;
+                flammableObject.flameVFXMultiplier = 0.8f;
+                flammableObject.flameEnvironmentalSpeed = 1f;
+                flammableObject.flameLiveliness = 1.5f;
+                flammableObject.flameParticleSize = 0.8f;
+                flammableObject.flameAreaNoiseMinMaxMultiplier = new Vector2(0.5f, 0.8f);
+                flammableObject.flameBurstDelayMinMax = new Vector2(0.2f, 0.6f);
+
+                // Smoke Visuals
+                flammableObject.smokeAlpha = 1.5f;
+                flammableObject.smokeVFXMultiplier = 1f;
+                flammableObject.smokeParticleSize = 0.8f;
+
+                // Embers Visuals
+                flammableObject.embersVFXMultiplier = 3f; // Heavy sparking
+                flammableObject.embersBurstVFXMultiplier = 4f; // Large, erratic spark bursts
+                flammableObject.embersBurstDelayMinMax = new Vector2(0.1f, 1.5f);
+                break;
+
+            case FireProfile.ClassD:
+                // Class D: Combustible metals (Magnesium, Lithium). 
+                // Requires high heat to ignite, burns at extreme temperatures, water makes it violently worse.
+                maxTemperature = 3000;
+                tempRegenRate = 1000f; // Nearly impossible to cool down once ignited
+                tempDrainPerParticle = 0.01f; // Water is completely ineffective
+                regenDelay = 0.0f;
+                flammableObject.flameCatchAreaAddition = new Vector3(1f, 1f, 1f);
+
+                flammableObject.ignitionTime = 30f; // Requires a lot of energy/time to initially catch
+                flammableObject.burnOutStart_s = 300f; // Burns for a very long time
+                flammableObject.fullExtinguishToughness = 1f; // Must be entirely smothered by a specialized agent
+                flammableObject.isReignitable = FlammableObject.ReIgnitable.Always;
+                flammableObject.maxSpread = 500; // Tends to burn intensely in one spot rather than spreading far
+                flammableObject.backSpreadCoolDown_s = 0.1f;
+
+                // Visuals: Intense, bright, localized fire. Low smoke, massive slag/ember ejection.
+                // Flame Visuals
+                flammableObject.flameLength = 1.2f;
+                flammableObject.flameVFXMultiplier = 2f;
+                flammableObject.flameEnvironmentalSpeed = 0.5f; // Doesn't draft upward as much, burns heavy
+                flammableObject.flameLiveliness = 0.2f; // Very steady, intense simulation of airflow
+                flammableObject.flameParticleSize = 1.5f;
+                flammableObject.flameAreaNoiseMinMaxMultiplier = new Vector2(1.2f, 1.5f); // 0.2, 0.5
+                flammableObject.flameBurstDelayMinMax = new Vector2(0f, 0f);
+
+                // Smoke Visuals
+                flammableObject.smokeAlpha = 0.5f; // Metal fires often produce bright light but thinner white smoke
+                flammableObject.smokeVFXMultiplier = 0.5f;
+                flammableObject.smokeParticleSize = 1f;
+
+                // Embers Visuals
+                flammableObject.embersVFXMultiplier = 4f; // Extreme slag and particle ejection
+                flammableObject.embersBurstVFXMultiplier = 5f;
+                flammableObject.embersBurstDelayMinMax = new Vector2(0.5f, 2f);
+                break;
+
+            case FireProfile.ClassK:
+                // Class K: Cooking oils, grease, and animal fats (large grease fires). 
+                // Ignites after sustained heat, burns extremely hot, and produces thick dark smoke, while water is ineffective.
+                maxTemperature = 1500;
+                tempRegenRate = 500f; // Bounces back aggressively if not fully smothered
+                tempDrainPerParticle = 0.5f; // Water barely does anything to grease
+                regenDelay = 0.2f;
+
+                flammableObject.ignitionTime = 5f; // Oil needs to boil/reach auto-ignition temp first
+                flammableObject.burnOutStart_s = 180f; // Large amount of grease fuels the fire for a long time
+                flammableObject.fullExtinguishToughness = 1f; // Must be smothered or hit with chemical agent
+                flammableObject.isReignitable = FlammableObject.ReIgnitable.Always;
+                flammableObject.maxSpread = 3; // Splatters and spreads nearby, but doesn't run across the floor like gasoline
+                flammableObject.backSpreadCoolDown_s = 2f;
+                flammableObject.fireCrawlSpeed = 0.05f; // Crawls slowly, forcing the danger to remain localized to the kitchen
+
+                // Visuals: Angry, erratic flames, choking dark smoke, and popping oil splatter.
+                // Flame Visuals
+                flammableObject.flameLength = 1.0f; // Large and scary, but short enough to not instantly clip ceilings
+                flammableObject.flameVFXMultiplier = 1.5f;
+                flammableObject.flameEnvironmentalSpeed = 1.2f;
+                flammableObject.flameLiveliness = 2.0f; // Very aggressive and erratic movement
+                flammableObject.flameParticleSize = 1.0f;
+                flammableObject.flameAreaNoiseMinMaxMultiplier = new Vector2(0.8f, 1.5f);
+                flammableObject.flameBurstDelayMinMax = new Vector2(0.2f, 0.4f);
+
+                // Smoke Visuals
+                flammableObject.smokeAlpha = 4.0f; // Extremely thick, heavy smoke characteristic of burning fat
+                flammableObject.smokeVFXMultiplier = 2.0f;
+                flammableObject.smokeParticleSize = 1.5f;
+
+                // Embers Visuals (Simulates popping, spitting grease)
+                flammableObject.embersVFXMultiplier = 2.0f;
+                flammableObject.embersBurstVFXMultiplier = 3.0f; // Sharp bursts representing grease pockets popping
+                flammableObject.embersBurstDelayMinMax = new Vector2(1f, 3f);
                 break;
         }
 

@@ -7,6 +7,8 @@ namespace Ignis
 {
     public class ParticleExtinguish : MonoBehaviour
     {
+        [Tooltip("Select the desired fire profiles these particles can extinquish")]
+        public FireProfileController.FireProfile currentProfile = FireProfileController.FireProfile.ClassA;
 
         [Tooltip("How large area can one particle extinquish")]
         public float particleExtinquishRadius = 0.1f;
@@ -42,7 +44,8 @@ namespace Ignis
                 // Default to 100% power if there is no custom profile controller attached
                 float powerMultiplier = 1f;
 
-                if (profile != null)
+                // Only extinguish if extinguisher profile matches fire
+                if (profile != null && currentProfile == profile.currentProfile) 
                 {
                     // Ping the controller. If temp > 0, it returns a heavily nerfed multiplier.
                     powerMultiplier = profile.ProcessWaterHit(numCollisionEvents);
