@@ -262,6 +262,12 @@ namespace Ignis
 
         private Vector3 _fireOriginLocal = Vector3.zero;
 
+        // NetworkedFireState configures this before ignition. Mesh placement uses
+        // a local System.Random so deterministic setup does not alter Unity's global
+        // random sequence or unrelated gameplay systems.
+        private int _networkVfxSeed = 1;
+        private bool _networkVfxSeedConfigured = false;
+
 
         private float putOutRadius = 0;
         private Vector3 putOutAreaCenter = Vector3.zero;
@@ -801,6 +807,82 @@ namespace Ignis
             else if (!shouldBeExtinguished && onFireTimer < burnOutStart_s)
             {
                 extinguished = false;
+            }
+        }
+
+        /// <summary>
+        /// Configures the deterministic seed that will be applied when this object's
+        /// fire VFX are next created. Network puppets call this before ignition.
+        /// </summary>
+        public void ConfigureNetworkVfxSeed(int seed)
+        {
+            _networkVfxSeed = seed == 0 ? 1 : seed;
+            _networkVfxSeedConfigured = true;
+        }
+
+        /// <summary>
+        /// Applies a shared ignition age and authoritative spread. A new ignition
+        /// epoch restarts every emitter from a deterministic sub-seed and advances
+        /// it with fixed simulation steps so late clients join the current phase.
+        /// </summary>
+        public void ApplyNetworkFireVisualState(int seed, float fireAge, float spread, bool restartVfx)
+        {
+            ConfigureNetworkVfxSeed(seed);
+
+            if (!onFire)
+                return;
+
+            onFireTimer = Mathf.Max(0f, fireAge);
+            fireSpread = Mathf.Clamp(spread, 0f, maxSpread);
+
+            for (int i = 0; i < fires.Count; i++)
+            {
+                VisualEffect fire = fires[i];
+                if (!fire)
+                    continue;
+
+                ApplyNetworkSeed(fire, i, restartVfx);
+            }
+
+            UpdateShaders();
+            UpdateVFX();
+            UpdateLights();
+        }
+
+        private void ApplyNetworkSeed(VisualEffect fireEffect, int effectIndex, bool restartVfx)
+        {
+            if (!_networkVfxSeedConfigured || !fireEffect)
+                return;
+
+            fireEffect.resetSeedOnPlay = false;
+            fireEffect.startSeed = DeriveEffectSeed(_networkVfxSeed, effectIndex);
+
+            if (!restartVfx)
+                return;
+
+            fireEffect.Reinit();
+
+            // Reconstruct the useful steady-state particle population without
+            // simulating an entire multi-minute fire for a late joiner.
+            const float fixedStep = 1f / 30f;
+            const float maxPrewarmSeconds = 3f;
+            float prewarmSeconds = Mathf.Min(Mathf.Max(0f, onFireTimer), maxPrewarmSeconds);
+            int stepCount = Mathf.CeilToInt(prewarmSeconds / fixedStep);
+            if (stepCount > 0)
+                fireEffect.Simulate(fixedStep, (uint)stepCount);
+        }
+
+        private static uint DeriveEffectSeed(int baseSeed, int effectIndex)
+        {
+            unchecked
+            {
+                uint value = (uint)baseSeed + 0x9E3779B9u * (uint)(effectIndex + 1);
+                value ^= value >> 16;
+                value *= 0x7FEB352Du;
+                value ^= value >> 15;
+                value *= 0x846CA68Bu;
+                value ^= value >> 16;
+                return value == 0u ? 1u : value;
             }
         }
 
@@ -1396,8 +1478,9 @@ namespace Ignis
 
         private void SetBoxesOnFire()
         {
-            foreach (BoxCollider box in flammableColliders)
+            for (int boxIndex = 0; boxIndex < flammableColliders.Count; boxIndex++)
             {
+                BoxCollider box = flammableColliders[boxIndex];
 
                 GameObject fire = Instantiate(FlameEngine.instance.GetFireVFX(overrideVFXVariant, overrideFireVFX), new Vector3(0, 0, 0), Quaternion.Euler(0, 0, 0), FlameEngine.instance.fireParent);
                 VisualEffect fireEffect = fire.GetComponent<VisualEffect>();
@@ -1410,6 +1493,7 @@ namespace Ignis
                 fireEffect.SetVector3("Box_center", box.transform.TransformPoint(box.center));
                 fireEffect.SetVector3("Rotation", Clamp0360Vector(box.transform.rotation.eulerAngles));
 
+                ApplyNetworkSeed(fireEffect, boxIndex, true);
 
                 fires.Add(fire.GetComponent<VisualEffect>());
 
@@ -1439,16 +1523,20 @@ namespace Ignis
         {
             MeshFilter[] filters = transform.GetComponentsInChildren<MeshFilter>();
 
-            MeshFilter meshFilter = filters[Random.Range(0, filters.Length)];
+            System.Random networkRandom = _networkVfxSeedConfigured
+                ? new System.Random(_networkVfxSeed)
+                : null;
+
+            MeshFilter meshFilter = filters[RandomRange(networkRandom, 0, filters.Length)];
             Mesh meshObj = meshFilter.mesh;
 
             Vector3[] meshPoints = meshObj.vertices;
             for (int o = 0; o < meshFireCount; o++)
             {
-                int triStart = Random.Range(0, meshPoints.Length / 3) * 3; // get first index of each triangle
+                int triStart = RandomRange(networkRandom, 0, meshPoints.Length / 3) * 3; // get first index of each triangle
 
-                float a = Random.Range(0f, 1f);
-                float b = Random.Range(0f, 1f);
+                float a = RandomValue(networkRandom);
+                float b = RandomValue(networkRandom);
 
                 if (a + b >= 1)
                 { // reflect back if > 1
@@ -1474,13 +1562,29 @@ namespace Ignis
                 fireEffect.SetVector3("Rotation", new Vector3());
                 fireEffect.SetFloat("Spread_radius", 10000);
 
+                ApplyNetworkSeed(fireEffect, o, true);
+
                 fires.Add(fire.GetComponent<VisualEffect>());
 
-                meshFilter = filters[Random.Range(0, filters.Length)];
+                meshFilter = filters[RandomRange(networkRandom, 0, filters.Length)];
                 meshObj = meshFilter.mesh;
 
                 meshPoints = meshObj.vertices;
             }
+        }
+
+        private static int RandomRange(System.Random networkRandom, int minInclusive, int maxExclusive)
+        {
+            return networkRandom != null
+                ? networkRandom.Next(minInclusive, maxExclusive)
+                : Random.Range(minInclusive, maxExclusive);
+        }
+
+        private static float RandomValue(System.Random networkRandom)
+        {
+            return networkRandom != null
+                ? (float)networkRandom.NextDouble()
+                : Random.Range(0f, 1f);
         }
 
         private Vector3 Clamp0360Vector(Vector3 vector)

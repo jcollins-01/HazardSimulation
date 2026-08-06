@@ -49,14 +49,25 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     private const float ProfileTemperatureSyncInterval = 0.1f;
     private const float ProfileTemperatureSyncEpsilon = 0.25f;
     private const float ExtinguishStateSyncInterval = 0.05f;
+    private const float FireSpreadSyncInterval = 0.2f;
+    private const float FireSpreadSyncEpsilon = 0.002f;
     private float _nextProfileTemperatureSyncTime;
     private float _nextExtinguishStateSyncTime;
+    private float _nextFireSpreadSyncTime;
     private float _lastPublishedWaterHitLocalTime = float.NegativeInfinity;
 
     // Puppet-mode bookkeeping
     private float _originalIgnitionTime;
     private bool _ignitionNeutered;
     private float _phantomFireSince = -1f;
+    private int _stableVfxSeed;
+    private int _appliedIgnitionEpoch;
+    private int _appliedVfxSeed;
+    private float _lastAuthorityOnFireTimer = -1f;
+    private bool _lastAuthorityExtinguished;
+    private bool _awaitingPostResetExtinguishSample;
+    private bool _awaitingPostResetProfileSample;
+    private bool _awaitingPostResetSpreadSample;
 
     // Ownership-claim throttling. A Normcore ownership request is asynchronous,
     // so do not issue one every Update while waiting for the server response.
@@ -112,6 +123,63 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     {
         _flammableObject = GetComponent<FlammableObject>();
         _fireProfileController = GetComponent<FireProfileController>();
+
+        // All Awake calls complete before Ignis starts its fire-on-start path. Give
+        // that first local VFX creation the same deterministic seed on every client.
+        _stableVfxSeed = CalculateStableVfxSeed();
+        _flammableObject.ConfigureNetworkVfxSeed(DeriveCycleVfxSeed(1));
+    }
+
+    private int CalculateStableVfxSeed()
+    {
+        unchecked
+        {
+            uint hash = 2166136261u;
+            AddStableHash(ref hash, gameObject.scene.path);
+
+            // Names alone are not unique in these large imported scenes. Include
+            // every sibling index from the scene root to this fire object.
+            List<Transform> hierarchy = new List<Transform>();
+            for (Transform current = transform; current != null; current = current.parent)
+                hierarchy.Add(current);
+
+            for (int i = hierarchy.Count - 1; i >= 0; i--)
+            {
+                Transform item = hierarchy[i];
+                AddStableHash(ref hash, item.name);
+                hash ^= (uint)item.GetSiblingIndex();
+                hash *= 16777619u;
+            }
+
+            int seed = (int)(hash & 0x7FFFFFFFu);
+            return seed == 0 ? 1 : seed;
+        }
+    }
+
+    private static void AddStableHash(ref uint hash, string value)
+    {
+        unchecked
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                hash *= 16777619u;
+                return;
+            }
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                hash ^= value[i];
+                hash *= 16777619u;
+            }
+        }
+    }
+
+    private int DeriveCycleVfxSeed(int ignitionEpoch)
+    {
+        // Keep mesh-emitter placement stable across every reignition as well as
+        // across clients. ignitionEpoch still restarts the same deterministic
+        // sequence from time zero for each new lifecycle.
+        return _stableVfxSeed == 0 ? 1 : _stableVfxSeed;
     }
 
     private void OnDestroy()
@@ -129,6 +197,13 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _ownershipRequestPending = false;
         _nextClaimAttemptTime = 0f;
         _lastAppliedResetEpoch = 0;
+        _appliedIgnitionEpoch = 0;
+        _appliedVfxSeed = 0;
+        _lastAuthorityOnFireTimer = -1f;
+        _lastAuthorityExtinguished = false;
+        _awaitingPostResetExtinguishSample = false;
+        _awaitingPostResetProfileSample = false;
+        _awaitingPostResetSpreadSample = false;
 
         if (previousModel != null)
         {
@@ -144,6 +219,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             previousModel.profileWillReigniteDidChange -= OnProfileWillReigniteDidChange;
             previousModel.profileLastWaterHitRoomTimeDidChange -= OnProfileLastWaterHitRoomTimeDidChange;
             previousModel.profileReigniteAtRoomTimeDidChange -= OnProfileReigniteAtRoomTimeDidChange;
+            previousModel.ignitionEpochDidChange -= OnIgnitionEpochDidChange;
+            previousModel.fireSpreadDidChange -= OnFireSpreadDidChange;
             previousModel.ownerIDSelfDidChange -= OnOwnerIDDidChange;
         }
 
@@ -152,7 +229,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             if (currentModel.isFreshModel)
             {
                 // Seed the fresh model from the local Ignis state (usually all false).
-                currentModel.isBurning = _flammableObject.onFire;
+                bool initiallyBurning = _flammableObject.onFire;
+                int initialSeed = DeriveCycleVfxSeed(1);
+
                 currentModel.isExtinguished = false;
                 currentModel.isBurnedOut = false;
                 currentModel.extinguishProgress = 0f;
@@ -160,6 +239,27 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
                 currentModel.heatVisual = false;
                 currentModel.extinguishFadeStartRoomTime = 0.0;
                 currentModel.extinguishFadeDuration = 0f;
+                currentModel.ignitionStartRoomTime = initiallyBurning && realtime != null && realtime.connected
+                    ? realtime.roomTime - _flammableObject.onFireTimer
+                    : 0.0;
+                currentModel.vfxSeed = initialSeed;
+                currentModel.fireSpread = _flammableObject.fireSpread;
+                currentModel.fireSpreadSampleRoomTime = initiallyBurning && realtime != null && realtime.connected
+                    ? realtime.roomTime
+                    : 0.0;
+                currentModel.ignitionEpoch = initiallyBurning ? 1 : 0;
+                currentModel.isBurning = initiallyBurning;
+
+                if (initiallyBurning)
+                {
+                    _flammableObject.ApplyNetworkFireVisualState(
+                        initialSeed,
+                        _flammableObject.onFireTimer,
+                        _flammableObject.fireSpread,
+                        true);
+                    _appliedIgnitionEpoch = 1;
+                    _appliedVfxSeed = initialSeed;
+                }
 
                 if (_fireProfileController != null)
                 {
@@ -207,6 +307,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             currentModel.profileWillReigniteDidChange += OnProfileWillReigniteDidChange;
             currentModel.profileLastWaterHitRoomTimeDidChange += OnProfileLastWaterHitRoomTimeDidChange;
             currentModel.profileReigniteAtRoomTimeDidChange += OnProfileReigniteAtRoomTimeDidChange;
+            currentModel.ignitionEpochDidChange += OnIgnitionEpochDidChange;
+            currentModel.fireSpreadDidChange += OnFireSpreadDidChange;
             currentModel.ownerIDSelfDidChange += OnOwnerIDDidChange;
         }
     }
@@ -278,12 +380,53 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         // If we just became authority of a fire that should be burning but our local
         // Ignis is not (authority failover), resume the simulation from the model.
         if (model.isBurning && !_flammableObject.onFire && !_flammableObject.hasBurnedOut())
-            _flammableObject.SetOnFireFromCenter();
+            ApplySynchronizedBurningVisual();
+
+        EnsureAuthorityIgnitionCycle();
 
         ApplySprayHits();
         ObserveIgnisAndWriteModel();
         ObserveFireProfileAndWriteModel();
         ApplySynchronizedExtinguishFade();
+
+        _lastAuthorityOnFireTimer = _flammableObject.onFireTimer;
+        _lastAuthorityExtinguished = _flammableObject.IsExtinguished();
+    }
+
+    private void EnsureAuthorityIgnitionCycle()
+    {
+        if (!_flammableObject.onFire || realtime == null || !realtime.connected)
+            return;
+
+        bool missingCycle = !model.isBurning || model.ignitionEpoch <= 0;
+        bool reignited =
+            (_lastAuthorityExtinguished && !_flammableObject.IsExtinguished()) ||
+            (_lastAuthorityOnFireTimer >= _flammableObject.burnOutStart_s &&
+             _flammableObject.onFireTimer < 1f);
+
+        if (!missingCycle && !reignited)
+            return;
+
+        int nextEpoch = Mathf.Max(1, model.ignitionEpoch + 1);
+        int seed = DeriveCycleVfxSeed(nextEpoch);
+        double startRoomTime = realtime.roomTime - Mathf.Max(0f, _flammableObject.onFireTimer);
+
+        // Write one-shot metadata before the reliable epoch barrier. The burning
+        // flag can arrive first due its lower property ID, so puppets also wait for
+        // a non-zero epoch before constructing deterministic VFX.
+        model.ignitionStartRoomTime = startRoomTime;
+        model.vfxSeed = seed;
+        model.fireSpread = _flammableObject.fireSpread;
+        model.fireSpreadSampleRoomTime = realtime.roomTime;
+        model.ignitionEpoch = nextEpoch;
+
+        _flammableObject.ApplyNetworkFireVisualState(
+            seed,
+            _flammableObject.onFireTimer,
+            _flammableObject.fireSpread,
+            true);
+        _appliedIgnitionEpoch = nextEpoch;
+        _appliedVfxSeed = seed;
     }
 
     private void TryRegisterForJoinResets()
@@ -362,18 +505,34 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
         int resetEpoch = model.resetEpoch;
         bool shouldBurn = model.resetShouldBurn;
+        int nextIgnitionEpoch = Mathf.Max(1, model.ignitionEpoch + 1);
+        int resetVfxSeed = DeriveCycleVfxSeed(nextIgnitionEpoch);
 
         _flammableObject.ResetObj();
         _flammableObject.ResetMaterialFromIgnis();
         if (_fireProfileController != null)
             _fireProfileController.ResetForNetworkRestart();
         if (shouldBurn)
+        {
+            _flammableObject.ConfigureNetworkVfxSeed(resetVfxSeed);
             _flammableObject.SetOnFireFromCenter();
+            _flammableObject.ApplyNetworkFireVisualState(resetVfxSeed, 0f, 0f, true);
+            _appliedIgnitionEpoch = nextIgnitionEpoch;
+            _appliedVfxSeed = resetVfxSeed;
+        }
 
         _lastAppliedResetEpoch = resetEpoch;
+        _awaitingPostResetExtinguishSample = !IsAuthority;
+        _awaitingPostResetProfileSample = !IsAuthority;
+        _awaitingPostResetSpreadSample = !IsAuthority;
 
         if (IsAuthority)
         {
+            model.ignitionStartRoomTime = model.resetAtRoomTime;
+            model.vfxSeed = resetVfxSeed;
+            model.fireSpread = 0f;
+            model.fireSpreadSampleRoomTime = realtime.roomTime;
+            model.ignitionEpoch = nextIgnitionEpoch;
             model.isBurning = shouldBurn;
             model.isExtinguished = false;
             model.isBurnedOut = false;
@@ -395,6 +554,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             // Written last: reliable property ordering makes this the barrier that
             // tells puppets all post-reset state above is ready to consume.
             model.resetCompletedEpoch = resetEpoch;
+
+            _lastAuthorityOnFireTimer = 0f;
+            _lastAuthorityExtinguished = false;
         }
 
         return true;
@@ -545,6 +707,20 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
             _nextExtinguishStateSyncTime = Time.unscaledTime + ExtinguishStateSyncInterval;
         }
+
+        if (burning && !extinguished && Time.unscaledTime >= _nextFireSpreadSyncTime)
+        {
+            float spread = Mathf.Clamp(_flammableObject.fireSpread, 0f, _flammableObject.maxSpread);
+            if (Mathf.Abs(spread - model.fireSpread) >= FireSpreadSyncEpsilon ||
+                model.fireSpreadSampleRoomTime <= 0.0)
+            {
+                model.fireSpread = spread;
+                if (realtime != null && realtime.connected)
+                    model.fireSpreadSampleRoomTime = realtime.roomTime;
+            }
+
+            _nextFireSpreadSyncTime = Time.unscaledTime + FireSpreadSyncInterval;
+        }
     }
 
     /// <summary>
@@ -567,7 +743,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
         if (model.isBurning)
         {
-            ApplyBurningVisual();
+            ApplySynchronizedBurningVisual();
             ApplyExactExtinguishState();
             _phantomFireSince = -1f;
         }
@@ -628,6 +804,98 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             _flammableObject.SetOnFireFromCenter();
     }
 
+    private void ApplySynchronizedBurningVisual()
+    {
+        if (model == null || !model.isBurning)
+            return;
+
+        // Backwards-compatible fallback for a datastore created by an older build.
+        if (model.ignitionEpoch <= 0 || model.ignitionStartRoomTime <= 0.0)
+        {
+            ApplyBurningVisual();
+            return;
+        }
+
+        int seed = model.vfxSeed == 0
+            ? DeriveCycleVfxSeed(model.ignitionEpoch)
+            : model.vfxSeed;
+        bool restartVfx =
+            _appliedIgnitionEpoch != model.ignitionEpoch ||
+            _appliedVfxSeed != seed;
+
+        if (!_flammableObject.onFire)
+        {
+            _flammableObject.ConfigureNetworkVfxSeed(seed);
+            _flammableObject.SetOnFireFromCenter();
+            restartVfx = true;
+        }
+
+        if (!_flammableObject.onFire)
+            return;
+
+        float fireAge = GetSynchronizedFireAge();
+        float spread = GetPredictedAuthoritySpread(fireAge);
+
+        // The extinguish fade has its own synchronized room-time clock and takes
+        // ownership of onFireTimer once the reliable completion flag arrives.
+        if (!model.isExtinguished && !model.isBurnedOut)
+            _flammableObject.ApplyNetworkFireVisualState(seed, fireAge, spread, restartVfx);
+
+        _appliedIgnitionEpoch = model.ignitionEpoch;
+        _appliedVfxSeed = seed;
+    }
+
+    private float GetSynchronizedFireAge()
+    {
+        if (realtime == null || !realtime.connected || model.ignitionStartRoomTime <= 0.0)
+            return Mathf.Max(0f, _flammableObject.onFireTimer);
+
+        // Ignis deliberately freezes both its timer and spread when crawl speed is
+        // zero, so retain that behavior instead of advancing it from room time.
+        if (_flammableObject.fireCrawlSpeed <= 0.00001f)
+            return 0f;
+
+        float age = Mathf.Max(0f, (float)(realtime.roomTime - model.ignitionStartRoomTime));
+
+        // A puppet may render the shared age but must not make the reliable burnout
+        // decision a frame before the authority. Hold just below the threshold
+        // until the canonical burned-out flag arrives.
+        if (!IsAuthority && !model.isBurnedOut && !model.isExtinguished)
+        {
+            float burnoutThreshold = _flammableObject.burnOutStart_s + _flammableObject.burnOutLength_s;
+            age = Mathf.Min(age, Mathf.Max(0f, burnoutThreshold - 0.01f));
+        }
+
+        return age;
+    }
+
+    private float GetPredictedAuthoritySpread(float fireAge)
+    {
+        if (_awaitingPostResetSpreadSample)
+            return 0f;
+
+        float spread = Mathf.Clamp(model.fireSpread, 0f, _flammableObject.maxSpread);
+        if (realtime == null ||
+            !realtime.connected ||
+            model.fireSpreadSampleRoomTime <= 0.0 ||
+            _flammableObject.fireCrawlSpeed <= 0.00001f ||
+            spread >= _flammableObject.maxSpread)
+        {
+            return spread;
+        }
+
+        float elapsedSinceSample = Mathf.Max(
+            0f,
+            (float)(realtime.roomTime - model.fireSpreadSampleRoomTime));
+        float currentRate = _flammableObject.fireCrawlSpeed *
+            (0.95f + Mathf.PerlinNoise(fireAge, 0f) * 0.1f);
+
+        return Mathf.Clamp(
+            spread + currentRate * elapsedSinceSample,
+            0f,
+            _flammableObject.maxSpread);
+    }
+
     /// <summary>
     /// Snaps the local Ignis put-out area to the replicated state. This corrects
     /// puppets that are either ahead or behind the authority.
@@ -638,8 +906,12 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             return;
 
         float threshold = GetExtinguishThreshold();
-        Vector3 centerWorld = transform.TransformPoint(model.putOutCenterLocal);
-        float targetRadius = model.extinguishProgress * Mathf.Max(0f, threshold);
+        Vector3 centerWorld = _awaitingPostResetExtinguishSample
+            ? transform.position
+            : transform.TransformPoint(model.putOutCenterLocal);
+        float targetRadius = _awaitingPostResetExtinguishSample
+            ? 0f
+            : model.extinguishProgress * Mathf.Max(0f, threshold);
         _flammableObject.ApplyNetworkExtinguishState(centerWorld, targetRadius, model.isExtinguished);
     }
 
@@ -698,7 +970,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             return; // authority's Ignis already shows reality
 
         if (value)
-            ApplyBurningVisual();
+            ApplySynchronizedBurningVisual();
         else if (changedModel.isExtinguished || changedModel.isBurnedOut)
             ApplyExtinguishedVisual(changedModel.isBurnedOut);
     }
@@ -728,7 +1000,10 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     private void OnExtinguishProgressDidChange(FireStateModel changedModel, float value)
     {
         if (!IsAuthority)
+        {
+            _awaitingPostResetExtinguishSample = false;
             ApplyExactExtinguishState();
+        }
     }
 
     private void OnPutOutCenterDidChange(FireStateModel changedModel, Vector3 value)
@@ -744,6 +1019,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
     private void OnProfileTemperatureDidChange(FireStateModel changedModel, float value)
     {
+        _awaitingPostResetProfileSample = false;
+
         if (!IsAuthority)
             ApplyProfileStateFromModel();
     }
@@ -778,9 +1055,23 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             ApplyProfileStateFromModel();
     }
 
+    private void OnIgnitionEpochDidChange(FireStateModel changedModel, int value)
+    {
+        if (!IsAuthority && changedModel.isBurning)
+            ApplySynchronizedBurningVisual();
+    }
+
+    private void OnFireSpreadDidChange(FireStateModel changedModel, float value)
+    {
+        _awaitingPostResetSpreadSample = false;
+
+        if (!IsAuthority && changedModel.isBurning)
+            ApplySynchronizedBurningVisual();
+    }
+
     private void ApplyProfileStateFromModel()
     {
-        if (model == null || _fireProfileController == null)
+        if (model == null || _fireProfileController == null || _awaitingPostResetProfileSample)
             return;
 
         float secondsSinceLastWaterHit = model.profileLastWaterHitRoomTime > 0.0 && realtime != null
@@ -812,7 +1103,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             RestoreAuthorityIgnition();
 
             if (model != null && model.isBurning && !_flammableObject.onFire && !_flammableObject.hasBurnedOut())
-                _flammableObject.SetOnFireFromCenter();
+                ApplySynchronizedBurningVisual();
         }
         else if (newOwnerID != -1)
         {

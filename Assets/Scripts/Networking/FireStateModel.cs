@@ -26,16 +26,16 @@ public partial class FireStateModel
     [RealtimeProperty(3, true, true)]
     private bool _isBurnedOut;
 
-    // --- Continuous progress: reliable and rate-limited by NetworkedFireState. ---
+    // --- Continuous progress: latest-value delivery, rate-limited by NetworkedFireState. ---
 
     // Normalized 0..1 extinguish progress (put-out radius relative to the
     // object's full-extinguish threshold computed from its size/toughness).
-    [RealtimeProperty(4, true, true)]
+    [RealtimeProperty(4, RealtimePropertyType.Unreliable, true)]
     private float _extinguishProgress;
 
     // Local-space center of the put-out area so remote clients can show the
     // extinguish "hole" in the same place on the object.
-    [RealtimeProperty(5, true, true)]
+    [RealtimeProperty(5, RealtimePropertyType.Unreliable, true)]
     private Vector3 _putOutCenterLocal;
 
     // Whether this object should glow hot on the thermal camera (mirrors the
@@ -57,9 +57,9 @@ public partial class FireStateModel
     // --- Fire profile runtime state. ---
 
     // FireProfileController uses temperature as fire health and to scale its
-    // flame visuals. This is rate-limited by the authority and reliable so a lost
-    // final update cannot leave one client showing a permanently hotter fire.
-    [RealtimeProperty(9, true, true)]
+    // flame visuals. This is a continuous visual value, so newer samples supersede
+    // older samples instead of waiting behind reliable retransmissions.
+    [RealtimeProperty(9, RealtimePropertyType.UnreliableRedundant, true)]
     private float _profileTemperature;
 
     // Smolder state is discrete gameplay state. These values are reliable so a
@@ -75,7 +75,7 @@ public partial class FireStateModel
 
     // Room timestamps make authority handoff preserve the regeneration delay and
     // the already-selected reignition deadline instead of restarting either timer.
-    [RealtimeProperty(13, true, true)]
+    [RealtimeProperty(13, RealtimePropertyType.UnreliableRedundant, true)]
     private double _profileLastWaterHitRoomTime;
 
     [RealtimeProperty(14, true, true)]
@@ -99,4 +99,26 @@ public partial class FireStateModel
 
     [RealtimeProperty(18, true, true)]
     private int _resetCompletedEpoch;
+
+    // --- Deterministic fire visuals. ---
+
+    // Reliable one-shot metadata for an ignition cycle. Every client derives the
+    // same fire age from Normcore's synchronized room clock and starts the VFX with
+    // the same random seed. ignitionEpoch is written last and acts as the barrier.
+    [RealtimeProperty(19, true, true)]
+    private double _ignitionStartRoomTime;
+
+    [RealtimeProperty(20, true, true)]
+    private int _vfxSeed;
+
+    [RealtimeProperty(21, true, true)]
+    private int _ignitionEpoch;
+
+    // Fire spread changes slowly and is visual-only on puppets. Send the newest
+    // authority sample without allowing lost packets to delay lifecycle events.
+    [RealtimeProperty(22, RealtimePropertyType.UnreliableRedundant, true)]
+    private float _fireSpread;
+
+    [RealtimeProperty(23, RealtimePropertyType.UnreliableRedundant, true)]
+    private double _fireSpreadSampleRoomTime;
 }
