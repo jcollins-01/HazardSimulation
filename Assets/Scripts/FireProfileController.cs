@@ -502,7 +502,7 @@ public class FireProfileController : MonoBehaviour
         baseVFXMultiplier = flammableObject.flameVFXMultiplier;
         baseParticleSize = flammableObject.flameParticleSize;
 
-        Debug.Log($"Applied {currentProfile} profile to {gameObject.name}");
+        //Debug.Log($"Applied {currentProfile} profile to {gameObject.name}");
     }
 
     public void RollForSmolder()

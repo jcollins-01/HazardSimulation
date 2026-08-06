@@ -189,6 +189,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         // Sink acts as the extra clutter item
         if (edges.Count >= 3 && Random.value <= clutterAmount && sinkPrefab != null)
         {
+            Debug.Log("Trying to spawn sink");
             SpawnFurniture(sinkPrefab, edges[2].tile, edges[2].forward, room.RoomObject.transform);
         }
     }
@@ -252,7 +253,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
     private void SpawnDiningRoomFurniture(RoomGeneration.RoomData room)
     {
         if (diningTablePrefab == null) return;
-
+        
         // Place table in center
         Vector2Int center = GetRoomCenter(room.Tiles);
         // Only spawn chairs if the table spawned successfully
@@ -417,21 +418,34 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
             // Use the actual size of the prefab's collider to see if it overlaps with other furniture
             int furnitureLayer = LayerMask.GetMask("Furniture");
 
-            // Temporarily disable this object's collider so it doesn't collide with itself during the check
-            boxCol.enabled = false;
+            // Temporarily disable ALL colliders on this object and its children
+            // so it doesn't accidentally collide with itself during the check.
+            Collider[] allColliders = instance.GetComponentsInChildren<Collider>();
+            foreach (Collider col in allColliders)
+            {
+                col.enabled = false;
+            }
 
             // Transform the local collider center to world space for the check
             Vector3 worldCenter = instance.transform.TransformPoint(boxCol.center);
 
-            // Check if the space is occupied, slightly shrinking the box (by 0.95f) to allow things to sit flush
-            if (Physics.CheckBox(worldCenter, (boxCol.size / 2f) * 0.95f, instance.transform.rotation, furnitureLayer))
+            // Check for collisions
+            Collider[] hits = Physics.OverlapBox(worldCenter, (boxCol.size / 2f) * 0.95f, instance.transform.rotation, furnitureLayer);
+
+            if (hits.Length > 0)
             {
-                // Space is occupied, destroy the instance and abort
+                // Print the exact object that is causing the sink to abort spawning
+                Debug.LogWarning($"[Spawn Blocked] {prefab.name} couldn't spawn at {tile}. It hit: {hits[0].gameObject.name}");
+
                 DestroyImmediate(instance);
                 return false;
             }
 
-            boxCol.enabled = true;
+            // Space was clear! Re-enable all the colliders so the object works normally
+            foreach (Collider col in allColliders)
+            {
+                col.enabled = true;
+            }
         }
 
         // Move the object so its lowest visual point rests exactly on the floor (Y = 0) - prevents floating furniture
