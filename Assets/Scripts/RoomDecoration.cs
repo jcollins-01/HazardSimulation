@@ -388,7 +388,58 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
     private bool SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
     {
-        Vector3 pos = new Vector3(tile.x, 0.5f, tile.y); // Slightly elevated
+        // Start at ground level (Y = 0)
+        Vector3 pos = new Vector3(tile.x, 0f, tile.y);
+
+        // Explicitly define Vector3.up to prevent upside-down flipping
+        Quaternion rotation = Quaternion.LookRotation(forward, Vector3.up);
+
+        // Instantiate FIRST, so we can measure its actual bounds before finalizing placement
+        GameObject instance = Instantiate(prefab, pos, rotation, parent);
+
+        // Generate a BoxCollider based on the renderers of the prefab
+        AddFireProfileCollider(instance);
+        BoxCollider boxCol = instance.GetComponent<BoxCollider>();
+
+        if (boxCol != null)
+        {
+            // Calculate how deep the object is - if the back extends past the edge of a wall tile, push it forward into the room
+            float depthExtent = boxCol.size.z / 2f;
+            float tileHalfSize = 0.5f;
+
+            if (depthExtent > tileHalfSize)
+            {
+                // Push the furniture away from the wall by the difference
+                float pushAmount = depthExtent - tileHalfSize;
+                instance.transform.position += forward * pushAmount;
+            }
+
+            // Use the actual size of the prefab's collider to see if it overlaps with other furniture
+            int furnitureLayer = LayerMask.GetMask("Furniture");
+
+            // Temporarily disable this object's collider so it doesn't collide with itself during the check
+            boxCol.enabled = false;
+
+            // Transform the local collider center to world space for the check
+            Vector3 worldCenter = instance.transform.TransformPoint(boxCol.center);
+
+            // Check if the space is occupied, slightly shrinking the box (by 0.95f) to allow things to sit flush
+            if (Physics.CheckBox(worldCenter, (boxCol.size / 2f) * 0.95f, instance.transform.rotation, furnitureLayer))
+            {
+                // Space is occupied, destroy the instance and abort
+                DestroyImmediate(instance);
+                return false;
+            }
+
+            boxCol.enabled = true;
+        }
+
+        // Move the object so its lowest visual point rests exactly on the floor (Y = 0) - prevents floating furniture
+        float yOffset = CalculateVerticalOffset(instance);
+        instance.transform.position = new Vector3(instance.transform.position.x, yOffset, instance.transform.position.z);
+
+        return true;
+        /*Vector3 pos = new Vector3(tile.x, 0.5f, tile.y); // Slightly elevated
 
         // Define a small box area to check for collisions (adjust size based on your tile scale)
         Vector3 halfExtents = new Vector3(0.4f, 0.4f, 0.4f);
@@ -410,7 +461,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         float yOffset = CalculateVerticalOffset(instance);
         instance.transform.position = new Vector3(pos.x, yOffset, pos.z);
 
-        return true; // Success
+        return true; // Success*/
     }
 
     private Vector2Int GetRoomCenter(HashSet<Vector2Int> roomTiles)
