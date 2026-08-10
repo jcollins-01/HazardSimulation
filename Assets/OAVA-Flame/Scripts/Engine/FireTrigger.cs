@@ -42,7 +42,7 @@ namespace Ignis
         {
             foreach(FlammableObject flam in flamsAndPositions.Keys.ToList())
             {
-                if (flam)
+                if (flam && NetworkedFireState.LocalClientMayAffectFire(flam))
                 {
                     flam.TryToSetOnFireIgniteProgressIncrease(flamsAndPositions[flam].pos, Time.fixedDeltaTime);
                 }

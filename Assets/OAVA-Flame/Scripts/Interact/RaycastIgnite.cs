@@ -83,7 +83,7 @@ namespace Ignis
                         }
                     }
 
-                    if (!objectsInFront)
+                    if (!objectsInFront && NetworkedFireState.LocalClientMayAffectFire(hitFlam))
                     {
                         hitFlam.TryToSetOnFire(hitPoint, IgnitePowerMultiplier);
                     }

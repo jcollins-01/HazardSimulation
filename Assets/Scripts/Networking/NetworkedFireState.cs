@@ -18,10 +18,9 @@ using UnityEngine;
 ///    back-spread/reignition, burnout, and extinguishing (via spray raycast checks
 ///    against synchronized tool poses + gated Ignis ParticleExtinguish/RaycastExtinguish).
 ///    It then mirrors the resulting high-level state into the model.
-///  - Every non-authority client runs its local FlammableObject in "puppet" mode:
-///    local ignition is neutered (ignitionTime = MaxValue) so Ignis spread triggers can
-///    never make permanent local decisions, and the replicated model drives the local
-///    Ignis visuals (ignite / extinguish hole growth / fade-out / burnout).
+///  - Every non-authority client runs its local FlammableObject in strict puppet mode:
+///    autonomous ignition, reignition, burnout and cleanup are disabled, and only the
+///    replicated model may drive its visuals and lifecycle flags.
 ///
 /// Ignis adapter note: FlammableObject exposes a network-only exact-state adapter so
 /// puppets can be corrected in both directions instead of accumulating local steps.
@@ -36,10 +35,6 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
     [Tooltip("Layers considered when checking whether a spraying tool hits this fire.")]
     [SerializeField] private LayerMask sprayHitMask = ~0;
-
-    [Header("Puppet Visuals")]
-    [Tooltip("Seconds a puppet tolerates a locally-ignited fire that the authority says is not burning before forcing it out (covers ignition timing jitter).")]
-    [SerializeField] private float phantomFireGraceSeconds = 1.5f;
 
     private FlammableObject _flammableObject;
     private FireProfileController _fireProfileController;
@@ -57,9 +52,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     private float _lastPublishedWaterHitLocalTime = float.NegativeInfinity;
 
     // Puppet-mode bookkeeping
-    private float _originalIgnitionTime;
     private bool _ignitionNeutered;
-    private float _phantomFireSince = -1f;
     private int _stableVfxSeed;
     private int _appliedIgnitionEpoch;
     private int _appliedVfxSeed;
@@ -322,6 +315,16 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
         TryClaimAuthority();
 
+        // A fresh scene fire may ignite in Start before Normcore grants the first
+        // ownership request. Preserve that candidate authority state until there is
+        // an actual owner; once ownership resolves, exactly one authority publishes
+        // it and every other client becomes a strict puppet immediately.
+        if (realtime != null && realtime.connected && isUnownedSelf)
+        {
+            RestoreAuthorityIgnition();
+            return;
+        }
+
         if (TryApplyScheduledReset())
             return;
 
@@ -388,9 +391,30 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         ObserveIgnisAndWriteModel();
         ObserveFireProfileAndWriteModel();
         ApplySynchronizedExtinguishFade();
+        AdvanceAuthorityVfxClock();
 
         _lastAuthorityOnFireTimer = _flammableObject.onFireTimer;
         _lastAuthorityExtinguished = _flammableObject.IsExtinguished();
+    }
+
+    private void AdvanceAuthorityVfxClock()
+    {
+        if (!model.isBurning || !_flammableObject.onFire || model.ignitionEpoch <= 0)
+            return;
+
+        int seed = model.vfxSeed == 0
+            ? DeriveCycleVfxSeed(model.ignitionEpoch)
+            : model.vfxSeed;
+        bool restartVfx = _appliedIgnitionEpoch != model.ignitionEpoch ||
+                          _appliedVfxSeed != seed;
+
+        _flammableObject.ApplyNetworkVfxSimulationState(
+            seed,
+            GetSynchronizedFireAge(),
+            restartVfx);
+
+        _appliedIgnitionEpoch = model.ignitionEpoch;
+        _appliedVfxSeed = seed;
     }
 
     private void EnsureAuthorityIgnitionCycle()
@@ -515,7 +539,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (shouldBurn)
         {
             _flammableObject.ConfigureNetworkVfxSeed(resetVfxSeed);
-            _flammableObject.SetOnFireFromCenter();
+            _flammableObject.SetOnFireFromCenterFromNetwork();
             _flammableObject.ApplyNetworkFireVisualState(resetVfxSeed, 0f, 0f, true);
             _appliedIgnitionEpoch = nextIgnitionEpoch;
             _appliedVfxSeed = resetVfxSeed;
@@ -745,47 +769,44 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         {
             ApplySynchronizedBurningVisual();
             ApplyExactExtinguishState();
-            _phantomFireSince = -1f;
-        }
-        else if (_flammableObject.onFire)
-        {
-            if (model.isExtinguished || model.isBurnedOut)
-            {
-                ApplyExtinguishedVisual(model.isBurnedOut);
-                _phantomFireSince = -1f;
-            }
-            else
-            {
-                // Local Ignis ignited on its own (e.g. setThisOnFireOnStart before the
-                // model arrived) but the authority says this object is not burning.
-                // Give the authority a short grace window to catch up, then force it out.
-                if (_phantomFireSince < 0f)
-                    _phantomFireSince = Time.time;
-
-                if (Time.time - _phantomFireSince > phantomFireGraceSeconds)
-                    ApplyExtinguishedVisual(false);
-            }
         }
         else
         {
-            _phantomFireSince = -1f;
+            // Reliable authority flags are canonical. Remove a phantom flame
+            // immediately and repair terminal flags even if local Ignis ran ahead.
+            _flammableObject.ApplyNetworkInactiveState(
+                model.isExtinguished,
+                model.isBurnedOut);
         }
 
         ApplySynchronizedExtinguishFade();
+
+        if (model.isBurning &&
+            _flammableObject.onFire &&
+            (model.isExtinguished || model.isBurnedOut))
+        {
+            _flammableObject.RefreshNetworkFireVisualState();
+
+            int seed = model.vfxSeed == 0
+                ? DeriveCycleVfxSeed(model.ignitionEpoch)
+                : model.vfxSeed;
+            _flammableObject.ApplyNetworkVfxSimulationState(
+                seed,
+                GetSynchronizedFireAge(),
+                false);
+        }
     }
 
     /// <summary>
-    /// Prevents this puppet's local Ignis from making permanent ignition decisions
-    /// (spread triggers etc.). SetOnFireFromCenter() still works for visual ignition
-    /// because it bypasses the ignition-time accumulation.
+    /// Prevents this puppet's local Ignis from making any lifecycle decisions.
+    /// Explicit network adapter calls still create and update its visuals.
     /// </summary>
     private void NeuterLocalIgnition()
     {
         if (_ignitionNeutered)
             return;
 
-        _originalIgnitionTime = _flammableObject.ignitionTime;
-        _flammableObject.ignitionTime = float.MaxValue;
+        _flammableObject.SetLocalLifecycleSimulationEnabled(false);
         _ignitionNeutered = true;
     }
 
@@ -794,14 +815,14 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (!_ignitionNeutered)
             return;
 
-        _flammableObject.ignitionTime = _originalIgnitionTime;
+        _flammableObject.SetLocalLifecycleSimulationEnabled(true);
         _ignitionNeutered = false;
     }
 
     private void ApplyBurningVisual()
     {
         if (!_flammableObject.onFire)
-            _flammableObject.SetOnFireFromCenter();
+            _flammableObject.SetOnFireFromCenterFromNetwork();
     }
 
     private void ApplySynchronizedBurningVisual()
@@ -826,7 +847,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (!_flammableObject.onFire)
         {
             _flammableObject.ConfigureNetworkVfxSeed(seed);
-            _flammableObject.SetOnFireFromCenter();
+            _flammableObject.SetOnFireFromCenterFromNetwork();
             restartVfx = true;
         }
 
@@ -921,6 +942,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     /// </summary>
     private void ApplyExtinguishedVisual(bool skipToBurnedOut)
     {
+        if (!_flammableObject.onFire && model != null && model.isBurning)
+            ApplySynchronizedBurningVisual();
+
         if (!_flammableObject.onFire)
             return;
 

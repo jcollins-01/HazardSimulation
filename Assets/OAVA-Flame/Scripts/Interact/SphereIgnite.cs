@@ -41,7 +41,7 @@ namespace Ignis
                 foreach(Collider hit in hits)
                 {
                     Ignis.FlammableObject flam = hit.gameObject.GetComponentInParent<Ignis.FlammableObject>();
-                    if (flam)
+                    if (flam && NetworkedFireState.LocalClientMayAffectFire(flam))
                     {
                         flam.TryToSetOnFire(hit.ClosestPointOnBounds(transform.position), IgnitePowerMultiplier);
                     }

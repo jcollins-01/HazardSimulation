@@ -28,7 +28,7 @@ namespace Ignis
             int i = 0;
 
             Ignis.FlammableObject flamObj = other.GetComponentInParent<Ignis.FlammableObject>();
-            if (flamObj)
+            if (flamObj && NetworkedFireState.LocalClientMayAffectFire(flamObj))
             {
                 while (i < numCollisionEvents)
                 {

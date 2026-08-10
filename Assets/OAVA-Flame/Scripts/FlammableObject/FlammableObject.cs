@@ -267,6 +267,12 @@ namespace Ignis
         // random sequence or unrelated gameplay systems.
         private int _networkVfxSeed = 1;
         private bool _networkVfxSeedConfigured = false;
+        private bool _localLifecycleSimulationEnabled = true;
+        private bool _applyingNetworkLifecycleState = false;
+        private int _networkVfxLogicalTick = -1;
+
+        private const float NetworkVfxFixedStep = 1f / 30f;
+        private const int NetworkVfxMaxBackfillSteps = 90;
 
 
         private float putOutRadius = 0;
@@ -384,6 +390,13 @@ namespace Ignis
         // Update is called once per frame
         void Update()
         {
+            // Network puppets are display-only. NetworkedFireState applies their
+            // timer, spread, extinguish and VFX state from the authority each frame.
+            // Returning here prevents local frame rate and Ignis triggers from
+            // independently causing reignition, burnout or delayed cleanup.
+            if (!_localLifecycleSimulationEnabled)
+                return;
+
             if (!FlameEngine.instance.pause && !burntOut)
             {
                 if (currentIgnitionCoolingCooldown_s > 0)
@@ -588,6 +601,76 @@ namespace Ignis
             fireSFX.Clear();
             fires.Clear();
             fireTriggers.Clear();
+            _networkVfxLogicalTick = -1;
+        }
+
+        /// <summary>
+        /// Enables the autonomous Ignis lifecycle only on the network authority.
+        /// Puppets continue rendering through the explicit network adapter methods.
+        /// </summary>
+        public void SetLocalLifecycleSimulationEnabled(bool enabled)
+        {
+            _localLifecycleSimulationEnabled = enabled;
+
+            if (!enabled)
+            {
+                currentIgnitionProgress_s = 0f;
+                currentIgnitionCoolingCooldown_s = 0f;
+            }
+        }
+
+        /// <summary>
+        /// Network-only ignition entry point. This deliberately bypasses the local
+        /// lifecycle guard so a puppet can recreate visuals demanded by its model.
+        /// </summary>
+        public void SetOnFireFromCenterFromNetwork()
+        {
+            bool previousApplyingState = _applyingNetworkLifecycleState;
+            _applyingNetworkLifecycleState = true;
+
+            try
+            {
+                if (!onFire && (burntOut || extinguished))
+                    ResetObj();
+
+                SetOnFireFromCenter();
+            }
+            finally
+            {
+                _applyingNetworkLifecycleState = previousApplyingState;
+            }
+        }
+
+        /// <summary>
+        /// Removes any locally-created flame and records the replicated terminal or
+        /// dormant state. This also repairs puppets that burned out before authority.
+        /// </summary>
+        public void ApplyNetworkInactiveState(bool shouldBeExtinguished, bool shouldBeBurnedOut)
+        {
+            bool alreadyMatches = !onFire &&
+                                  extinguished == shouldBeExtinguished &&
+                                  burntOut == shouldBeBurnedOut &&
+                                  fires.Count == 0 &&
+                                  fireTriggers.Count == 0;
+            if (alreadyMatches)
+                return;
+
+            bool hadLocalFireState = onFire || burntOut || extinguished ||
+                                     fires.Count > 0 || fireTriggers.Count > 0;
+            if (hadLocalFireState)
+                ResetObj();
+
+            onFire = false;
+            extinguished = shouldBeExtinguished;
+            burntOut = shouldBeBurnedOut;
+
+            if (shouldBeBurnedOut)
+                onFireTimer = burnOutStart_s + burnOutLength_s + 0.01f;
+            else if (shouldBeExtinguished)
+                onFireTimer = burnOutStart_s + burnOutLength_s;
+
+            if (hadLocalFireState && !shouldBeExtinguished && !shouldBeBurnedOut)
+                ResetMaterialFromIgnis();
         }
 
         /// <summary>
@@ -617,6 +700,9 @@ namespace Ignis
         /// <param name="addToIgniteProgress">How much value should be added to currentIgnitionProgress. When current ignition progress > ignition time, object ignites.</param>
         public void TryToSetOnFireIgniteProgressIncrease(Vector3 fireOrigin, float addToIgniteProgress)
         {
+            if (!_localLifecycleSimulationEnabled && !_applyingNetworkLifecycleState)
+                return;
+
             if (onFire)
             {
                 if (onFireTimer > burnOutStart_s)
@@ -652,7 +738,8 @@ namespace Ignis
                 return;
             }
 
-            if (FlameEngine.instance.FlameCount() >= FlameEngine.instance.maxFlamesInWorld)
+            if (!_applyingNetworkLifecycleState &&
+                FlameEngine.instance.FlameCount() >= FlameEngine.instance.maxFlamesInWorld)
             {
                 return;
             }
@@ -710,6 +797,9 @@ namespace Ignis
         /// <param name="radiusIncrement">Radius incremented in every call, if new position is not extinguished</param>
         public void IncrementalExtinguish(Vector3 position, float startRadius, float radiusIncrement)
         {
+            if (!_localLifecycleSimulationEnabled && !_applyingNetworkLifecycleState)
+                return;
+
             if (!onFire)
             {
                 return;
@@ -835,18 +925,61 @@ namespace Ignis
             onFireTimer = Mathf.Max(0f, fireAge);
             fireSpread = Mathf.Clamp(spread, 0f, maxSpread);
 
+            UpdateShaders();
+            UpdateVFX();
+            UpdateLights();
+
+            // Exposed VFX properties must be current before advancing the shared
+            // tick; otherwise one client can simulate a tick with stale spread.
+            ApplyNetworkVfxSimulationState(seed, fireAge, restartVfx);
+        }
+
+        /// <summary>
+        /// Refreshes exposed shader, particle and light parameters after network
+        /// code changes an extinguish timer or put-out area on a strict puppet.
+        /// </summary>
+        public void RefreshNetworkFireVisualState()
+        {
+            if (!onFire)
+                return;
+
+            UpdateShaders();
+            UpdateVFX();
+            UpdateLights();
+        }
+
+        /// <summary>
+        /// Advances every fire emitter on a shared 30 Hz logical clock. VFX Graph's
+        /// automatic per-render-frame clock is paused, so a dropped Quest frame no
+        /// longer changes the particle path. Late clients backfill at most 3 seconds;
+        /// the join reset normally starts all clients at tick zero together.
+        /// </summary>
+        public void ApplyNetworkVfxSimulationState(int seed, float fireAge, bool restartVfx)
+        {
+            ConfigureNetworkVfxSeed(seed);
+
+            int targetTick = Mathf.Max(0, Mathf.FloorToInt(Mathf.Max(0f, fireAge) / NetworkVfxFixedStep));
+            bool mustRestart = restartVfx || _networkVfxLogicalTick < 0 || targetTick < _networkVfxLogicalTick;
+            int stepsToSimulate = mustRestart
+                ? Mathf.Min(targetTick, NetworkVfxMaxBackfillSteps)
+                : Mathf.Min(targetTick - _networkVfxLogicalTick, NetworkVfxMaxBackfillSteps);
+
             for (int i = 0; i < fires.Count; i++)
             {
                 VisualEffect fire = fires[i];
                 if (!fire)
                     continue;
 
-                ApplyNetworkSeed(fire, i, restartVfx);
+                ApplyNetworkSeed(fire, i, mustRestart);
+                fire.pause = true;
+
+                if (stepsToSimulate > 0)
+                    fire.Simulate(NetworkVfxFixedStep, (uint)stepsToSimulate);
             }
 
-            UpdateShaders();
-            UpdateVFX();
-            UpdateLights();
+            // Treat an excessive hitch as a logical fast-forward instead of doing
+            // an unbounded amount of VFX work in one frame on a headset.
+            _networkVfxLogicalTick = targetTick;
         }
 
         private void ApplyNetworkSeed(VisualEffect fireEffect, int effectIndex, bool restartVfx)
@@ -861,15 +994,6 @@ namespace Ignis
                 return;
 
             fireEffect.Reinit();
-
-            // Reconstruct the useful steady-state particle population without
-            // simulating an entire multi-minute fire for a late joiner.
-            const float fixedStep = 1f / 30f;
-            const float maxPrewarmSeconds = 3f;
-            float prewarmSeconds = Mathf.Min(Mathf.Max(0f, onFireTimer), maxPrewarmSeconds);
-            int stepCount = Mathf.CeilToInt(prewarmSeconds / fixedStep);
-            if (stepCount > 0)
-                fireEffect.Simulate(fixedStep, (uint)stepCount);
         }
 
         private static uint DeriveEffectSeed(int baseSeed, int effectIndex)
