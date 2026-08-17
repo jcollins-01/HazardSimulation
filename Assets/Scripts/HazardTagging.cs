@@ -267,18 +267,18 @@ public class HazardTagging : MonoBehaviour
         {
             if (child == null) continue;
 
-            // Remove the Networked fire state
-            NetworkedFireState fireState = child.GetComponent<NetworkedFireState>();
-            if (fireState != null)
-            {
-                DestroyImmediate(fireState);
-            }
-
             // Remove the Controller
             FireProfileController fireProfile = child.GetComponent<FireProfileController>();
             if (fireProfile != null)
             {
                 DestroyImmediate(fireProfile);
+            }
+
+            // Remove the Networked fire state
+            NetworkedFireState fireState = child.GetComponent<NetworkedFireState>();
+            if (fireState != null)
+            {
+                DestroyImmediate(fireState);
             }
 
             // Remove the FlammableObject dependency that was forced by [RequireComponent]

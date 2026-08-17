@@ -20,9 +20,8 @@ public class RoomDecoration : MonoBehaviour
     [Tooltip("Right-click this component and view options to restore all prefabs to their defaults in Resources.")]
     public GameObject bedPrefab;
     public GameObject nightstandPrefab;
-    public GameObject toiletPrefab;
+    public GameObject sinkAndToiletPrefab;
     public GameObject tubPrefab;
-    public GameObject sinkPrefab;
     public GameObject couchPrefab;
     public GameObject tvPrefab;
     public GameObject tablePrefab;
@@ -52,9 +51,8 @@ public class RoomDecoration : MonoBehaviour
         // Do it regardless of it being null so that we can reset them back, even if we change them
         bedPrefab = Resources.Load<GameObject>("Interior Prefabs/Bed");
         nightstandPrefab = Resources.Load<GameObject>("Interior Prefabs/Nightstand");
-        toiletPrefab = Resources.Load<GameObject>("Interior Prefabs/Toilet");
+        sinkAndToiletPrefab = Resources.Load<GameObject>("Interior Prefabs/Sink and Toilet");
         tubPrefab = Resources.Load<GameObject>("Interior Prefabs/Tub");
-        sinkPrefab = Resources.Load<GameObject>("Interior Prefabs/Sink");
         couchPrefab = Resources.Load<GameObject>("Interior Prefabs/Couch");
         tvPrefab = Resources.Load<GameObject>("Interior Prefabs/TV");
         tablePrefab = Resources.Load<GameObject>("Interior Prefabs/Table");
@@ -157,7 +155,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         {
             // Pick a random wall for the bed to sit flush against
             var edge = edges[Random.Range(0, edges.Count)];
-            SpawnFurniture(bedPrefab, edge.tile, edge.forward, room.RoomObject.transform);
+            SpawnFurniture(bedPrefab, edge.tile, edge.forward, room.RoomObject.transform, room.Tiles);
 
             // Use the clutter slider to decide if we spawn a nightstand
             if (Random.value <= clutterAmount && nightstandPrefab != null)
@@ -169,7 +167,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
                 // Ensure we aren't spawning the nightstand outside the room boundaries
                 if (room.Tiles.Contains(nightstandTile))
                 {
-                    SpawnFurniture(nightstandPrefab, nightstandTile, edge.forward, room.RoomObject.transform);
+                    SpawnFurniture(nightstandPrefab, nightstandTile, edge.forward, room.RoomObject.transform, room.Tiles);
                 }
             }
         }
@@ -182,15 +180,8 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         // Standard placement for core bathroom fixtures
         if (edges.Count >= 2)
         {
-            if (tubPrefab != null) SpawnFurniture(tubPrefab, edges[0].tile, edges[0].forward, room.RoomObject.transform);
-            if (toiletPrefab != null) SpawnFurniture(toiletPrefab, edges[1].tile, edges[1].forward, room.RoomObject.transform);
-        }
-
-        // Sink acts as the extra clutter item
-        if (edges.Count >= 3 && Random.value <= clutterAmount && sinkPrefab != null)
-        {
-            Debug.Log("Trying to spawn sink");
-            SpawnFurniture(sinkPrefab, edges[2].tile, edges[2].forward, room.RoomObject.transform);
+            if (tubPrefab != null) SpawnFurniture(tubPrefab, edges[0].tile, edges[0].forward, room.RoomObject.transform, room.Tiles);
+            if (sinkAndToiletPrefab != null) SpawnFurniture(sinkAndToiletPrefab, edges[1].tile, edges[1].forward, room.RoomObject.transform, room.Tiles);
         }
     }
 
@@ -202,7 +193,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         {
             // Pick a wall for the TV
             var tvEdge = edges[Random.Range(0, edges.Count)];
-            SpawnFurniture(tvPrefab, tvEdge.tile, tvEdge.forward, room.RoomObject.transform);
+            SpawnFurniture(tvPrefab, tvEdge.tile, tvEdge.forward, room.RoomObject.transform, room.Tiles);
 
             // Translate the Vector3 forward direction into a Vector2Int for tile math
             Vector2Int tvDirection = new Vector2Int(Mathf.RoundToInt(tvEdge.forward.x), Mathf.RoundToInt(tvEdge.forward.z));
@@ -214,7 +205,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
             {
                 // Invert the TV's forward vector so the sofa faces back at it
                 Vector3 sofaForward = -tvEdge.forward;
-                SpawnFurniture(couchPrefab, sofaTile, sofaForward, room.RoomObject.transform);
+                SpawnFurniture(couchPrefab, sofaTile, sofaForward, room.RoomObject.transform, room.Tiles);
 
                 // If clutter is high enough, place a coffee table between them
                 if (Random.value <= clutterAmount && tablePrefab != null)
@@ -239,14 +230,14 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         if (edges.Count >= 3)
         {
             // Oven against one wall
-            SpawnFurniture(ovenPrefab, edges[0].tile, edges[0].forward, room.RoomObject.transform);
+            SpawnFurniture(ovenPrefab, edges[0].tile, edges[0].forward, room.RoomObject.transform, room.Tiles);
 
             // Fridge against another
-            SpawnFurniture(fridgePrefab, edges[1].tile, edges[1].forward, room.RoomObject.transform);
+            SpawnFurniture(fridgePrefab, edges[1].tile, edges[1].forward, room.RoomObject.transform, room.Tiles);
 
             // Counter against the third
             if (Random.value <= clutterAmount)
-                SpawnFurniture(counterPrefab, edges[2].tile, edges[2].forward, room.RoomObject.transform);
+                SpawnFurniture(counterPrefab, edges[2].tile, edges[2].forward, room.RoomObject.transform, room.Tiles);
         }
     }
 
@@ -257,7 +248,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         // Place table in center
         Vector2Int center = GetRoomCenter(room.Tiles);
         // Only spawn chairs if the table spawned successfully
-        if (SpawnFurniture(diningTablePrefab, center, Vector3.forward, room.RoomObject.transform))
+        if (SpawnFurniture(diningTablePrefab, center, Vector3.forward, room.RoomObject.transform, room.Tiles))
         {
             Vector2Int[] chairOffsets = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
 
@@ -267,7 +258,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
                 if (room.Tiles.Contains(chairTile))
                 {
                     Vector3 lookDir = new Vector3(-offset.x, 0, -offset.y);
-                    SpawnFurniture(chairPrefab, chairTile, lookDir, room.RoomObject.transform);
+                    SpawnFurniture(chairPrefab, chairTile, lookDir, room.RoomObject.transform, room.Tiles);
                 }
             }
         }
@@ -281,7 +272,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         if (clutterAmount > 0.4f && edges.Count > 0 && sideTablePrefab != null)
         {
             var edge = edges[Random.Range(0, edges.Count)];
-            SpawnFurniture(sideTablePrefab, edge.tile, edge.forward, room.RoomObject.transform);
+            SpawnFurniture(sideTablePrefab, edge.tile, edge.forward, room.RoomObject.transform, room.Tiles);
         }
     }
 
@@ -303,7 +294,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
             if (edges.Count > 0 && shelfPrefab != null)
             {
                 var edge = edges[Random.Range(0, edges.Count)];
-                SpawnFurniture(shelfPrefab, edge.tile, edge.forward, room.RoomObject.transform);
+                SpawnFurniture(shelfPrefab, edge.tile, edge.forward, room.RoomObject.transform, room.Tiles);
             }
         }
     }
@@ -387,7 +378,7 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         return hasBounds ? combinedBounds : new Bounds(Vector3.zero, Vector3.one);
     }
 
-    private bool SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent)
+    private bool SpawnFurniture(GameObject prefab, Vector2Int tile, Vector3 forward, Transform parent, HashSet<Vector2Int> roomTiles)
     {
         // Start at ground level (Y = 0)
         Vector3 pos = new Vector3(tile.x, 0f, tile.y);
@@ -404,47 +395,68 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
 
         if (boxCol != null)
         {
-            // Calculate how deep the object is - if the back extends past the edge of a wall tile, push it forward into the room
-            float depthExtent = boxCol.size.z / 2f;
-            float tileHalfSize = 0.5f;
+            // Find where the back of the bounding box is in the object's local space
+            float localBackZ = boxCol.center.z - (boxCol.size.z / 2f);
 
-            if (depthExtent > tileHalfSize)
-            {
-                // Push the furniture away from the wall by the difference
-                float pushAmount = depthExtent - tileHalfSize;
-                instance.transform.position += forward * pushAmount;
-            }
+            // Align that local back edge to the edge of the 1x1 tile (-0.5f from center)
+            float padding = 0.02f; // Pulls the object 2cm away from the wall
+            float requiredZOffset = -0.5f - localBackZ + padding;
+            instance.transform.position += forward * requiredZOffset;
 
-            // Use the actual size of the prefab's collider to see if it overlaps with other furniture
+            // Check collisions with furniture and blocking doorways
             int furnitureLayer = LayerMask.GetMask("Furniture");
 
-            // Temporarily disable ALL colliders on this object and its children
-            // so it doesn't accidentally collide with itself during the check.
             Collider[] allColliders = instance.GetComponentsInChildren<Collider>();
-            foreach (Collider col in allColliders)
+            foreach (Collider col in allColliders) col.enabled = false;
+
+            Vector3 worldCenter = instance.transform.TransformPoint(boxCol.center);
+            Vector3 checkExtents = (boxCol.size / 2f) * 0.95f; // Shrink slightly to avoid micro-overlaps
+
+            Collider[] hits = Physics.OverlapBox(worldCenter, checkExtents, instance.transform.rotation);
+            bool isBlocked = false;
+
+            foreach (Collider hit in hits)
             {
-                col.enabled = false;
+                if (hit.transform.IsChildOf(instance.transform)) continue;
+
+                // Reject if it hits other furniture OR if it detects a doorway/window structure
+                if (((1 << hit.gameObject.layer) & furnitureLayer) != 0 ||
+                    hit.name.Contains("Door") || hit.name.Contains("Window"))
+                {
+                    Debug.LogWarning($"[Spawn Blocked] {prefab.name} blocked by {hit.name} at {tile}.");
+                    isBlocked = true;
+                    break;
+                }
             }
 
-            // Transform the local collider center to world space for the check
-            Vector3 worldCenter = instance.transform.TransformPoint(boxCol.center);
-
-            // Check for collisions
-            Collider[] hits = Physics.OverlapBox(worldCenter, (boxCol.size / 2f) * 0.95f, instance.transform.rotation, furnitureLayer);
-
-            if (hits.Length > 0)
+            if (isBlocked)
             {
-                // Print the exact object that is causing the sink to abort spawning
-                Debug.LogWarning($"[Spawn Blocked] {prefab.name} couldn't spawn at {tile}. It hit: {hits[0].gameObject.name}");
-
                 DestroyImmediate(instance);
                 return false;
             }
 
-            // Space was clear! Re-enable all the colliders so the object works normally
-            foreach (Collider col in allColliders)
+            foreach (Collider col in allColliders) col.enabled = true;
+
+            // Project the 4 corners of the collider onto the grid to ensure wide objects don't clip side walls
+            Vector3[] localCorners = {
+            new Vector3(boxCol.center.x - checkExtents.x, boxCol.center.y, boxCol.center.z - checkExtents.z),
+            new Vector3(boxCol.center.x + checkExtents.x, boxCol.center.y, boxCol.center.z - checkExtents.z),
+            new Vector3(boxCol.center.x - checkExtents.x, boxCol.center.y, boxCol.center.z + checkExtents.z),
+            new Vector3(boxCol.center.x + checkExtents.x, boxCol.center.y, boxCol.center.z + checkExtents.z)
+            };
+
+            foreach (Vector3 localCorner in localCorners)
             {
-                col.enabled = true;
+                Vector3 worldCorner = instance.transform.TransformPoint(localCorner);
+                Vector2Int gridPos = new Vector2Int(Mathf.RoundToInt(worldCorner.x), Mathf.RoundToInt(worldCorner.z));
+
+                // If any corner of the mesh extends into a tile that isn't part of the room, reject it
+                if (!roomTiles.Contains(gridPos))
+                {
+                    Debug.LogWarning($"[Spawn Blocked] {prefab.name} clips into walls at grid {gridPos}.");
+                    DestroyImmediate(instance);
+                    return false;
+                }
             }
         }
 
@@ -453,29 +465,6 @@ private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
         instance.transform.position = new Vector3(instance.transform.position.x, yOffset, instance.transform.position.z);
 
         return true;
-        /*Vector3 pos = new Vector3(tile.x, 0.5f, tile.y); // Slightly elevated
-
-        // Define a small box area to check for collisions (adjust size based on your tile scale)
-        Vector3 halfExtents = new Vector3(0.4f, 0.4f, 0.4f);
-
-        // Tell the physics check to ONLY look at the "Furniture" layer
-        int furnitureLayer = LayerMask.GetMask("Furniture");
-
-        // Check if anything is already in this space
-        if (Physics.CheckBox(pos, halfExtents, Quaternion.identity, furnitureLayer))
-        {
-            return false; // Space occupied, abort
-        }
-
-        // Instantiate if clear
-        GameObject instance = Instantiate(prefab, pos, Quaternion.LookRotation(forward), parent);
-        AddFireProfileCollider(instance);
-
-        // Apply your vertical offset logic
-        float yOffset = CalculateVerticalOffset(instance);
-        instance.transform.position = new Vector3(pos.x, yOffset, pos.z);
-
-        return true; // Success*/
     }
 
     private Vector2Int GetRoomCenter(HashSet<Vector2Int> roomTiles)
