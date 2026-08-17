@@ -1249,9 +1249,20 @@ namespace Ignis
                     {
                         float timeSinceBurnOutStart = onFireTimer - burnOutStart_s;
                         float percentageToburnOutEnd = timeSinceBurnOutStart / (burnOutLength_s);
+                        float networkBurnoutProgress = Mathf.Clamp01(
+                            percentageToburnOutEnd * shaderToBurntInterpolateSpeed);
                         if (mat.HasProperty(shaderComp.ShaderMainColorPropertyName))
                         {
-                            mat.SetColor(shaderComp.ShaderMainColorPropertyName, Color.Lerp(mat.GetColor(shaderComp.ShaderMainColorPropertyName), shaderBurntColor, percentageToburnOutEnd * shaderToBurntInterpolateSpeed));
+                            Color burnoutStartColor = new Color(
+                                shaderEmissionColor.r,
+                                shaderEmissionColor.g,
+                                shaderEmissionColor.b);
+                            mat.SetColor(
+                                shaderComp.ShaderMainColorPropertyName,
+                                _networkVfxSeedConfigured
+                                    ? Color.Lerp(burnoutStartColor, shaderBurntColor, networkBurnoutProgress)
+                                    : Color.Lerp(mat.GetColor(shaderComp.ShaderMainColorPropertyName), shaderBurntColor,
+                                        percentageToburnOutEnd * shaderToBurntInterpolateSpeed));
                         }
                         else if (!shaderComp.ShaderMainColorPropertyName.Equals(string.Empty))
                         {
@@ -1260,7 +1271,17 @@ namespace Ignis
 
                         if (mat.HasProperty(shaderComp.ShaderEmissionColorPropertyName))
                         {
-                            mat.SetColor(shaderComp.ShaderEmissionColorPropertyName, Color.Lerp(mat.GetColor(shaderComp.ShaderEmissionColorPropertyName), shaderBurntColor * Mathf.Pow(2, -9), percentageToburnOutEnd * shaderToBurntInterpolateSpeed * shaderEmissionMultiplier));
+                            Color burnoutStartEmission = new Color(
+                                shaderEmissionColor.r * shaderEmissionMultiplier,
+                                shaderEmissionColor.g * shaderEmissionMultiplier,
+                                shaderEmissionColor.b * shaderEmissionMultiplier);
+                            mat.SetColor(
+                                shaderComp.ShaderEmissionColorPropertyName,
+                                _networkVfxSeedConfigured
+                                    ? Color.Lerp(burnoutStartEmission, shaderBurntColor * Mathf.Pow(2, -9), networkBurnoutProgress)
+                                    : Color.Lerp(mat.GetColor(shaderComp.ShaderEmissionColorPropertyName),
+                                        shaderBurntColor * Mathf.Pow(2, -9),
+                                        percentageToburnOutEnd * shaderToBurntInterpolateSpeed * shaderEmissionMultiplier));
                             DynamicGI.SetEmissive(rend, mat.GetColor(shaderComp.ShaderEmissionColorPropertyName));
                         }
                         else if (!shaderComp.ShaderEmissionColorPropertyName.Equals(string.Empty))
@@ -1272,7 +1293,21 @@ namespace Ignis
                         {
                             if (mat.HasProperty(prop.name))
                             {
-                                mat.SetFloat(prop.name, Mathf.MoveTowards(mat.GetFloat(prop.name), prop.targetValue, Time.deltaTime * prop.speedMultiplier));
+                                if (_networkVfxSeedConfigured &&
+                                    originalMaterialValues[mat].originalNameFloatPairs.TryGetValue(prop.name, out float originalValue))
+                                {
+                                    mat.SetFloat(prop.name, Mathf.Lerp(
+                                        originalValue,
+                                        prop.targetValue,
+                                        Mathf.Clamp01(timeSinceBurnOutStart * prop.speedMultiplier)));
+                                }
+                                else
+                                {
+                                    mat.SetFloat(prop.name, Mathf.MoveTowards(
+                                        mat.GetFloat(prop.name),
+                                        prop.targetValue,
+                                        Time.deltaTime * prop.speedMultiplier));
+                                }
                             }
                         }
                     }
@@ -1318,7 +1353,22 @@ namespace Ignis
                         {
                             if (mat.HasProperty(prop.name))
                             {
-                                mat.SetFloat(prop.name, Mathf.MoveTowards(mat.GetFloat(prop.name), prop.targetValue, Time.deltaTime * prop.speedMultiplier));
+                                if (_networkVfxSeedConfigured &&
+                                    originalMaterialValues[mat].originalNameFloatPairs.TryGetValue(prop.name, out float originalValue))
+                                {
+                                    float elapsed = Mathf.Max(0f, onFireTimer);
+                                    mat.SetFloat(prop.name, Mathf.Lerp(
+                                        originalValue,
+                                        prop.targetValue,
+                                        Mathf.Clamp01(elapsed * prop.speedMultiplier)));
+                                }
+                                else
+                                {
+                                    mat.SetFloat(prop.name, Mathf.MoveTowards(
+                                        mat.GetFloat(prop.name),
+                                        prop.targetValue,
+                                        Time.deltaTime * prop.speedMultiplier));
+                                }
                             }
                         }
                     }
@@ -1336,8 +1386,17 @@ namespace Ignis
 
             if (onFireTimer >= burnOutStart_s)
             {
-                mat.SetFloat("Fire_bright",
-                    Mathf.MoveTowards(mat.GetFloat("Fire_bright"), 0, (1 / burnOutLength_s) * Time.deltaTime));
+                if (_networkVfxSeedConfigured)
+                {
+                    float burnoutProgress = Mathf.Clamp01(
+                        (onFireTimer - burnOutStart_s) / Mathf.Max(0.0001f, burnOutLength_s));
+                    mat.SetFloat("Fire_bright", 1f - burnoutProgress);
+                }
+                else
+                {
+                    mat.SetFloat("Fire_bright",
+                        Mathf.MoveTowards(mat.GetFloat("Fire_bright"), 0, (1 / burnOutLength_s) * Time.deltaTime));
+                }
             }
             else
             {
@@ -1751,6 +1810,25 @@ namespace Ignis
         public Vector3 GetFireOrigin()
         {
             return transform.TransformPoint(_fireOriginLocal);
+        }
+
+        /// <summary>
+        /// Applies the shared ignition point after network metadata arrives. The
+        /// point affects shader spread, emitter activation, lights, and TIC heat.
+        /// </summary>
+        public void ApplyNetworkFireOriginLocal(Vector3 localOrigin)
+        {
+            if ((_fireOriginLocal - localOrigin).sqrMagnitude <= 0.00000001f)
+                return;
+
+            _fireOriginLocal = localOrigin;
+
+            if (!onFire)
+                return;
+
+            UpdateShaders();
+            UpdateVFX();
+            UpdateLights();
         }
 
         /// <summary>

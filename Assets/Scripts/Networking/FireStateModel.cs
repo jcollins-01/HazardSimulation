@@ -121,4 +121,16 @@ public partial class FireStateModel
 
     [RealtimeProperty(23, RealtimePropertyType.UnreliableRedundant, true)]
     private double _fireSpreadSampleRoomTime;
+
+    // The local-space ignition point drives shader spread, box-emitter activation,
+    // and the TIC heat origin. A random seed cannot compensate when clients start
+    // the same deterministic particle sequence from different positions.
+    [RealtimeProperty(24, true, true)]
+    private Vector3 _ignitionOriginLocal;
+
+    // Written after every piece of visual ignition metadata. Puppets wait until
+    // this matches ignitionEpoch before constructing the cycle. Keeping the older
+    // ignitionEpoch property ID avoids breaking existing Normcore schema history.
+    [RealtimeProperty(25, true, true)]
+    private int _visualMetadataEpoch;
 }

@@ -148,11 +148,25 @@ public class HazardTemperature : MonoBehaviour
 
         if (isOnFire)
         {
-            timeSinceIgnition += Time.deltaTime;
-            heatSpreadProgress = Mathf.MoveTowards(
-                heatSpreadProgress,
-                1f,
-                Time.deltaTime / Mathf.Max(0.1f, heatSpreadDuration));
+            if (flammableObject != null && flammableObject.onFire)
+            {
+                // NetworkedFireState drives onFireTimer from synchronized room
+                // time on puppets. Deriving TIC progression from it prevents each
+                // headset from starting a separate local heat clock on arrival.
+                timeSinceIgnition = Mathf.Max(0f, flammableObject.onFireTimer);
+                heatSpreadProgress = Mathf.Clamp01(
+                    timeSinceIgnition / Mathf.Max(0.1f, heatSpreadDuration));
+                heatOriginWorld = flammableObject.GetFireOrigin();
+                heatOriginLocal = transform.InverseTransformPoint(heatOriginWorld);
+            }
+            else
+            {
+                timeSinceIgnition += Time.deltaTime;
+                heatSpreadProgress = Mathf.MoveTowards(
+                    heatSpreadProgress,
+                    1f,
+                    Time.deltaTime / Mathf.Max(0.1f, heatSpreadDuration));
+            }
         }
 
         wasOnFire = isOnFire;

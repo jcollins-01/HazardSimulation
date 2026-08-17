@@ -88,12 +88,15 @@ public class FireProfileController : MonoBehaviour
         flammableObject = GetComponent<FlammableObject>();
         collider = GetComponent<BoxCollider>();
         networkedFireState = GetComponent<NetworkedFireState>();
+
+        // FlammableObject can create its fire VFX in Start. Apply the profile in
+        // Awake so every client constructs those emitters with identical constants
+        // regardless of Unity's otherwise-unspecified Start ordering.
+        ApplyProfile();
     }
 
     void Start()
     {
-        ApplyProfile();
-
         // Automatically set up event bindings to allow for a smolder/reignite
         //SetupFlameEvents();
     }
@@ -444,6 +447,15 @@ public class FireProfileController : MonoBehaviour
         //Debug.Log("Spraying at reduced power to artificially maintain fire life.");
         // HP > 100. Nerf the extinguish power so the fire visually shrinks but doesn't easily die.
         return 0.02f;
+    }
+
+    /// <summary>
+    /// Non-mutating profile resistance used by network raycasts and puppet visual
+    /// prediction. Particle collisions remain responsible for reducing temperature.
+    /// </summary>
+    public float GetCurrentExtinguishPowerMultiplier()
+    {
+        return currentTemperature <= 100f ? 1f : 0.02f;
     }
 
     /// <summary>
