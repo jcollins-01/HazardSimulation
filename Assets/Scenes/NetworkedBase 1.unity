@@ -5318,7 +5318,6 @@ GameObject:
   - component: {fileID: 508981383}
   - component: {fileID: 508981382}
   - component: {fileID: 508981381}
-  - component: {fileID: 508981380}
   - component: {fileID: 508981379}
   - component: {fileID: 508981378}
   - component: {fileID: 508981377}
@@ -5402,29 +5401,6 @@ MonoBehaviour:
     component: {fileID: 508981376}
     isDeprecated: 0
   _childViews: []
---- !u!114 &508981380
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 508981375}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f500c74d7ab11794090aaacd1fa8baa9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  direction: {x: 0, y: -1, z: 0}
-  startOffset: {x: 0, y: 0, z: 0}
-  checkFrequency: 10
-  raycastRadius: 0.1
-  radiusIncrement: 0.01
-  maxDist: 3
-  mask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  repeatingRaycast: 1
-  goThroughObjects: 0
 --- !u!114 &508981381
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5442,6 +5418,8 @@ MonoBehaviour:
   maxSprayDistance: 10
   startRadius: 0.5
   radiusIncrementSpeed: 0.5
+  restrictByFireProfile: 1
+  extinguishingProfile: 2
 --- !u!114 &508981382
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14991,7 +14969,6 @@ GameObject:
   - component: {fileID: 942681352}
   - component: {fileID: 942681351}
   - component: {fileID: 942681350}
-  - component: {fileID: 942681353}
   - component: {fileID: 942681355}
   - component: {fileID: 942681354}
   - component: {fileID: 942681356}
@@ -15040,6 +15017,8 @@ MonoBehaviour:
   maxSprayDistance: 10
   startRadius: 0.5
   radiusIncrementSpeed: 0.5
+  restrictByFireProfile: 1
+  extinguishingProfile: 2
 --- !u!114 &942681351
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15189,29 +15168,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &942681353
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 942681345}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f500c74d7ab11794090aaacd1fa8baa9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  direction: {x: 0, y: -1, z: 0}
-  startOffset: {x: 0, y: 0, z: 0}
-  checkFrequency: 10
-  raycastRadius: 0.1
-  radiusIncrement: 0.01
-  maxDist: 3
-  mask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  repeatingRaycast: 1
-  goThroughObjects: 0
 --- !u!114 &942681354
 MonoBehaviour:
   m_ObjectHideFlags: 0
