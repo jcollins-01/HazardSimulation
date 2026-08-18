@@ -44,8 +44,9 @@ namespace Ignis
                 // Default to 100% power if there is no custom profile controller attached
                 float powerMultiplier = 1f;
 
-                // Only extinguish if extinguisher profile matches fire
-                if (profile != null && currentProfile == profile.currentProfile) 
+                // Use the same compatibility rule as network authority raycasts
+                // and local visual prediction.
+                if (profile != null && profile.CanBeExtinguishedBy(currentProfile))
                 {
                     // Ping the controller. If temp > 0, it returns a heavily nerfed multiplier.
                     powerMultiplier = profile.ProcessWaterHit(numCollisionEvents);

@@ -647,6 +647,15 @@ public class FireProfileController : MonoBehaviour
     }
 
     /// <summary>
+    /// Shared compatibility rule for particle collisions, authority raycasts, and
+    /// puppet-side visual prediction.
+    /// </summary>
+    public bool CanBeExtinguishedBy(FireProfile extinguisherProfile)
+    {
+        return currentProfile == extinguisherProfile;
+    }
+
+    /// <summary>
     /// Applies the authoritative runtime profile state on a puppet or immediately
     /// before this client takes over as fire authority.
     /// </summary>

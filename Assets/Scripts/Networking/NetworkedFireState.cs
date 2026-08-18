@@ -696,7 +696,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         for (int i = 0; i < SpraySync.All.Count; i++)
         {
             SpraySync sprayer = SpraySync.All[i];
-            if (sprayer == null || !sprayer.IsSpraying)
+            if (sprayer == null ||
+                !sprayer.IsSpraying ||
+                !sprayer.CanExtinguish(_fireProfileController))
                 continue;
 
             Transform nozzle = sprayer.NozzleTransform;
@@ -994,7 +996,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         for (int i = 0; i < SpraySync.All.Count; i++)
         {
             SpraySync sprayer = SpraySync.All[i];
-            if (sprayer == null || !sprayer.IsLocallyControlledAndSpraying)
+            if (sprayer == null ||
+                !sprayer.IsLocallyControlledAndSpraying ||
+                !sprayer.CanExtinguish(_fireProfileController))
                 continue;
 
             Transform nozzle = sprayer.NozzleTransform;

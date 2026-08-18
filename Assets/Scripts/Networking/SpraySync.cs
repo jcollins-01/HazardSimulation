@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Ignis;
 using Normal.Realtime;
 using UnityEngine;
 
@@ -28,6 +29,7 @@ public class SpraySync : RealtimeComponent<SpraySyncModel>
     public static readonly List<SpraySync> All = new List<SpraySync>();
 
     private Spray _spray;
+    private ParticleExtinguish _particleExtinguish;
 
     // Input latch written by Spray.cs on the owning client only.
     private bool _inputHeld;
@@ -55,11 +57,26 @@ public class SpraySync : RealtimeComponent<SpraySyncModel>
     /// </summary>
     public bool IsLocallyControlledAndSpraying => CanWriteState && _inputHeld;
 
+    /// <summary>
+    /// Uses the extinguishing-agent profile configured on this tool's particle
+    /// system. Tools without that newer configuration retain their legacy universal
+    /// behavior so existing hoses are not silently disabled.
+    /// </summary>
+    public bool CanExtinguish(FireProfileController fireProfile)
+    {
+        return fireProfile == null ||
+            _particleExtinguish == null ||
+            fireProfile.CanBeExtinguishedBy(_particleExtinguish.currentProfile);
+    }
+
     private void Awake()
     {
         _spray = GetComponent<Spray>();
         if (sprayParticles == null && _spray != null)
             sprayParticles = _spray.WaterParticles;
+
+        if (sprayParticles != null)
+            _particleExtinguish = sprayParticles.GetComponent<ParticleExtinguish>();
     }
 
     private void OnEnable()
