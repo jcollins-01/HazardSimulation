@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using Ignis;
 
 /// <summary>
 /// Reads the XR trigger on the client that currently holds this hose / extinguisher
@@ -27,6 +28,11 @@ public class Spray : MonoBehaviour
     [SerializeField] private float startRadius = 0.5f;
     [SerializeField] private float radiusIncrementSpeed = 0.5f;
 
+    [Header("Fire Compatibility")]
+    [Tooltip("When enabled, this tool only extinguishes fires using the selected combined behavior/type profile.")]
+    [SerializeField] private bool restrictByFireProfile;
+    [SerializeField] private FireProfileController.FireProfile extinguishingProfile = FireProfileController.FireProfile.ClassA;
+
     private XRGrabInteractable grabInteractable;
     private SpraySync spraySync;
 
@@ -37,6 +43,15 @@ public class Spray : MonoBehaviour
     public float MaxSprayDistance => maxSprayDistance;
     public float StartRadius => startRadius;
     public float RadiusIncrementSpeed => radiusIncrementSpeed;
+    public bool RestrictsByFireProfile => restrictByFireProfile;
+    public FireProfileController.FireProfile ExtinguishingProfile => extinguishingProfile;
+
+    public bool CanExtinguish(FireProfileController fireProfile)
+    {
+        return fireProfile == null ||
+            !restrictByFireProfile ||
+            fireProfile.CanBeExtinguishedBy(extinguishingProfile);
+    }
 
     void Start()
     {

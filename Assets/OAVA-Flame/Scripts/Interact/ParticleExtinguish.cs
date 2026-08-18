@@ -18,11 +18,15 @@ namespace Ignis
 
         private ParticleSystem part;
         private List<ParticleCollisionEvent> collisionEvents;
+        private Spray parentSpray;
+        private SpraySync parentSpraySync;
 
         void Start()
         {
             part = GetComponent<ParticleSystem>();
             collisionEvents = new List<ParticleCollisionEvent>();
+            parentSpray = GetComponentInParent<Spray>();
+            parentSpraySync = GetComponentInParent<SpraySync>();
         }
 
         void OnParticleCollision(GameObject other)
@@ -44,12 +48,29 @@ namespace Ignis
                 // Default to 100% power if there is no custom profile controller attached
                 float powerMultiplier = 1f;
 
+                bool compatible = profile != null && (parentSpray != null
+                    ? parentSpray.CanExtinguish(profile)
+                    : profile.CanBeExtinguishedBy(currentProfile));
+
                 // Use the same compatibility rule as network authority raycasts
                 // and local visual prediction.
-                if (profile != null && profile.CanBeExtinguishedBy(currentProfile))
+                if (compatible)
                 {
                     // Ping the controller. If temp > 0, it returns a heavily nerfed multiplier.
                     powerMultiplier = profile.ProcessWaterHit(numCollisionEvents);
+
+                    // A networked fire advances its extinguish area once, on its
+                    // authority, through NetworkedFireState.ApplySprayHits(). Particle
+                    // collisions still drive the profile's temperature mechanic, but
+                    // must not apply a second copy of the extinguish-area change.
+                    bool centralizedNetworkExtinguish = parentSpraySync != null &&
+                        flamObj.GetComponent<NetworkedFireState>() != null;
+                    if (centralizedNetworkExtinguish)
+                    {
+                        if (powerMultiplier == 1f)
+                            profile.readyForSmolder = true;
+                        return;
+                    }
 
                     int i = 0;
                     while (i < numCollisionEvents)

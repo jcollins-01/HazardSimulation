@@ -58,12 +58,15 @@ public class SpraySync : RealtimeComponent<SpraySyncModel>
     public bool IsLocallyControlledAndSpraying => CanWriteState && _inputHeld;
 
     /// <summary>
-    /// Uses the extinguishing-agent profile configured on this tool's particle
-    /// system. Tools without that newer configuration retain their legacy universal
-    /// behavior so existing hoses are not silently disabled.
+    /// Uses the root Spray configuration when available, so the compatibility setting
+    /// is visible beside the rest of the tool settings. The particle component is a
+    /// fallback for older standalone tools.
     /// </summary>
     public bool CanExtinguish(FireProfileController fireProfile)
     {
+        if (_spray != null)
+            return _spray.CanExtinguish(fireProfile);
+
         return fireProfile == null ||
             _particleExtinguish == null ||
             fireProfile.CanBeExtinguishedBy(_particleExtinguish.currentProfile);
