@@ -7,6 +7,8 @@ namespace Ignis
 {
     public class ParticleExtinguish : MonoBehaviour
     {
+        [Tooltip("Select the desired fire profiles these particles can extinquish")]
+        public FireProfileController.FireProfile currentProfile = FireProfileController.FireProfile.ClassA;
 
         [Tooltip("How large area can one particle extinquish")]
         public float particleExtinquishRadius = 0.1f;
@@ -42,34 +44,36 @@ namespace Ignis
                 // Default to 100% power if there is no custom profile controller attached
                 float powerMultiplier = 1f;
 
-                if (profile != null)
+                // Only extinguish if extinguisher profile matches fire
+                if (profile != null && currentProfile == profile.currentProfile) 
                 {
                     // Ping the controller. If temp > 0, it returns a heavily nerfed multiplier.
                     powerMultiplier = profile.ProcessWaterHit(numCollisionEvents);
-                }
 
-                int i = 0;
-                while (i < numCollisionEvents)
-                {
-                    Vector3 pos = collisionEvents[i].intersection;
-
-                    // Apply the multiplier to BOTH the starting radius and the increment
-                    float effectiveRadius = particleExtinquishRadius * powerMultiplier;
-                    float effectiveIncrement = incrementalPower * powerMultiplier;
-
-                    // Only process the visual extinguish if the fire is taking damage
-                    if (powerMultiplier > 0f)
+                    int i = 0;
+                    while (i < numCollisionEvents)
                     {
-                        flamObj.IncrementalExtinguish(pos, effectiveRadius, effectiveIncrement);
-                        if (powerMultiplier == 1f && profile != null)
+                        Vector3 pos = collisionEvents[i].intersection;
+
+                        // Apply the multiplier to BOTH the starting radius and the increment
+                        float effectiveRadius = particleExtinquishRadius * powerMultiplier;
+                        float effectiveIncrement = incrementalPower * powerMultiplier;
+
+                        // Only process the visual extinguish if the fire is taking damage
+                        if (powerMultiplier > 0f)
                         {
-                            Debug.Log("Calling incremental extinguish for final extinguish at full power");
-                            // Notify the profile that the final extinguish phase has started
-                            profile.readyForSmolder = true;
+                            flamObj.IncrementalExtinguish(pos, effectiveRadius, effectiveIncrement);
+                            if (powerMultiplier == 1f && profile != null)
+                            {
+                                Debug.Log("Calling incremental extinguish for final extinguish at full power");
+                                // Notify the profile that the final extinguish phase has started
+                                profile.readyForSmolder = true;
+                            }
                         }
+                        i++;
                     }
-                    i++;
                 }
+                
             }
         }
     }
