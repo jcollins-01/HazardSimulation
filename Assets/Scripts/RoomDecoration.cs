@@ -4,9 +4,11 @@ using System.Linq;
 
 public class RoomDecoration : MonoBehaviour
 {
+    #region Decor Settings
     [Header("Decoration Settings")]
     [Range(0f, 1f)]
     public float clutterAmount = 0.1f;
+    public HazardTagging hazardTagging;
 
     [Header("Floor Materials")]
     public Material tileMaterial;
@@ -92,8 +94,9 @@ public class RoomDecoration : MonoBehaviour
         painting2Prefab = Resources.Load<GameObject>("Interior Prefabs/Painting2");
         painting3Prefab = Resources.Load<GameObject>("Interior Prefabs/Painting3");
     }
+    #endregion
 
-    public void DecorateRooms(List<RoomGeneration.RoomData> rooms)
+    public void DecorateRooms(List<RoomGeneration.RoomData> rooms, GameObject house)
     {
         if (rooms == null || rooms.Count == 0) return;
 
@@ -116,6 +119,10 @@ public class RoomDecoration : MonoBehaviour
             DecorateSpecificRoom(room, room.RoomType);
             SpawnPaintingsForRoom(room);
         }
+
+        // Once decor is spawned, trigger the hazard assignment
+        if (hazardTagging != null)
+            hazardTagging.ProcessRoomHazards(house);
     }
 
     private void ClearAllDecoration(List<RoomGeneration.RoomData> rooms)
@@ -783,7 +790,7 @@ public class RoomDecoration : MonoBehaviour
             RoomGeneration gen = GetComponent<RoomGeneration>();
             if (gen != null && gen.allGeneratedRooms != null)
             {
-                DecorateRooms(gen.allGeneratedRooms);
+                DecorateRooms(gen.allGeneratedRooms, gen.houseParent);
             }
         }
     }

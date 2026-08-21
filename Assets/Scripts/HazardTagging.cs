@@ -16,12 +16,27 @@ public class HazardTagging : MonoBehaviour
     [Tooltip("Drag the parent room object here. All children will be evaluated.")]
     public GameObject hazardRoom;
 
+    [Header("Fire Starter Filters")]
+    [Tooltip("Only objects containing these names will be eligible for upgrade to Active Hazard in the auto-assigning.")]
+    public List<string> fireStarterKeywords = new List<string>
+    {
+        "TV", "Fridge+Oven", "Stove", "Lamp", "Small Lamp", "Wall Lamp"
+    };
+
     [Header("Hazard Tracking")]
     [Tooltip("Tracks all specific objects that could potentially be hazards.")]
     public List<GameObject> possibleHazards = new List<GameObject>();
 
     [Tooltip("Tracks the specific objects that have been assigned as active hazards.")]
     public List<GameObject> activeHazards = new List<GameObject>();
+
+    // The RoomDecoration script calls this after decor spawning finishes
+    public void ProcessRoomHazards(GameObject house)
+    {
+        Debug.Log("Trying to do the tagging");
+        RunAutoTagging(house);
+        AssignActiveHazards();
+    }
 
     // Called by the hazard controller when an object is touched / made active
     public void CheckHazardStatus(Dictionary<GameObject, Material> hazards)
@@ -42,12 +57,19 @@ public class HazardTagging : MonoBehaviour
     }
 
     // Scans the hazardRoom and automatically applies 'Possible Hazard' tags to all children
-    public void RunAutoTagging()
+    public void RunAutoTagging(GameObject houseRoom = null)
     {
         if (hazardRoom == null)
         {
-            Debug.LogWarning("HazardTagging: Please assign a Hazard Room!");
-            return;
+            if (houseRoom == null)
+            {
+                Debug.LogWarning("HazardTagging: Please assign a Hazard Room!");
+                return;
+            }
+            else
+            {
+                hazardRoom = houseRoom;
+            }       
         }
 
 #if UNITY_EDITOR
@@ -127,30 +149,50 @@ public class HazardTagging : MonoBehaviour
 
     private void PickRandomHazards()
     {
-        // Pick 1 to 3 items
-        // Only pick new active hazards if we have possible hazards to pick from
-        if (possibleHazards.Count > 0)
+        // Filter possible hazards to only include objects matching fire starter keywords
+        List<GameObject> eligibleCandidates = possibleHazards.FindAll(obj => IsFireStarterCandidate(obj));
+
+        if (eligibleCandidates.Count == 0)
         {
-            int itemsToActivate = Random.Range(1, 4); // Exclusive max, so 4 = 1, 2, or 3
-            itemsToActivate = Mathf.Min(itemsToActivate, possibleHazards.Count);
+            Debug.LogWarning("HazardTagging: No spawned objects matched the fire starter criteria to activate!");
+            return;
+        }
 
-            for (int i = 0; i < itemsToActivate; i++)
-            {
-                int randomIndex = Random.Range(0, possibleHazards.Count);
-                GameObject chosenItem = possibleHazards[randomIndex];
+        // Pick 1 to 3 items from eligible fire starters
+        int itemsToActivate = Random.Range(1, 4); // Exclusive max, so 4 = 1, 2, or 3
+        itemsToActivate = Mathf.Min(itemsToActivate, eligibleCandidates.Count);
 
-                // Escalate
-                chosenItem.tag = "Active Hazard";
-                activeHazards.Add(chosenItem);
-                possibleHazards.RemoveAt(randomIndex);
+        for (int i = 0; i < itemsToActivate; i++)
+        {
+            int randomIndex = Random.Range(0, eligibleCandidates.Count);
+            GameObject chosenItem = eligibleCandidates[randomIndex];
 
-                Debug.Log($"HazardTagging: {chosenItem.name} has been activated as an ACTIVE HAZARD!");
+            // Escalate tag
+            chosenItem.tag = "Active Hazard";
+            activeHazards.Add(chosenItem);
+            possibleHazards.Remove(chosenItem);
+            eligibleCandidates.RemoveAt(randomIndex); // Prevent double-picking
+
+            Debug.Log($"HazardTagging: {chosenItem.name} has been activated as an ACTIVE HAZARD!");
 
 #if UNITY_EDITOR
-                EditorUtility.SetDirty(chosenItem);
+            EditorUtility.SetDirty(chosenItem);
 #endif
+        }
+    }
+
+    private bool IsFireStarterCandidate(GameObject obj)
+    {
+        if (obj == null) return false;
+
+        foreach (string keyword in fireStarterKeywords)
+        {
+            if (obj.name.IndexOf(keyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
             }
         }
+        return false;
     }
 
     // Demotes all current Active Hazards back to Possible Hazards

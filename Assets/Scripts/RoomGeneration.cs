@@ -129,6 +129,7 @@ public class RoomGeneration : MonoBehaviour
     // Vars to handle toggling roof transparency
     private bool lastTransparencyState = false; // To ensure we only change roof materials once when converting them to and from transparency
     private List<GameObject> allRoomRoofs = new List<GameObject>(); // To hold all roofs generated and make them transparent later
+    public GameObject houseParent;
 
     // Simple class to track where rooms ended up
     private class PlacedRoom
@@ -451,7 +452,7 @@ public class RoomGeneration : MonoBehaviour
         Random.InitState(currentSeed);
 
         // Create a master House parent to hold the layout in
-        GameObject houseParent = new GameObject("House");
+        houseParent = new GameObject("House");
         houseParent.transform.SetParent(this.transform);
         houseParent.transform.localPosition = Vector3.zero;
 
@@ -666,7 +667,7 @@ public class RoomGeneration : MonoBehaviour
         // Decorate the house after it has been fully generated
         RoomDecoration decorator = GetComponent<RoomDecoration>();
         if (decorator != null)
-            decorator.DecorateRooms(allGeneratedRooms);
+            decorator.DecorateRooms(allGeneratedRooms, houseParent);
     }
     #endregion
 
