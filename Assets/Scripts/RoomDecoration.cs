@@ -37,9 +37,17 @@ public class RoomDecoration : MonoBehaviour
     public GameObject rug3Prefab;
     public GameObject longDresserPrefab;
     public GameObject tallDresserPrefab;
+
+    [Header("Lighting & Small Decor")]
     public GameObject lampPrefab;
     public GameObject smallLampPrefab;
     public GameObject wallLampPrefab;
+    public GameObject vasePrefab;
+
+    [Header("Wall Art")]
+    public GameObject painting1Prefab;
+    public GameObject painting2Prefab;
+    public GameObject painting3Prefab;
 
     [HideInInspector]
     public bool defaultsLoaded = false;
@@ -67,14 +75,22 @@ public class RoomDecoration : MonoBehaviour
         chairPrefab = Resources.Load<GameObject>("Interior Prefabs/Chair");
         sideTablePrefab = Resources.Load<GameObject>("Interior Prefabs/Small Table");
         shelfPrefab = Resources.Load<GameObject>("Interior Prefabs/Shelf");
+
         lampPrefab = Resources.Load<GameObject>("Interior Prefabs/Lamp");
+        smallLampPrefab = Resources.Load<GameObject>("Interior Prefabs/Small Lamp");
+        wallLampPrefab = Resources.Load<GameObject>("Interior Prefabs/Wall Lamp");
+        vasePrefab = Resources.Load<GameObject>("Interior Prefabs/Vase");
+
         rug1Prefab = Resources.Load<GameObject>("Interior Prefabs/Rug1");
         rug2Prefab = Resources.Load<GameObject>("Interior Prefabs/Rug2");
         rug3Prefab = Resources.Load<GameObject>("Interior Prefabs/Rug3");
+
         longDresserPrefab = Resources.Load<GameObject>("Interior Prefabs/Long Dresser");
         tallDresserPrefab = Resources.Load<GameObject>("Interior Prefabs/Tall Dresser");
-        smallLampPrefab = Resources.Load<GameObject>("Interior Prefabs/Small Lamp");
-        wallLampPrefab = Resources.Load<GameObject>("Interior Prefabs/Wall Lamp");
+
+        painting1Prefab = Resources.Load<GameObject>("Interior Prefabs/Painting1");
+        painting2Prefab = Resources.Load<GameObject>("Interior Prefabs/Painting2");
+        painting3Prefab = Resources.Load<GameObject>("Interior Prefabs/Painting3");
     }
 
     public void DecorateRooms(List<RoomGeneration.RoomData> rooms)
@@ -98,6 +114,7 @@ public class RoomDecoration : MonoBehaviour
 
             ApplyFloorMaterial(room, room.RoomType, isCarpetHouse);
             DecorateSpecificRoom(room, room.RoomType);
+            SpawnPaintingsForRoom(room);
         }
     }
 
@@ -183,7 +200,7 @@ public class RoomDecoration : MonoBehaviour
             {
                 successfulEdge = edge;
 
-                // IMPORTANT: Remove the edge so the next item doesn't spawn perfectly inside this one!
+                // IMPORTANT: Remove the edge so the next item doesn't spawn perfectly inside this one
                 edges.RemoveAt(i);
 
                 return spawnedInstance;
@@ -261,46 +278,34 @@ public class RoomDecoration : MonoBehaviour
         List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
         ShuffleList(edges);
 
-        // Fallback to a regular table if the long dresser is missing
         GameObject tvStandPrefab = longDresserPrefab != null ? longDresserPrefab : tablePrefab;
-
-        // Spawn the TV Stand against a wall
         GameObject spawnedStand = TrySpawnOnAnyEdge(tvStandPrefab, edges, room.RoomObject.transform, room.Tiles, out var standEdge);
 
         if (spawnedStand != null)
         {
-            // Attach the TV on top of the Stand
             if (tvPrefab != null)
             {
                 SpawnOnSurface(tvPrefab, spawnedStand);
             }
 
-            // Spawn the couch
             if (couchPrefab != null)
             {
                 Vector2Int forwardDir = new Vector2Int(Mathf.RoundToInt(standEdge.forward.x), Mathf.RoundToInt(standEdge.forward.z));
-
-                // Move 2 tiles out into the room from the TV stand
                 Vector2Int sofaTile = standEdge.tile + (forwardDir * 2);
 
                 if (room.Tiles.Contains(sofaTile))
                 {
-                    // Flip the couch rotation so it faces the TV
                     Vector3 sofaForward = -standEdge.forward;
 
                     if (SpawnFurniture(couchPrefab, sofaTile, sofaForward, room.RoomObject.transform, room.Tiles) != null)
                     {
-                        // Chance to spawn a coffee table between the TV and Couch
                         if (Random.value <= clutterAmount && tablePrefab != null)
                         {
                             Vector2Int tableTile = standEdge.tile + forwardDir;
                             if (room.Tiles.Contains(tableTile))
                             {
-                                GameObject table = SpawnFurniture(tablePrefab, tableTile, standEdge.forward, room.RoomObject.transform, room.Tiles);
-                                if (table != null && smallLampPrefab != null && Random.value <= clutterAmount)
-                                {
-                                    SpawnOnSurface(smallLampPrefab, table);
-                                }
+                                SpawnFurniture(tablePrefab, tableTile, standEdge.forward, room.RoomObject.transform, room.Tiles);
+                                // Purposely leaving the regular table clear of items
                             }
                         }
                     }
@@ -364,9 +369,15 @@ public class RoomDecoration : MonoBehaviour
         {
             GameObject sideTable = TrySpawnOnAnyEdge(sideTablePrefab, edges, room.RoomObject.transform, room.Tiles, out _);
 
-            if (sideTable != null && smallLampPrefab != null && Random.value <= clutterAmount)
+            if (sideTable != null && Random.value <= clutterAmount)
             {
-                SpawnOnSurface(smallLampPrefab, sideTable);
+                // Grab whichever of these are populated in the inspector and pick one randomly
+                GameObject[] possibleDecor = new GameObject[] { smallLampPrefab, vasePrefab }.Where(x => x != null).ToArray();
+                if (possibleDecor.Length > 0)
+                {
+                    GameObject chosenDecor = possibleDecor[Random.Range(0, possibleDecor.Length)];
+                    SpawnOnSurface(chosenDecor, sideTable);
+                }
             }
         }
 
@@ -381,7 +392,6 @@ public class RoomDecoration : MonoBehaviour
                     var edge = edges[randIdx];
                     if (SpawnWallItem(wallLampPrefab, edge.tile, edge.forward, room.RoomObject.transform))
                     {
-                        // Remove the edge so wall lamps don't stack on top of each other
                         edges.RemoveAt(randIdx);
                     }
                 }
@@ -397,11 +407,7 @@ public class RoomDecoration : MonoBehaviour
             Vector3 centerPos = new Vector3(centerTile.x, 0, centerTile.y);
             GameObject table = Instantiate(tablePrefab, centerPos, Quaternion.identity, room.RoomObject.transform);
             AddFireProfileCollider(table);
-
-            if (smallLampPrefab != null && Random.value <= clutterAmount)
-            {
-                SpawnOnSurface(smallLampPrefab, table);
-            }
+            // Purposely leaving the regular table clear of items
         }
 
         if (Random.value <= clutterAmount)
@@ -427,24 +433,47 @@ public class RoomDecoration : MonoBehaviour
         SpawnFurniture(chosenRug, center, Vector3.forward, room.RoomObject.transform, room.Tiles);
     }
 
+    private void SpawnPaintingsForRoom(RoomGeneration.RoomData room)
+    {
+        /*GameObject[] paintings = { painting1Prefab, painting2Prefab, painting3Prefab };
+        var validPaintings = paintings.Where(p => p != null).ToArray();
+        if (validPaintings.Length == 0) return;
+
+        List<(Vector2Int tile, Vector3 forward)> edges = GetRoomEdges(room.Tiles);
+        ShuffleList(edges);
+
+        // Spawn 1 to 2 paintings per room
+        int paintingCount = Random.Range(1, 3);
+        for (int i = 0; i < paintingCount; i++)
+        {
+            if (edges.Count == 0) break;
+
+            int randIdx = Random.Range(0, edges.Count);
+            var edge = edges[randIdx];
+            GameObject chosenPainting = validPaintings[Random.Range(0, validPaintings.Length)];
+
+            // SpawnWallItem already checks for overlaps with tall furniture
+            if (SpawnWallItem(chosenPainting, edge.tile, edge.forward, room.RoomObject.transform))
+            {
+                // Prevent multiple paintings or wall fixtures sharing the exact same tile
+                edges.RemoveAt(randIdx);
+            }
+        }*/
+    }
+
     #endregion
 
     #region Core Physics and Spawn Helpers
 
     private bool IsWallSolid(Vector2Int tile, Vector3 forward)
     {
-        // Start the raycast 1 meter up from the tile's center
         Vector3 rayStart = new Vector3(tile.x, 1f, tile.y);
 
-        // Cast a short 1-unit ray directly backwards into where the wall SHOULD be.
-        // If there's an open doorway (hole), the ray will hit nothing. 
         if (Physics.Raycast(rayStart, -forward, out RaycastHit hit, 1.0f))
         {
-            // Just in case it hits an actual door prop or window prop
             if (hit.collider.name.Contains("Door") || hit.collider.name.Contains("Window"))
                 return false;
 
-            // Make sure we didn't just hit a piece of furniture sitting in the next room
             if (((1 << hit.collider.gameObject.layer) & LayerMask.GetMask("Furniture")) != 0)
                 return false;
 
@@ -495,7 +524,6 @@ public class RoomDecoration : MonoBehaviour
     {
         if (prefab == null) return false;
 
-        // Prevent wall lamps from spawning in open doorways
         if (!IsWallSolid(tile, forward)) return false;
 
         Vector3 pos = new Vector3(tile.x, height, tile.y);
@@ -512,7 +540,6 @@ public class RoomDecoration : MonoBehaviour
             float requiredZOffset = -0.5f - localBackZ + padding;
             instance.transform.position += forward * requiredZOffset;
 
-            // Ensure the wall item doesn't clip into tall furniture (like fridges)
             Collider[] allColliders = instance.GetComponentsInChildren<Collider>();
             foreach (Collider col in allColliders) col.enabled = false;
 
@@ -658,8 +685,6 @@ public class RoomDecoration : MonoBehaviour
 
             foreach (Collider col in allColliders) col.enabled = true;
 
-            // Shrink the checking bounds so that items flush against the wall 
-            // don't mathematically spill into out-of-bounds tiles.
             Vector3 coreExtents = checkExtents * 0.5f;
 
             Vector3[] localCorners = {
