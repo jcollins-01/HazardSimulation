@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_bed_blue
+  m_Shader: {fileID: -6465566751694194690, guid: fd602d7d0241a3745a8ee28c90894811, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 2
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses:
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _SampleTexture2D_573ecf11c64947eab61c487b00d69486_Texture_1_Texture2D:
+        m_Texture: {fileID: 2800000, guid: 85dc7774d7508954981ed94442bf8e70, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SampleTexture2D_794b4cf397d54f90863741e7fc8b81c0_Texture_1_Texture2D:
+        m_Texture: {fileID: 2800000, guid: 9986ba58ae307264e964c6142a8a29b4, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SampleTexture2D_bcde523bf4f64ee79520470350b2ec5d_Texture_1_Texture2D:
+        m_Texture: {fileID: 2800000, guid: aef0401e1b0a0f444a3ba9196781c816, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Wood_Texture:
+        m_Texture: {fileID: 2800000, guid: 5d07b2112a908964cb2c0474b9f2514d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Bed_Frame_Metallic: 0
+    - _Bed_Frame_Smoothness: 0.5
+    - _Blanket_Smoothness: 0
+    - _QueueControl: 0
+    - _QueueOffset: 0
+    - _Sheet_Smoothness: 0
+    - _Wood_Bed_Frame: 1
+    - _bed_frame_metallic: 1
+    - _bed_frame_smoothness: 0.5
+    - _blanket_smoothness: 0
+    - _normals: 10
+    - _sheet_smoothness: 0
+    m_Colors:
+    - _Bed_Frame_Color: {r: 0.9811321, g: 0.9811321, b: 0.9811321, a: 1}
+    - _Blanket_Color: {r: 0.23736204, g: 0.3962264, b: 0.38232577, a: 1}
+    - _Sheet_Color: {r: 0.5058824, g: 0.81960785, b: 0.7921569, a: 1}
+    - _bed_frame_color: {r: 0, g: 0, b: 0, a: 1}
+    - _blanket_color: {r: 0.28128338, g: 0.46226418, b: 0.44910195, a: 1}
+    - _sheet_color: {r: 0.5058824, g: 0.81960785, b: 0.7921569, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
+--- !u!114 &3865398473559408730
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Editor::UnityEditor.Rendering.Universal.AssetVersion
+  version: 10
