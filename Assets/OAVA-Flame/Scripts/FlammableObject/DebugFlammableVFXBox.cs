@@ -210,7 +210,7 @@ namespace Ignis
         {
             //Customization
             fireEffect.SetFloat("FireParticleMultiplier", FlameEngine.instance.globalFireVFXMultiplier);
-            fireEffect.SetFloat("FireVFXMultiplier", flam.flameVFXMultiplier);
+            fireEffect.SetFloat("FireVFXMultiplier", flam.flameVFXMultiplier * flam.flameVisibilityMultiplier);
             fireEffect.SetFloat("FlameLength", flam.flameLength / 4);
             fireEffect.SetFloat("FlameSpeed", flam.flameEnvironmentalSpeed);
             fireEffect.SetFloat("FlameLiveliness", flam.flameLiveliness);
