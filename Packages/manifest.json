@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.atteneder.gltfast": "https://github.com/atteneder/glTFast.git",
     "com.normalvr.normcore": "3.5.1",
     "com.unity.ai.navigation": "2.0.9",
     "com.unity.animation.rigging": "1.4.1",

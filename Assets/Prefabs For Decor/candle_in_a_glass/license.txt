@@ -1,0 +1,11 @@
+Model Information:
+* title:	Candle in a glass
+* source:	https://sketchfab.com/3d-models/candle-in-a-glass-ec6cf358c4dd4cbda7be67f7846cbc9e
+* author:	lucatorcigliani (https://sketchfab.com/lucatorcigliani)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Candle in a glass" (https://sketchfab.com/3d-models/candle-in-a-glass-ec6cf358c4dd4cbda7be67f7846cbc9e) by lucatorcigliani (https://sketchfab.com/lucatorcigliani) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
