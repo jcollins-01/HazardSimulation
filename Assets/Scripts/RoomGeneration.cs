@@ -149,6 +149,26 @@ public class RoomGeneration : MonoBehaviour
     [HideInInspector]
     public List<RoomData> allGeneratedRooms = new List<RoomData>();
 
+    public bool TryGetRoomInteriorReference(Transform child, out Vector3 interiorReference)
+    {
+        foreach (RoomData room in allGeneratedRooms)
+        {
+            if (room?.RoomObject == null || room.Tiles == null || room.Tiles.Count == 0 ||
+                (child != room.RoomObject.transform && !child.IsChildOf(room.RoomObject.transform)))
+            {
+                continue;
+            }
+
+            float x = (float)room.Tiles.Average(tile => tile.x);
+            float z = (float)room.Tiles.Average(tile => tile.y);
+            interiorReference = new Vector3(x, child.position.y, z);
+            return true;
+        }
+
+        interiorReference = default;
+        return false;
+    }
+
     #endregion
 
     #region Presets and Restorations

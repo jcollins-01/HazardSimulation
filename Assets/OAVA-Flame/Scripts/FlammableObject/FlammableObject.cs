@@ -107,6 +107,10 @@ namespace Ignis
         [Tooltip("Shader Burnt color. Only applies to non-ignis shaders")]
         public Color shaderBurntColor = new Color(0.2f, 0.2f, 0.2f);
 
+        [Range(0f, 0.75f)]
+        [Tooltip("Maximum amount that non-Ignis materials darken after burning. The darkening is based on each material's original color and remains after the fire.")]
+        public float maximumBurnDarkening = 0.5f;
+
         [Tooltip("How fast shader changes to the burnt color? Lerp percentage multiplier.")]
         [Range(0, 10)]
         public float shaderToBurntInterpolateSpeed = 0.03f;
@@ -214,6 +218,10 @@ namespace Ignis
         [Range(0, 10)]
         [Tooltip("Final multiplier is calculated from local multiplier * global multiplier (FlameEngine)")]
         public float flameVFXMultiplier = 1;
+
+        [Range(0.25f, 1f)]
+        [Tooltip("Reduces flame particle density for better visibility without changing fire strength or gameplay.")]
+        public float flameVisibilityMultiplier = 1f;
 
         [HideInInspector]
         public bool onFire = false;
@@ -355,18 +363,7 @@ namespace Ignis
 
                 if (!customFireOriginOnStart)
                 {
-                    if (gameObject.GetComponentInChildren<Renderer>())
-                    {
-                        TryToSetOnFire(gameObject.GetComponentInChildren<Renderer>().bounds.min, 1);
-                    }
-                    else if (gameObject.GetComponentInChildren<BoxCollider>())
-                    {
-                        TryToSetOnFire(gameObject.GetComponentInChildren<BoxCollider>().bounds.min, 1);
-                    }
-                    else
-                    {
-                        TryToSetOnFire(gameObject.transform.position, 1);
-                    }
+                    TryToSetOnFire(GetAutomaticFireOrigin(), 1);
                 }
                 else
                 {
@@ -430,12 +427,14 @@ namespace Ignis
                         {
                             curBackSpreadCoolDown_s -= Time.deltaTime;
                         }
-                        UpdateShaders();
-
                         UpdateVFX();
 
                         UpdateLights();
                     }
+
+                    // Material damage is time-based, so it must keep progressing even
+                    // after the physical fire spread has reached its maximum radius.
+                    UpdateShaders();
 
                     if (onFireTimer > burnOutStart_s + burnOutLength_s)
                     {
@@ -617,6 +616,68 @@ namespace Ignis
                 currentIgnitionProgress_s = 0f;
                 currentIgnitionCoolingCooldown_s = 0f;
             }
+        }
+
+        private Vector3 GetAutomaticFireOrigin()
+        {
+            Camera mainCamera = Camera.main;
+            RoomGeneration roomGeneration = FindFirstObjectByType<RoomGeneration>();
+            Vector3 interiorReference = transform.position;
+            bool hasInteriorReference = roomGeneration != null &&
+                                        roomGeneration.TryGetRoomInteriorReference(transform, out interiorReference);
+            if (!hasInteriorReference && mainCamera != null)
+            {
+                interiorReference = mainCamera.transform.position;
+                hasInteriorReference = true;
+            }
+            else if (!hasInteriorReference)
+            {
+                interiorReference = transform.position;
+            }
+
+            BoxCollider[] boxes = flammableColliders.Count > 0
+                ? flammableColliders.Where(box => box != null).ToArray()
+                : GetComponentsInChildren<BoxCollider>();
+
+            if (boxes.Length > 0)
+            {
+                if (!hasInteriorReference)
+                {
+                    Bounds bounds = boxes[0].bounds;
+                    return new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
+                }
+
+                BoxCollider closestBox = boxes[0];
+                Vector3 closestPoint = closestBox.ClosestPoint(interiorReference);
+                float closestDistance = (closestPoint - interiorReference).sqrMagnitude;
+
+                for (int i = 1; i < boxes.Length; i++)
+                {
+                    Vector3 point = boxes[i].ClosestPoint(interiorReference);
+                    float distance = (point - interiorReference).sqrMagnitude;
+                    if (distance < closestDistance)
+                    {
+                        closestBox = boxes[i];
+                        closestPoint = point;
+                        closestDistance = distance;
+                    }
+                }
+
+                if (IsWallCollider(closestBox, closestBox.size))
+                    return closestPoint;
+
+                Vector3 topCenter = closestBox.center + Vector3.up * (closestBox.size.y * 0.5f);
+                return closestBox.transform.TransformPoint(topCenter);
+            }
+
+            Renderer objectRenderer = GetComponentInChildren<Renderer>();
+            if (objectRenderer != null)
+            {
+                Bounds bounds = objectRenderer.bounds;
+                return new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
+            }
+
+            return transform.position;
         }
 
         /// <summary>
@@ -1237,6 +1298,32 @@ namespace Ignis
             UpdateCompatibleShaders(mat, rend);
         }
 
+        private float GetBurnDarkening()
+        {
+            float preBurnDuration = Mathf.Max(0.01f, Mathf.Max(achieveMaxBrightness_s, burnOutStart_s));
+            float preBurnProgress = Mathf.Clamp01(onFireTimer / preBurnDuration);
+            float darkeningBeforeBurnout = maximumBurnDarkening * 0.65f * preBurnProgress;
+
+            if (onFireTimer <= burnOutStart_s)
+                return darkeningBeforeBurnout;
+
+            float burnoutProgress = Mathf.Clamp01(
+                (onFireTimer - burnOutStart_s) / Mathf.Max(0.01f, burnOutLength_s));
+            float darkeningAtBurnoutStart = maximumBurnDarkening * 0.65f *
+                                            Mathf.Clamp01(burnOutStart_s / preBurnDuration);
+            return Mathf.Lerp(darkeningAtBurnoutStart, maximumBurnDarkening, burnoutProgress);
+        }
+
+        private static Color DarkenOriginalColor(Color original, float amount)
+        {
+            float multiplier = 1f - Mathf.Clamp01(amount);
+            return new Color(
+                original.r * multiplier,
+                original.g * multiplier,
+                original.b * multiplier,
+                original.a);
+        }
+
         private void UpdateCompatibleShaders(Material mat, Renderer rend)
         {
             List<OAVAShaderCompatibilitySO> compShaders = FlameEngine.instance.GetCompatibleShaders();
@@ -1249,20 +1336,12 @@ namespace Ignis
                     {
                         float timeSinceBurnOutStart = onFireTimer - burnOutStart_s;
                         float percentageToburnOutEnd = timeSinceBurnOutStart / (burnOutLength_s);
-                        float networkBurnoutProgress = Mathf.Clamp01(
-                            percentageToburnOutEnd * shaderToBurntInterpolateSpeed);
+                        float burnDarkening = GetBurnDarkening();
                         if (mat.HasProperty(shaderComp.ShaderMainColorPropertyName))
                         {
-                            Color burnoutStartColor = new Color(
-                                shaderEmissionColor.r,
-                                shaderEmissionColor.g,
-                                shaderEmissionColor.b);
-                            mat.SetColor(
-                                shaderComp.ShaderMainColorPropertyName,
-                                _networkVfxSeedConfigured
-                                    ? Color.Lerp(burnoutStartColor, shaderBurntColor, networkBurnoutProgress)
-                                    : Color.Lerp(mat.GetColor(shaderComp.ShaderMainColorPropertyName), shaderBurntColor,
-                                        percentageToburnOutEnd * shaderToBurntInterpolateSpeed));
+                            Color originalColor = originalMaterialValues[mat].originalMainColor;
+                            mat.SetColor(shaderComp.ShaderMainColorPropertyName,
+                                DarkenOriginalColor(originalColor, burnDarkening));
                         }
                         else if (!shaderComp.ShaderMainColorPropertyName.Equals(string.Empty))
                         {
@@ -1271,17 +1350,9 @@ namespace Ignis
 
                         if (mat.HasProperty(shaderComp.ShaderEmissionColorPropertyName))
                         {
-                            Color burnoutStartEmission = new Color(
-                                shaderEmissionColor.r * shaderEmissionMultiplier,
-                                shaderEmissionColor.g * shaderEmissionMultiplier,
-                                shaderEmissionColor.b * shaderEmissionMultiplier);
-                            mat.SetColor(
-                                shaderComp.ShaderEmissionColorPropertyName,
-                                _networkVfxSeedConfigured
-                                    ? Color.Lerp(burnoutStartEmission, shaderBurntColor * Mathf.Pow(2, -9), networkBurnoutProgress)
-                                    : Color.Lerp(mat.GetColor(shaderComp.ShaderEmissionColorPropertyName),
-                                        shaderBurntColor * Mathf.Pow(2, -9),
-                                        percentageToburnOutEnd * shaderToBurntInterpolateSpeed * shaderEmissionMultiplier));
+                            Color originalEmission = originalMaterialValues[mat].originalEmissionColor;
+                            mat.SetColor(shaderComp.ShaderEmissionColorPropertyName,
+                                DarkenOriginalColor(originalEmission, burnDarkening));
                             DynamicGI.SetEmissive(rend, mat.GetColor(shaderComp.ShaderEmissionColorPropertyName));
                         }
                         else if (!shaderComp.ShaderEmissionColorPropertyName.Equals(string.Empty))
@@ -1315,17 +1386,12 @@ namespace Ignis
                     {
                         if (!reIgnited)
                         {
-                            float currentProgress = Mathf.Min(1, onFireTimer / achieveMaxBrightness_s);
+                            float burnDarkening = GetBurnDarkening();
                             if (mat.HasProperty(shaderComp.ShaderMainColorPropertyName))
                             {
-
                                 Color originalColor = originalMaterialValues[mat].originalMainColor;
-
-                                mat.SetColor(shaderComp.ShaderMainColorPropertyName, Color.Lerp(originalColor,
-                                new Color(shaderEmissionColor.r,
-                                    shaderEmissionColor.g,
-                                    shaderEmissionColor.b),
-                                    currentProgress) * ((1 - shaderColorNoise) + (Mathf.PerlinNoise(onFireTimer * shaderColorNoiseSpeed, 0)) * (shaderColorNoise * 2)));
+                                mat.SetColor(shaderComp.ShaderMainColorPropertyName,
+                                    DarkenOriginalColor(originalColor, burnDarkening));
                             }
                             else if (!shaderComp.ShaderMainColorPropertyName.Equals(string.Empty))
                             {
@@ -1334,13 +1400,9 @@ namespace Ignis
 
                             if (mat.HasProperty(shaderComp.ShaderEmissionColorPropertyName))
                             {
-                                Color originalColor = originalMaterialValues[mat].originalEmissionColor;
-
-                                mat.SetColor(shaderComp.ShaderEmissionColorPropertyName, Color.Lerp(originalColor,
-                                new Color(shaderEmissionColor.r * shaderEmissionMultiplier,
-                                    shaderEmissionColor.g * shaderEmissionMultiplier,
-                                    shaderEmissionColor.b * shaderEmissionMultiplier),
-                                    currentProgress) * ((1 - shaderColorNoise) + (Mathf.PerlinNoise(onFireTimer * shaderColorNoiseSpeed, 0)) * (shaderColorNoise * 2)));
+                                Color originalEmission = originalMaterialValues[mat].originalEmissionColor;
+                                mat.SetColor(shaderComp.ShaderEmissionColorPropertyName,
+                                    DarkenOriginalColor(originalEmission, burnDarkening));
                                 DynamicGI.SetEmissive(rend, mat.GetColor(shaderComp.ShaderEmissionColorPropertyName));
                             }
                             else if (!shaderComp.ShaderEmissionColorPropertyName.Equals(string.Empty))
@@ -1455,11 +1517,12 @@ namespace Ignis
                     {
                         if (fire.HasVector3("Box_center"))
                         {
-                            fire.SetVector3("Box_center", box.transform.TransformPoint(box.center));
+                            GetFireEmissionBox(box, out Vector3 emissionCenter, out Vector3 emissionSize);
+                            fire.SetVector3("Box_center", emissionCenter);
                             fire.SetVector3("Rotation", Clamp0360Vector(box.transform.rotation.eulerAngles));
 
                             if (FlameEngine.instance.modifyFlamesOnRuntime)
-                                fire.SetVector3("Box_size", Vector3.Scale(box.size, box.transform.lossyScale));
+                                fire.SetVector3("Box_size", emissionSize);
                         }
                     }
                     else
@@ -1609,7 +1672,7 @@ namespace Ignis
         {
             //Customization
             fireEffect.SetFloat("FireParticleMultiplier", FlameEngine.instance.globalFireVFXMultiplier);
-            fireEffect.SetFloat("FireVFXMultiplier", flameVFXMultiplier);
+            fireEffect.SetFloat("FireVFXMultiplier", flameVFXMultiplier * flameVisibilityMultiplier);
             fireEffect.SetFloat("FlameLength", flameLength / 4);
             fireEffect.SetFloat("FlameSpeed", flameEnvironmentalSpeed);
             fireEffect.SetFloat("FlameLiveliness", flameLiveliness);
@@ -1671,9 +1734,10 @@ namespace Ignis
                 SetupFireConstants(fireEffect);
 
                 //Place
+                GetFireEmissionBox(box, out Vector3 emissionCenter, out Vector3 emissionSize);
                 fireEffect.SetVector3("Spread_center", transform.TransformPoint(_fireOriginLocal));
-                fireEffect.SetVector3("Box_size", Vector3.Scale(box.size, box.transform.lossyScale));
-                fireEffect.SetVector3("Box_center", box.transform.TransformPoint(box.center));
+                fireEffect.SetVector3("Box_size", emissionSize);
+                fireEffect.SetVector3("Box_center", emissionCenter);
                 fireEffect.SetVector3("Rotation", Clamp0360Vector(box.transform.rotation.eulerAngles));
 
                 ApplyNetworkSeed(fireEffect, boxIndex, true);
@@ -1754,6 +1818,137 @@ namespace Ignis
 
                 meshPoints = meshObj.vertices;
             }
+        }
+
+        private void GetFireEmissionBox(BoxCollider box, out Vector3 worldCenter, out Vector3 worldSize)
+        {
+            const float maximumSurfaceDepth = 0.04f;
+            const float objectSurfaceClearance = 0.005f;
+            const float wallSurfaceClearance = 0.12f;
+            const float objectEdgeInset = 0.06f;
+
+            Vector3 localSize = box.size;
+            Vector3 halfSize = localSize * 0.5f;
+            Vector3 fromCenter = box.transform.InverseTransformPoint(GetFireOrigin()) - box.center;
+
+            Vector3 absoluteScale = new Vector3(
+                Mathf.Abs(box.transform.lossyScale.x),
+                Mathf.Abs(box.transform.lossyScale.y),
+                Mathf.Abs(box.transform.lossyScale.z));
+
+            bool isWall = IsWallCollider(box, localSize);
+            if (!isWall && TryGetVisualEmissionBox(box, out worldCenter, out worldSize))
+                return;
+
+            int surfaceAxis = isWall
+                ? (localSize.x * absoluteScale.x <= localSize.z * absoluteScale.z ? 0 : 2)
+                : 1;
+            float axisScale = Mathf.Max(absoluteScale[surfaceAxis], 0.0001f);
+            float surfaceDepth = Mathf.Min(localSize[surfaceAxis], maximumSurfaceDepth / axisScale);
+            float side = isWall && fromCenter[surfaceAxis] < 0f ? -1f : 1f;
+            float clearance = isWall ? wallSurfaceClearance : objectSurfaceClearance;
+
+            Vector3 localCenter = box.center;
+            localCenter[surfaceAxis] += side *
+                                        (halfSize[surfaceAxis] +
+                                         (clearance / axisScale) +
+                                         surfaceDepth * 0.5f);
+            localSize[surfaceAxis] = surfaceDepth;
+
+            if (!isWall)
+            {
+                // Keep top-surface flames just inside the object's footprint so
+                // particles do not appear to float beyond appliance/furniture edges.
+                localSize.x = Mathf.Max(0.01f, localSize.x - (objectEdgeInset * 2f / Mathf.Max(absoluteScale.x, 0.0001f)));
+                localSize.z = Mathf.Max(0.01f, localSize.z - (objectEdgeInset * 2f / Mathf.Max(absoluteScale.z, 0.0001f)));
+            }
+
+            worldCenter = box.transform.TransformPoint(localCenter);
+            worldSize = Vector3.Scale(localSize, absoluteScale);
+        }
+
+        private bool TryGetVisualEmissionBox(BoxCollider box, out Vector3 worldCenter, out Vector3 worldSize)
+        {
+            Renderer[] renderers = GetComponentsInChildren<Renderer>()
+                .Where(renderer => renderer != null && renderer.enabled &&
+                                   !(renderer is ParticleSystemRenderer) &&
+                                   renderer.bounds.Intersects(box.bounds))
+                .ToArray();
+
+            if (renderers.Length == 0)
+            {
+                worldCenter = default;
+                worldSize = default;
+                return false;
+            }
+
+            bool hasPoint = false;
+            Vector3 localMin = default;
+            Vector3 localMax = default;
+
+            foreach (Renderer renderer in renderers)
+            {
+                Bounds rendererBounds = renderer.localBounds;
+                Vector3 min = rendererBounds.min;
+                Vector3 max = rendererBounds.max;
+
+                for (int x = 0; x <= 1; x++)
+                {
+                    for (int y = 0; y <= 1; y++)
+                    {
+                        for (int z = 0; z <= 1; z++)
+                        {
+                            Vector3 rendererLocalPoint = new Vector3(
+                                x == 0 ? min.x : max.x,
+                                y == 0 ? min.y : max.y,
+                                z == 0 ? min.z : max.z);
+                            Vector3 boxLocalPoint = box.transform.InverseTransformPoint(
+                                renderer.transform.TransformPoint(rendererLocalPoint));
+
+                            if (!hasPoint)
+                            {
+                                localMin = boxLocalPoint;
+                                localMax = boxLocalPoint;
+                                hasPoint = true;
+                            }
+                            else
+                            {
+                                localMin = Vector3.Min(localMin, boxLocalPoint);
+                                localMax = Vector3.Max(localMax, boxLocalPoint);
+                            }
+                        }
+                    }
+                }
+            }
+
+            Vector3 localCenter = (localMin + localMax) * 0.5f;
+            Vector3 localSize = localMax - localMin;
+            Vector3 absoluteScale = new Vector3(
+                Mathf.Abs(box.transform.lossyScale.x),
+                Mathf.Abs(box.transform.lossyScale.y),
+                Mathf.Abs(box.transform.lossyScale.z));
+
+            worldCenter = box.transform.TransformPoint(localCenter);
+            worldSize = Vector3.Scale(localSize, absoluteScale);
+            return worldSize.sqrMagnitude > 0.000001f;
+        }
+
+        private static bool IsWallCollider(BoxCollider box, Vector3 localSize)
+        {
+            Transform current = box.transform;
+            while (current != null)
+            {
+                if (current.name.IndexOf("wall", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+
+                current = current.parent;
+            }
+
+            Vector3 scale = box.transform.lossyScale;
+            float worldX = Mathf.Abs(localSize.x * scale.x);
+            float worldY = Mathf.Abs(localSize.y * scale.y);
+            float worldZ = Mathf.Abs(localSize.z * scale.z);
+            return worldY > 1f && Mathf.Min(worldX, worldZ) <= 0.35f;
         }
 
         private static int RandomRange(System.Random networkRandom, int minInclusive, int maxExclusive)

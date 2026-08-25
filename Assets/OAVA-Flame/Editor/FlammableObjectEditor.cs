@@ -40,9 +40,10 @@ namespace Ignis
         private SerializedProperty flameBurstDelayMinMax;
         private SerializedProperty achieveMaxBrightness_s;
         private SerializedProperty flameVFXMultiplier;
+        private SerializedProperty flameVisibilityMultiplier;
         private SerializedProperty shaderColorNoise;
         private SerializedProperty shaderColorNoiseSpeed;
-        private SerializedProperty shaderBurntColor;
+        private SerializedProperty maximumBurnDarkening;
         private SerializedProperty backSpreadCoolDown_s;
         private SerializedProperty flameLights;
         private SerializedProperty smokeColor;
@@ -55,7 +56,6 @@ namespace Ignis
         private SerializedProperty flameLivelinessSpeed;
         private SerializedProperty windForceMultiplier;
         private SerializedProperty fullExtinguishToughness;
-        private SerializedProperty shaderToBurntInterpolateSpeed;
         private SerializedProperty enableMaterialAnimation;
         private SerializedProperty overrideFireVFX;
         private SerializedProperty overrideVFXVariant;
@@ -110,9 +110,10 @@ namespace Ignis
             flameBurstDelayMinMax = serializedObject.FindProperty("flameBurstDelayMinMax");
             achieveMaxBrightness_s = serializedObject.FindProperty("achieveMaxBrightness_s");
             flameVFXMultiplier = serializedObject.FindProperty("flameVFXMultiplier");
+            flameVisibilityMultiplier = serializedObject.FindProperty("flameVisibilityMultiplier");
             shaderColorNoise = serializedObject.FindProperty("shaderColorNoise");
             shaderColorNoiseSpeed = serializedObject.FindProperty("shaderColorNoiseSpeed");
-            shaderBurntColor = serializedObject.FindProperty("shaderBurntColor");
+            maximumBurnDarkening = serializedObject.FindProperty("maximumBurnDarkening");
             flameLights = serializedObject.FindProperty("flameLights");
             smokeColor = serializedObject.FindProperty("smokeColor");
             smokeAlpha = serializedObject.FindProperty("smokeAlpha");
@@ -125,7 +126,6 @@ namespace Ignis
             windForceMultiplier = serializedObject.FindProperty("windForceMultiplier");
             fullExtinguishToughness = serializedObject.FindProperty("fullExtinguishToughness");
             backSpreadCoolDown_s = serializedObject.FindProperty("backSpreadCoolDown_s");
-            shaderToBurntInterpolateSpeed = serializedObject.FindProperty("shaderToBurntInterpolateSpeed");
             enableMaterialAnimation = serializedObject.FindProperty("enableMaterialAnimation");
             overrideFireVFX = serializedObject.FindProperty("overrideFireVFX");
             overrideVFXVariant = serializedObject.FindProperty("overrideVFXVariant");
@@ -262,6 +262,7 @@ namespace Ignis
                             EditorGUILayout.LabelField("Other", EditorStyles.boldLabel);
                             EditorGUILayout.PropertyField(flameLength);
                             EditorGUILayout.PropertyField(flameVFXMultiplier);
+                            EditorGUILayout.PropertyField(flameVisibilityMultiplier);
 
                             if ((!flam.overrideFireVFX && FlameEngine.instance.fireVFXVariant != FlameEngine.FireVFXVariant.OldSchool) || (flam.overrideFireVFX && flam.overrideVFXVariant != FlameEngine.FireVFXVariant.OldSchool))
                             {
@@ -350,9 +351,8 @@ namespace Ignis
                     {
                         EditorGUILayout.PropertyField(shaderEmissionColor);
                         EditorGUILayout.PropertyField(shaderEmissionMultiplier);
-                        EditorGUILayout.PropertyField(shaderBurntColor);
+                        EditorGUILayout.PropertyField(maximumBurnDarkening);
                         EditorGUILayout.Space();
-                        EditorGUILayout.PropertyField(shaderToBurntInterpolateSpeed);
                         EditorGUILayout.PropertyField(achieveMaxBrightness_s);
                         EditorGUILayout.PropertyField(shaderColorNoise);
                         EditorGUILayout.PropertyField(shaderColorNoiseSpeed);
