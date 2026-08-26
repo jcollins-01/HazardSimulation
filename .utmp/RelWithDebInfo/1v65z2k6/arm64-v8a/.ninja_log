@@ -1,10 +1,19 @@
 # ninja log v5
 45	1749	8069703250261178	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	4a14e8103252db38
 62	1775	8069703250367030	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	5476116e0ca31d71
-124	1793	8069703250803435	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	7817a1ffa14a1ee2
-30	1807	8069703250875741	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	550c573792cfced
+2388	2629	8069703259164663	C:/Users/ktm62/Documents/GitHub/HazardSimulation/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/1v65z2k6/obj/arm64-v8a/libgame.so	aaec2b8c6ae7de4f
 17	1901	8069703251685860	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	b70613ea7d1ec67
+124	1793	8069703250803435	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	7817a1ffa14a1ee2
 102	2020	8069703253046927	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	16637bd9453be0cf
+30	1807	8069703250875741	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	550c573792cfced
 82	2279	8069703255626280	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	8f1535ffd0ff0433
 1	2387	8069703256678306	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	4829e5ae44cb1982
-2388	2629	8069703259164663	C:/Users/ktm62/Documents/GitHub/HazardSimulation/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/1v65z2k6/obj/arm64-v8a/libgame.so	aaec2b8c6ae7de4f
+15	1333	8093924020415428	GameActivity/CMakeFiles/game.dir/UGAEntry.cpp.o	5476116e0ca31d71
+72	1339	8093924020536510	GameActivity/CMakeFiles/game.dir/UGAInputKeyEvent.cpp.o	4a14e8103252db38
+1	1356	8093924020672524	GameActivity/CMakeFiles/game.dir/UGAConfiguration.cpp.o	550c573792cfced
+47	1388	8093924021009303	GameActivity/CMakeFiles/game.dir/UGAInputMotionEvent.cpp.o	7817a1ffa14a1ee2
+34	1427	8093924021387905	GameActivity/CMakeFiles/game.dir/UGADebug.cpp.o	b70613ea7d1ec67
+86	1498	8093924022081949	GameActivity/CMakeFiles/game.dir/UGASoftKeyboard.cpp.o	16637bd9453be0cf
+58	1670	8093924023833205	GameActivity/CMakeFiles/game.dir/UGAInput.cpp.o	8f1535ffd0ff0433
+24	1733	8093924024452675	GameActivity/CMakeFiles/game.dir/UGAApplication.cpp.o	4829e5ae44cb1982
+1734	1920	8093924026388783	C:/Users/ktm62/Documents/GitHub/HazardSimulation/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/build/intermediates/cxx/RelWithDebInfo/1v65z2k6/obj/arm64-v8a/libgame.so	aaec2b8c6ae7de4f

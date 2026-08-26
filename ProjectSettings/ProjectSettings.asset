@@ -13,8 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: Virtual Embodiment Lab
-  productName: Firefighting Simulation Demo 7/29/27 - Scenario 1 test for better
-    graphics
+  productName: Firefighting Simulation Demo 8/25 - Scenario 1
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
@@ -146,6 +145,8 @@ PlayerSettings:
   bundleVersion: 0.1.0
   preloadedAssets:
   - {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+  - {fileID: -6434841030319705353, guid: 4ee0de5cd3f384cd8990eff1326be0a3, type: 2}
+  - {fileID: -6074709244807386344, guid: 58383a587d51b4ee6afc1fee4bc25715, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -167,7 +168,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.4
   androidMinAspectRatio: 1
   applicationIdentifier:
-    Android: com.VirtualEmbodimentLab.FirefightingSimulationDemo72927Scenario1testforbettergraphics
+    Android: com.VirtualEmbodimentLab.FirefightingSimulationDemo825Scenario1
     Standalone: com.Unity-Technologies.com.unity.template.urp-blank
     iPhone: com.Unity-Technologies.com.unity.template.urp-blank
   buildNumber:

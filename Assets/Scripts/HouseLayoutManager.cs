@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
+//#if UNITY_EDITOR
+//using UnityEditor;
+//#endif
 
 public class HouseLayoutData : MonoBehaviour
 {
@@ -282,33 +282,33 @@ public class HouseLayoutManager : MonoBehaviour
 }
 
 // For handling all the button calls so that we can regenerate the layout easily in inspector!
-[CustomEditor(typeof(HouseLayoutManager))]
-public class HouseLayoutManagerEditor : Editor
-{
-    public override void OnInspectorGUI()
-    {
-        DrawDefaultInspector();
-        HouseLayoutManager manager = (HouseLayoutManager)target;
-        EditorGUILayout.Space(15);
+//[CustomEditor(typeof(HouseLayoutManager))]
+//public class HouseLayoutManagerEditor : Editor
+//{
+//    public override void OnInspectorGUI()
+//    {
+    //    DrawDefaultInspector();
+  //      HouseLayoutManager manager = (HouseLayoutManager)target;
+      //  EditorGUILayout.Space(15);
 
         // Save Layout button
-        GUI.backgroundColor = new Color(0.2f, 0.6f, 0.9f);
-        if (GUILayout.Button("Save Layout Data from Object", GUILayout.Height(30)))
-        {
-            Undo.RecordObject(manager, "Save House Layout Data");
-            manager.SaveCurrentHouse();
-            EditorUtility.SetDirty(manager);
-        }
+    //    GUI.backgroundColor = new Color(0.2f, 0.6f, 0.9f);
+  //      if (GUILayout.Button("Save Layout Data from Object", GUILayout.Height(30)))
+//        {
+        //  Undo.RecordObject(manager, "Save House Layout Data");
+      //    manager.SaveCurrentHouse();
+    //      EditorUtility.SetDirty(manager);
+  //    }
 
-        EditorGUILayout.Space(5);
+//      EditorGUILayout.Space(5);
 
         // Regenerate Layout button
-        GUI.backgroundColor = new Color(0.3f, 0.8f, 0.4f);
-        if (GUILayout.Button("Regenerate Selected Layout", GUILayout.Height(35)))
-        {
-            manager.RegenerateLayout();
-        }
-
-        GUI.backgroundColor = Color.white;
-    }
-}
+  //    GUI.backgroundColor = new Color(0.3f, 0.8f, 0.4f);
+//      if (GUILayout.Button("Regenerate Selected Layout", GUILayout.Height(35)))
+      //  {
+    //        manager.RegenerateLayout();
+  //      }
+//
+    //    GUI.backgroundColor = Color.white;
+  //  }
+//}

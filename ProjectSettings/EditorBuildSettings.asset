@@ -6,9 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Scenarios/Backup+Old/DECORATED/DAYTIME/Scenario 1 decorated
-      DAYTIME.unity
-    guid: 87ecce5e8bf09c84c8b0cc8a938e4e04
+    path: Assets/SCENARIOS/Scenario 1 (controlled; 1 story; daytime) 1.unity
+    guid: 7dbc78facab8ce74b95aa4183f6cf564
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 58383a587d51b4ee6afc1fee4bc25715, type: 2}
