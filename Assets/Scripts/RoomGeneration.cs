@@ -145,6 +145,7 @@ public class RoomGeneration : MonoBehaviour
         public HashSet<Vector2Int> Tiles;
         public GameObject RoomObject;
         public string RoomType;
+        public HashSet<Vector2Int> DoorTiles;
     }
 
     [HideInInspector]
@@ -632,6 +633,9 @@ public class RoomGeneration : MonoBehaviour
             {
                 stairwellIsOpenBottom = localOpenBottomDecision;
 
+                // Filter the floor-wide door strings down to Vector2Int coordinates inside this specific room
+                HashSet<Vector2Int> roomDoorTiles = GetDoorTilesForRoom(floorDoors, floorRooms[i]);
+
                 // Fetch the assigned type
                 string assignedType = roomTypes[floorRooms[i]];
 
@@ -645,7 +649,7 @@ public class RoomGeneration : MonoBehaviour
                 builtRoom.name = $"Room_{i} [{assignedType}]";
 
                 // Add the room to our list of generated rooms so we can pass it to the decorator later
-                allGeneratedRooms.Add(new RoomData { Tiles = floorRooms[i], RoomObject = builtRoom, RoomType = assignedType });
+                allGeneratedRooms.Add(new RoomData { Tiles = floorRooms[i], RoomObject = builtRoom, RoomType = assignedType, DoorTiles = roomDoorTiles });
             }
 
             // Get the highest point in all room roofs and build off that for the next floor
@@ -3022,6 +3026,31 @@ public class RoomGeneration : MonoBehaviour
             "W" => Vector2Int.left,
             _ => Vector2Int.zero
         };
+    }
+
+    private HashSet<Vector2Int> GetDoorTilesForRoom(HashSet<string> doorStrings, HashSet<Vector2Int> roomTiles)
+    {
+        HashSet<Vector2Int> doorTiles = new HashSet<Vector2Int>();
+
+        foreach (string doorStr in doorStrings)
+        {
+            // Extracts all coordinate integers from the string key
+            var matches = System.Text.RegularExpressions.Regex.Matches(doorStr, @"-?\d+");
+            for (int i = 0; i < matches.Count - 1; i += 2)
+            {
+                Vector2Int candidate = new Vector2Int(
+                    int.Parse(matches[i].Value),
+                    int.Parse(matches[i + 1].Value)
+                );
+
+                if (roomTiles.Contains(candidate))
+                {
+                    doorTiles.Add(candidate);
+                }
+            }
+        }
+
+        return doorTiles;
     }
 
     #endregion
