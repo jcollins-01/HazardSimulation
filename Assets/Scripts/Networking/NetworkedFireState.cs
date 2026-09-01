@@ -79,13 +79,18 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
     // A remote avatar is considered ready once Normcore has instantiated it. The
     // authority schedules a short room-time lead so every client receives the reset.
+    private const int MinimumPlayersToStartConfiguredFires = 2;
     private const double JoinResetLeadSeconds = 0.75;
     private int _lastAppliedResetEpoch;
+    private bool _delayConfiguredStartUntilQuorum;
+    private bool _configuredStartReleased;
+    private bool _quorumResetPending;
 
     // One avatar-manager subscription fans join notifications out to all fire
     // components in this process. This avoids hundreds of identical subscriptions.
     private static readonly HashSet<NetworkedFireState> ActiveFires = new HashSet<NetworkedFireState>();
     private static RealtimeAvatarManager _watchedAvatarManager;
+    private static bool _hasMultiplayerQuorum;
 
     // Cached scene references for the shared extinguish cleanup
     private static UniversalHazardController _hazardController;
@@ -126,10 +131,29 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _flammableObject = GetComponent<FlammableObject>();
         _fireProfileController = GetComponent<FireProfileController>();
 
+        // A scene-configured fire must not run its local Ignis Start() ignition
+        // before the shared room has two players. Otherwise each client can create
+        // a different autonomous fire before Normcore has selected an authority.
+        FlameEngine flameEngine = FlameEngine.instance;
+        _delayConfiguredStartUntilQuorum =
+            _flammableObject.setThisOnFireOnStart ||
+            (flameEngine != null && flameEngine.fireOnStart);
+        if (_delayConfiguredStartUntilQuorum)
+            NeuterLocalIgnition();
+
         // All Awake calls complete before Ignis starts its fire-on-start path. Give
         // that first local VFX creation the same deterministic seed on every client.
         _stableVfxSeed = CalculateStableVfxSeed();
         _flammableObject.ConfigureNetworkVfxSeed(DeriveCycleVfxSeed(1));
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        ActiveFires.Clear();
+        _watchedAvatarManager = null;
+        _hasMultiplayerQuorum = false;
+        _hazardController = null;
     }
 
     private int CalculateStableVfxSeed()
@@ -206,6 +230,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _awaitingPostResetExtinguishSample = false;
         _awaitingPostResetProfileSample = false;
         _awaitingPostResetSpreadSample = false;
+        _configuredStartReleased = false;
+        _quorumResetPending = false;
         ResetLocalExtinguishPrediction();
 
         if (previousModel != null)
@@ -230,6 +256,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
         if (currentModel != null)
         {
+            _configuredStartReleased = currentModel.isBurning;
+
             if (currentModel.isFreshModel)
             {
                 // Seed the fresh model from the local Ignis state (usually all false).
@@ -328,6 +356,23 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         TryRegisterForJoinResets();
 
         TryClaimAuthority();
+
+        TrySchedulePendingQuorumReset();
+
+        // Keep Start Fire On Play objects dormant until the first two-player
+        // quorum schedules and reaches its shared reset timestamp.
+        if (_delayConfiguredStartUntilQuorum && !_configuredStartReleased)
+        {
+            NeuterLocalIgnition();
+
+            if (TryApplyScheduledReset())
+                return;
+
+            if (!model.isBurning)
+                return;
+
+            _configuredStartReleased = true;
+        }
 
         // A fresh scene fire may ignite in Start before Normcore grants the first
         // ownership request. Preserve that candidate authority state until there is
@@ -486,17 +531,33 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
     private void TryRegisterForJoinResets()
     {
-        ActiveFires.Add(this);
+        bool newlyRegistered = ActiveFires.Add(this);
 
-        if (_watchedAvatarManager != null || realtime == null)
+        if (realtime == null)
             return;
 
         RealtimeAvatarManager manager = realtime.GetComponent<RealtimeAvatarManager>();
         if (manager == null)
             return;
 
-        _watchedAvatarManager = manager;
-        _watchedAvatarManager.avatarCreated += OnAvatarCreated;
+        if (_watchedAvatarManager != manager)
+        {
+            if (_watchedAvatarManager != null)
+                _watchedAvatarManager.avatarCreated -= OnAvatarCreated;
+
+            _watchedAvatarManager = manager;
+            _watchedAvatarManager.avatarCreated += OnAvatarCreated;
+        }
+
+        RefreshMultiplayerQuorum();
+
+        // Fires can be enabled after both players already exist. They still need
+        // the same authoritative start barrier as fires present during the join.
+        if (newlyRegistered && _hasMultiplayerQuorum &&
+            _delayConfiguredStartUntilQuorum && !_configuredStartReleased)
+        {
+            _quorumResetPending = true;
+        }
     }
 
     private static void OnAvatarCreated(RealtimeAvatarManager manager, RealtimeAvatar avatar, bool isLocalAvatar)
@@ -504,25 +565,85 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (isLocalAvatar)
             return;
 
-        // Copy before invoking because a reset can indirectly disable/destroy a fire.
+        SetMultiplayerQuorum(true);
+    }
+
+    private static void RefreshMultiplayerQuorum()
+    {
+        if (_watchedAvatarManager == null)
+        {
+            SetMultiplayerQuorum(false);
+            return;
+        }
+
+        int playerCount = 0;
+        bool localAvatarIncluded = false;
+        RealtimeAvatar localAvatar = _watchedAvatarManager.localAvatar;
+
+        if (_watchedAvatarManager.avatars != null)
+        {
+            foreach (RealtimeAvatar avatar in _watchedAvatarManager.avatars.Values)
+            {
+                if (avatar == null)
+                    continue;
+
+                playerCount++;
+                if (avatar == localAvatar)
+                    localAvatarIncluded = true;
+            }
+        }
+
+        if (localAvatar != null && !localAvatarIncluded)
+            playerCount++;
+
+        SetMultiplayerQuorum(playerCount >= MinimumPlayersToStartConfiguredFires);
+    }
+
+    private static void SetMultiplayerQuorum(bool hasQuorum)
+    {
+        if (_hasMultiplayerQuorum == hasQuorum)
+            return;
+
+        _hasMultiplayerQuorum = hasQuorum;
+        if (!hasQuorum)
+            return;
+
+        // Copy before marking because a reset can indirectly disable/destroy a fire.
         NetworkedFireState[] fires = new NetworkedFireState[ActiveFires.Count];
         ActiveFires.CopyTo(fires);
         for (int i = 0; i < fires.Length; i++)
         {
             if (fires[i] != null)
-                fires[i].ScheduleJoinReset();
+                fires[i]._quorumResetPending = true;
         }
     }
 
-    private void ScheduleJoinReset()
+    private void TrySchedulePendingQuorumReset()
     {
-        if (model == null || realtime == null || !realtime.connected || !IsAuthority)
+        if (!_quorumResetPending || !_hasMultiplayerQuorum)
             return;
 
+        if (ScheduleQuorumReset())
+            _quorumResetPending = false;
+    }
+
+    private bool ScheduleQuorumReset()
+    {
+        if (model == null || realtime == null || !realtime.connected || !IsAuthority)
+            return false;
+
+        bool shouldStartConfiguredFire =
+            _delayConfiguredStartUntilQuorum && !_configuredStartReleased;
+
         // Dormant and already-finished fires remain dormant. A partially
-        // extinguished but still-burning fire restarts from full strength.
-        if (!model.isBurning || model.isExtinguished || model.isBurnedOut)
-            return;
+        // extinguished but still-burning fire restarts from full strength. The
+        // exception is a configured start fire deliberately held dormant for the
+        // first two-player quorum: that fire starts now.
+        if (!shouldStartConfiguredFire &&
+            (!model.isBurning || model.isExtinguished || model.isBurnedOut))
+        {
+            return true;
+        }
 
         double resetAt = realtime.roomTime + JoinResetLeadSeconds;
         if (model.resetEpoch > model.resetCompletedEpoch && model.resetAtRoomTime > realtime.roomTime)
@@ -530,12 +651,13 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             // Coalesce teammates who arrive together into the same reset.
             model.resetAtRoomTime = resetAt;
             model.resetShouldBurn = true;
-            return;
+            return true;
         }
 
         model.resetAtRoomTime = resetAt;
         model.resetShouldBurn = true;
         model.resetEpoch = model.resetEpoch + 1;
+        return true;
     }
 
     private bool TryApplyScheduledReset()
@@ -577,6 +699,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         }
 
         _lastAppliedResetEpoch = resetEpoch;
+        if (shouldBurn && _delayConfiguredStartUntilQuorum)
+            _configuredStartReleased = true;
         _awaitingPostResetExtinguishSample = !IsAuthority;
         _awaitingPostResetProfileSample = !IsAuthority;
         _awaitingPostResetSpreadSample = !IsAuthority;
