@@ -406,7 +406,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     {
         // Ownership only exists for an initialized component model in a live room.
         // Offline mode deliberately keeps the legacy local-authority behavior.
-        if (model == null || realtime == null || !realtime.connected)
+        if (model == null || realtime == null || !realtime.connected || !model.isRoomConnected)
             return;
 
         if (!isUnownedSelf)
