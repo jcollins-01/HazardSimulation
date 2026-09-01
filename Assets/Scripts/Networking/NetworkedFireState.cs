@@ -91,6 +91,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     private static readonly HashSet<NetworkedFireState> ActiveFires = new HashSet<NetworkedFireState>();
     private static RealtimeAvatarManager _watchedAvatarManager;
     private static bool _hasMultiplayerQuorum;
+    private static int _lastObservedPlayerCount = -1;
 
     // Cached scene references for the shared extinguish cleanup
     private static UniversalHazardController _hazardController;
@@ -153,6 +154,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         ActiveFires.Clear();
         _watchedAvatarManager = null;
         _hasMultiplayerQuorum = false;
+        _lastObservedPlayerCount = -1;
         _hazardController = null;
     }
 
@@ -596,6 +598,12 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (localAvatar != null && !localAvatarIncluded)
             playerCount++;
 
+        if (playerCount != _lastObservedPlayerCount)
+        {
+            _lastObservedPlayerCount = playerCount;
+            Debug.Log($"[NetworkedFireState] Multiplayer fire quorum: {playerCount}/{MinimumPlayersToStartConfiguredFires} player avatars ready.");
+        }
+
         SetMultiplayerQuorum(playerCount >= MinimumPlayersToStartConfiguredFires);
     }
 
@@ -607,6 +615,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _hasMultiplayerQuorum = hasQuorum;
         if (!hasQuorum)
             return;
+
+        Debug.Log("[NetworkedFireState] Multiplayer fire quorum reached; scheduling synchronized configured-fire start.");
 
         // Copy before marking because a reset can indirectly disable/destroy a fire.
         NetworkedFireState[] fires = new NetworkedFireState[ActiveFires.Count];
@@ -657,6 +667,12 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         model.resetAtRoomTime = resetAt;
         model.resetShouldBurn = true;
         model.resetEpoch = model.resetEpoch + 1;
+
+        if (shouldStartConfiguredFire)
+        {
+            Debug.Log($"[NetworkedFireState] Authority scheduled configured fire '{name}' for room time {resetAt:F3}.", this);
+        }
+
         return true;
     }
 
@@ -700,7 +716,10 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
         _lastAppliedResetEpoch = resetEpoch;
         if (shouldBurn && _delayConfiguredStartUntilQuorum)
+        {
             _configuredStartReleased = true;
+            Debug.Log($"[NetworkedFireState] Applied synchronized configured-fire start for '{name}' (reset epoch {resetEpoch}).", this);
+        }
         _awaitingPostResetExtinguishSample = !IsAuthority;
         _awaitingPostResetProfileSample = !IsAuthority;
         _awaitingPostResetSpreadSample = !IsAuthority;

@@ -394,7 +394,11 @@ namespace Ignis
             if (!_localLifecycleSimulationEnabled)
                 return;
 
-            if (!FlameEngine.instance.pause && !burntOut)
+            // The engine can be unavailable briefly during scene startup and again
+            // while objects are torn down. A missing engine means there is no fire
+            // simulation to advance; retry naturally on the next frame.
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine != null && !flameEngine.pause && !burntOut)
             {
                 if (currentIgnitionCoolingCooldown_s > 0)
                 {
@@ -576,6 +580,7 @@ namespace Ignis
         /// </summary>
         public void ResetObj()
         {
+            FlameEngine flameEngine = FlameEngine.instance;
             onFire = false;
             onFireTimer = 0;
             fireSpread = 0;
@@ -587,7 +592,8 @@ namespace Ignis
             {
                 if (fire)
                 {
-                    FlameEngine.instance.RemoveFlame(fire.gameObject);
+                    if (flameEngine != null)
+                        flameEngine.RemoveFlame(fire.gameObject);
                     Destroy(fire.gameObject);
                 }
 
@@ -1124,6 +1130,10 @@ namespace Ignis
 
         private void UpdateShaders()
         {
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine == null)
+                return;
+
             if (enableMaterialAnimation)
             {
                 Renderer[] rends = animateMaterialsRenderers.ToArray();
@@ -1136,7 +1146,7 @@ namespace Ignis
                             Material mat = rend.materials[i];
                             if (flammableMaterialIndexes.Count <= 0 || flammableMaterialIndexes.Contains(i))
                             {
-                                if (mat.shader == FlameEngine.instance.flameableShader)
+                                if (mat.shader == flameEngine.flameableShader)
                                 {
                                     UpdateIgnisShader(mat, rend);
                                 }
@@ -1146,11 +1156,11 @@ namespace Ignis
                                 }
                             }
 
-                            if (FlameEngine.instance.modifyFlamesOnRuntime)
+                            if (flameEngine.modifyFlamesOnRuntime)
                             {
                                 if (flammableMaterialIndexes.Count <= 0 || flammableMaterialIndexes.Contains(i))
                                 {
-                                    if (mat.shader == FlameEngine.instance.flameableShader)
+                                    if (mat.shader == flameEngine.flameableShader)
                                     {
                                         SetupIgnisShader(mat);
                                     }
