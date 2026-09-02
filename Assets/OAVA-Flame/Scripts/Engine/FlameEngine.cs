@@ -165,9 +165,19 @@ namespace Ignis
 
         private void Awake()
         {
-            if (_instance != null) Destroy(instance);
+            // Another component can resolve the lazy singleton before this Awake
+            // runs. In that case _instance already points to this component; the
+            // old check destroyed the only FlameEngine at the end of the frame.
+            if (_instance != null && _instance != this)
+                Destroy(_instance);
 
             _instance = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (_instance == this)
+                _instance = null;
         }
 
         public void Start()
