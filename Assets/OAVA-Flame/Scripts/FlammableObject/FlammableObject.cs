@@ -805,8 +805,12 @@ namespace Ignis
                 return;
             }
 
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine == null)
+                return;
+
             if (!_applyingNetworkLifecycleState &&
-                FlameEngine.instance.FlameCount() >= FlameEngine.instance.maxFlamesInWorld)
+                flameEngine.FlameCount() >= flameEngine.maxFlamesInWorld)
             {
                 return;
             }
@@ -834,7 +838,7 @@ namespace Ignis
                 {
                     foreach (BoxCollider box in flammableColliders)
                     {
-                        GameObject trigger = Instantiate(FlameEngine.instance.fireTriggerPrefab, box.transform.TransformPoint(box.center), box.transform.rotation, FlameEngine.instance.triggerParent);
+                        GameObject trigger = Instantiate(flameEngine.fireTriggerPrefab, box.transform.TransformPoint(box.center), box.transform.rotation, flameEngine.triggerParent);
                         FireTrigger triggerComp = trigger.GetComponent<FireTrigger>();
 
 
@@ -1141,9 +1145,15 @@ namespace Ignis
                 {
                     foreach (Renderer rend in rends)
                     {
+                        if (rend == null)
+                            continue;
+
                         for (int i = 0; i < rend.materials.Length; i++)
                         {
                             Material mat = rend.materials[i];
+                            if (mat == null)
+                                continue;
+
                             if (flammableMaterialIndexes.Count <= 0 || flammableMaterialIndexes.Contains(i))
                             {
                                 if (mat.shader == flameEngine.flameableShader)
@@ -1178,6 +1188,14 @@ namespace Ignis
 
         private void SetupShaders()
         {
+            // Networked resets can arrive while the scene is still initializing or
+            // tearing down. In that window the singleton lookup legitimately returns
+            // null, so leave the materials untouched and let later shader updates
+            // configure them once the engine is available.
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine == null)
+                return;
+
             if (enableMaterialAnimation)
             {
                 Renderer[] rends = gameObject.GetComponentsInChildren<Renderer>();
@@ -1189,9 +1207,12 @@ namespace Ignis
                         for (int i = 0; i < rend.materials.Length; i++)
                         {
                             Material mat = rend.materials[i];
+                            if (mat == null)
+                                continue;
+
                             if (flammableMaterialIndexes.Count <= 0 || flammableMaterialIndexes.Contains(i))
                             {
-                                if (mat.shader == FlameEngine.instance.flameableShader)
+                                if (mat.shader == flameEngine.flameableShader)
                                 {
                                     SetupIgnisShader(mat);
                                 }
