@@ -85,6 +85,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     private bool _delayConfiguredStartUntilQuorum;
     private bool _configuredStartReleased;
     private bool _quorumResetPending;
+    private bool _waitingForIgnisReset;
 
     // One avatar-manager subscription fans join notifications out to all fire
     // components in this process. This avoids hundreds of identical subscriptions.
@@ -234,6 +235,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _awaitingPostResetSpreadSample = false;
         _configuredStartReleased = false;
         _quorumResetPending = false;
+        _waitingForIgnisReset = false;
         ResetLocalExtinguishPrediction();
 
         if (previousModel != null)
@@ -709,6 +711,25 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         {
             _flammableObject.ConfigureNetworkVfxSeed(resetVfxSeed);
             _flammableObject.SetOnFireFromCenterFromNetwork();
+
+            // Ignis can legitimately defer ignition for a frame while its
+            // FlameEngine singleton is initializing. Do not acknowledge the reset
+            // until a flame was actually created; leaving the epoch unapplied makes
+            // this method retry naturally on the next Update.
+            if (!_flammableObject.onFire)
+            {
+                if (!_waitingForIgnisReset)
+                {
+                    Debug.LogWarning(
+                        $"[NetworkedFireState] Ignis was not ready to start '{name}' for reset epoch {resetEpoch}; retrying.",
+                        this);
+                    _waitingForIgnisReset = true;
+                }
+
+                return true;
+            }
+
+            _waitingForIgnisReset = false;
             _flammableObject.ApplyNetworkFireVisualState(resetVfxSeed, 0f, 0f, true);
             _appliedIgnitionEpoch = nextIgnitionEpoch;
             _appliedVfxSeed = resetVfxSeed;
