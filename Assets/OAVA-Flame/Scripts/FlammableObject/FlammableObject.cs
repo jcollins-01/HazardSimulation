@@ -1006,6 +1006,93 @@ namespace Ignis
         }
 
         /// <summary>
+        /// Applies semantic presentation controls without changing the authority's
+        /// Ignis simulation variables. NetworkedFireState calls this after normal
+        /// simulation updates so authority and puppets render the same buffered
+        /// spread/extinguish region at the same room time.
+        /// </summary>
+        public void ApplyNetworkPresentationVisualState(
+            bool visible,
+            Vector3 fireOriginLocal,
+            float presentedSpread,
+            Vector3 putOutCenterLocal,
+            float presentedPutOutRadius,
+            float profileVisualScaleCorrection,
+            float burnoutMultiplier)
+        {
+            Vector3 fireOriginWorld = transform.TransformPoint(fireOriginLocal);
+            Vector3 putOutCenterWorld = transform.TransformPoint(putOutCenterLocal);
+            float spread = Mathf.Clamp(presentedSpread, 0f, maxSpread);
+            float putOut = Mathf.Max(0f, presentedPutOutRadius);
+            float scaleCorrection = Mathf.Clamp(profileVisualScaleCorrection, 0f, 2f);
+
+            for (int i = 0; i < fires.Count; i++)
+            {
+                VisualEffect fire = fires[i];
+                if (!fire)
+                    continue;
+
+                // Disabling the renderer is the only immediate way to hide every
+                // existing GPU particle during a scheduled lifecycle transition.
+                fire.enabled = visible;
+                if (!visible)
+                    continue;
+
+                if (fire.HasFloat("Spread_radius"))
+                    fire.SetFloat("Spread_radius", spread);
+                if (fire.HasVector3("Spread_center"))
+                    fire.SetVector3("Spread_center", fireOriginWorld);
+
+                fire.SetVector3("PutOutArea_center", putOutCenterWorld);
+                fire.SetFloat("PutOutArea_radius", putOut);
+                if (fire.HasFloat("BurnOutMultiplier"))
+                    fire.SetFloat("BurnOutMultiplier", Mathf.Clamp01(burnoutMultiplier));
+
+                // FireProfileController changes these three values with
+                // temperature. Correct the latest local values back to the
+                // buffered presentation temperature without affecting simulation.
+                fire.SetFloat("FireVFXMultiplier",
+                    flameVFXMultiplier * flameVisibilityMultiplier * scaleCorrection);
+                fire.SetFloat("FlameLength", flameLength * scaleCorrection / 4f);
+                fire.SetFloat("FlameParticleSize", flameParticleSize * scaleCorrection);
+            }
+
+            for (int i = 0; i < flameLights.Count; i++)
+            {
+                Light light = flameLights[i];
+                if (!light)
+                    continue;
+
+                bool insideSpread = Vector3.Distance(light.transform.position, fireOriginWorld) <= spread;
+                bool outsidePutOut = putOut < 0.05f ||
+                                     Vector3.Distance(light.transform.position, putOutCenterWorld) > putOut;
+                light.gameObject.SetActive(visible && insideSpread && outsidePutOut);
+            }
+
+            // Sources are still generated locally (microscopic phase differences
+            // are acceptable), but their audible lifecycle follows the same
+            // presentation barrier as flame visibility.
+            for (int i = 0; i < fireSFX.Count; i++)
+            {
+                AudioSource source = fireSFX[i];
+                if (source)
+                    source.mute = !visible;
+            }
+        }
+
+        /// <summary>Current shared logical VFX tick, for synchronization diagnostics.</summary>
+        public int GetNetworkVfxLogicalTick()
+        {
+            return _networkVfxLogicalTick;
+        }
+
+        /// <summary>Number of locally instantiated Ignis emitters.</summary>
+        public int GetNetworkVfxEmitterCount()
+        {
+            return fires.Count;
+        }
+
+        /// <summary>
         /// Refreshes exposed shader, particle and light parameters after network
         /// code changes an extinguish timer or put-out area on a strict puppet.
         /// </summary>

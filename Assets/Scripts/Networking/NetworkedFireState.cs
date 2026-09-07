@@ -36,6 +36,16 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     [Tooltip("Layers considered when checking whether a spraying tool hits this fire.")]
     [SerializeField] private LayerMask sprayHitMask = ~0;
 
+    [Header("Shared Fire Presentation")]
+    [Tooltip("Shared room-time delay used to buffer authoritative visual snapshots.")]
+    [SerializeField, Range(0.05f, 0.5f)] private float presentationDelaySeconds = 0.15f;
+
+    [Tooltip("Local hazard deformation prediction intentionally allows temporary disagreement. Keep disabled for synchronized training.")]
+    [SerializeField] private bool enableLocalExtinguishPrediction = false;
+
+    [Tooltip("Emit one aggregate synchronization line periodically for two-client comparison.")]
+    [SerializeField] private bool enableSynchronizationDiagnostics = true;
+
     private FlammableObject _flammableObject;
     private FireProfileController _fireProfileController;
 
@@ -46,10 +56,54 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     private const float ExtinguishStateSyncInterval = 0.05f;
     private const float FireSpreadSyncInterval = 0.2f;
     private const float FireSpreadSyncEpsilon = 0.002f;
+    private const float PresentationSnapshotInterval = 0.1f;
+    private const float PresentationKeepAliveInterval = 0.5f;
+    private const int PresentationBufferCapacity = 32;
     private float _nextProfileTemperatureSyncTime;
     private float _nextExtinguishStateSyncTime;
     private float _nextFireSpreadSyncTime;
+    private float _nextPresentationSnapshotTime;
+    private float _lastPresentationSnapshotLocalTime = float.NegativeInfinity;
     private float _lastPublishedWaterHitLocalTime = float.NegativeInfinity;
+
+    private struct FirePresentationSnapshot
+    {
+        public double roomTime;
+        public float fireSpread;
+        public float extinguishProgress;
+        public Vector3 putOutCenterLocal;
+        public float temperature;
+        public int lifecycleFlags;
+        public int ignitionEpoch;
+        public Vector3 ignitionOriginLocal;
+        public double ignitionStartRoomTime;
+        public double extinguishFadeStartRoomTime;
+        public float extinguishFadeDuration;
+
+        public bool IsBurning => (lifecycleFlags & 1) != 0;
+        public bool IsExtinguished => (lifecycleFlags & 2) != 0;
+        public bool IsBurnedOut => (lifecycleFlags & 4) != 0;
+    }
+
+    private readonly List<FirePresentationSnapshot> _presentationBuffer =
+        new List<FirePresentationSnapshot>(PresentationBufferCapacity);
+    private FirePresentationSnapshot _lastPublishedPresentationSnapshot;
+    private FirePresentationSnapshot _presentedSnapshot;
+    private double _lastReceivedPresentationSnapshotRoomTime;
+    private int _lastReceivedPresentationTransitionEpoch;
+    private int _latePresentationFrameCount;
+    private int _lastLatePresentationUnityFrame = -1;
+    private int _lastAppliedPresentedLifecycleFlags = -1;
+    private bool _hasPublishedPresentationSnapshot;
+    private bool _hasPresentedSnapshot;
+
+    // Local connection quality diagnostics. A shared adaptive delay needs reports
+    // from every client; until that coordinator exists these values are diagnostic.
+    private float _smoothedRttMs;
+    private float _smoothedRttVariationMs;
+    private float _receiveJitterMs;
+    private float _lastRttSampleMs = -1f;
+    private static float _nextGlobalDiagnosticsTime;
 
     // Puppet-mode bookkeeping
     private bool _ignitionNeutered;
@@ -157,6 +211,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _hasMultiplayerQuorum = false;
         _lastObservedPlayerCount = -1;
         _hazardController = null;
+        _nextGlobalDiagnosticsTime = 0f;
     }
 
     private int CalculateStableVfxSeed()
@@ -236,6 +291,14 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _configuredStartReleased = false;
         _quorumResetPending = false;
         _waitingForIgnisReset = false;
+        _presentationBuffer.Clear();
+        _lastReceivedPresentationSnapshotRoomTime = 0.0;
+        _lastReceivedPresentationTransitionEpoch = 0;
+        _latePresentationFrameCount = 0;
+        _lastLatePresentationUnityFrame = -1;
+        _hasPublishedPresentationSnapshot = false;
+        _hasPresentedSnapshot = false;
+        _lastAppliedPresentedLifecycleFlags = -1;
         ResetLocalExtinguishPrediction();
 
         if (previousModel != null)
@@ -255,6 +318,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             previousModel.ignitionEpochDidChange -= OnIgnitionEpochDidChange;
             previousModel.fireSpreadDidChange -= OnFireSpreadDidChange;
             previousModel.visualMetadataEpochDidChange -= OnVisualMetadataEpochDidChange;
+            previousModel.presentationSnapshotRoomTimeDidChange -= OnPresentationSnapshotRoomTimeDidChange;
+            previousModel.presentationTransitionEpochDidChange -= OnPresentationTransitionEpochDidChange;
             previousModel.ownerIDSelfDidChange -= OnOwnerIDDidChange;
         }
 
@@ -287,6 +352,15 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
                 currentModel.ignitionEpoch = initiallyBurning ? 1 : 0;
                 currentModel.isBurning = initiallyBurning;
                 currentModel.visualMetadataEpoch = initiallyBurning ? 1 : 0;
+                currentModel.presentationDelaySeconds = Mathf.Clamp(presentationDelaySeconds, 0.05f, 0.5f);
+                currentModel.presentationTransitionRoomTime = currentModel.ignitionStartRoomTime;
+                currentModel.presentationTransitionEpoch = initiallyBurning ? 1 : 0;
+
+                FirePresentationSnapshot initialPresentation = CreateCurrentPresentationSnapshot(
+                    realtime != null && realtime.connected
+                        ? realtime.roomTime
+                        : 0.0);
+                WritePresentationSnapshotToModel(initialPresentation);
 
                 if (initiallyBurning)
                 {
@@ -331,6 +405,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
                 {
                     _lastAppliedResetEpoch = currentModel.resetEpoch;
                 }
+
+                if (currentModel.presentationDelaySeconds <= 0f && IsAuthority)
+                    currentModel.presentationDelaySeconds = Mathf.Clamp(presentationDelaySeconds, 0.05f, 0.5f);
             }
 
             currentModel.isBurningDidChange += OnIsBurningDidChange;
@@ -348,7 +425,14 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             currentModel.ignitionEpochDidChange += OnIgnitionEpochDidChange;
             currentModel.fireSpreadDidChange += OnFireSpreadDidChange;
             currentModel.visualMetadataEpochDidChange += OnVisualMetadataEpochDidChange;
+            currentModel.presentationSnapshotRoomTimeDidChange += OnPresentationSnapshotRoomTimeDidChange;
+            currentModel.presentationTransitionEpochDidChange += OnPresentationTransitionEpochDidChange;
             currentModel.ownerIDSelfDidChange += OnOwnerIDDidChange;
+
+            CapturePresentationSnapshotFromModel();
+            OnPresentationTransitionEpochDidChange(
+                currentModel,
+                currentModel.presentationTransitionEpoch);
         }
     }
 
@@ -356,6 +440,10 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     {
         if (model == null || _flammableObject == null)
             return;
+
+        UpdateConnectionDiagnostics();
+        CapturePresentationSnapshotFromModel();
+        TryLogSynchronizationDiagnostics();
 
         TryRegisterForJoinResets();
 
@@ -395,6 +483,125 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             AuthorityUpdate();
         else
             PuppetUpdate();
+    }
+
+    private void LateUpdate()
+    {
+        // The normal Ignis/Profile updates write their local visual values first.
+        // Apply only the buffered semantic presentation values afterward, without
+        // rewinding the authority's actual simulation state.
+        if (model == null || _flammableObject == null || realtime == null || !realtime.connected)
+            return;
+
+        if (!TryGetPresentedSnapshot(out FirePresentationSnapshot presentation))
+            return;
+
+        _presentedSnapshot = presentation;
+        _hasPresentedSnapshot = true;
+        ApplyPresentedLifecycleSideEffects(presentation);
+
+        float currentScale = _fireProfileController != null
+            ? _fireProfileController.GetVisualScaleForTemperature(_fireProfileController.currentTemperature)
+            : 1f;
+        float presentedScale = _fireProfileController != null
+            ? _fireProfileController.GetVisualScaleForTemperature(presentation.temperature)
+            : 1f;
+        float scaleCorrection = currentScale > 0.0001f ? presentedScale / currentScale : 1f;
+        float burnoutMultiplier = GetPresentedBurnoutMultiplier(presentation);
+
+        _flammableObject.ApplyNetworkPresentationVisualState(
+            presentation.IsBurning && !presentation.IsBurnedOut,
+            presentation.ignitionOriginLocal,
+            presentation.fireSpread,
+            presentation.putOutCenterLocal,
+            presentation.extinguishProgress * Mathf.Max(0f, GetExtinguishThreshold()),
+            scaleCorrection,
+            burnoutMultiplier);
+    }
+
+    private void UpdateConnectionDiagnostics()
+    {
+        if (realtime == null || !realtime.connected || realtime.ping < 0)
+            return;
+
+        float sampleMs = realtime.ping;
+        if (_lastRttSampleMs >= 0f && Mathf.Approximately(sampleMs, _lastRttSampleMs))
+            return;
+
+        if (_lastRttSampleMs < 0f)
+        {
+            _smoothedRttMs = sampleMs;
+            _smoothedRttVariationMs = 0f;
+        }
+        else
+        {
+            float delta = Mathf.Abs(sampleMs - _smoothedRttMs);
+            _smoothedRttMs = Mathf.Lerp(_smoothedRttMs, sampleMs, 0.1f);
+            _smoothedRttVariationMs = Mathf.Lerp(_smoothedRttVariationMs, delta, 0.1f);
+        }
+
+        _lastRttSampleMs = sampleMs;
+
+        ConnectionStatistics? statistics = realtime.room?.GetConnectionStatistics(ChannelFlags.All);
+        if (statistics.HasValue)
+            _receiveJitterMs = statistics.Value.channel.receiveJitter;
+    }
+
+    private void TryLogSynchronizationDiagnostics()
+    {
+        if (!enableSynchronizationDiagnostics || realtime == null || !realtime.connected ||
+            Time.unscaledTime < _nextGlobalDiagnosticsTime)
+        {
+            return;
+        }
+
+        int fireCount = 0;
+        int minBufferDepth = int.MaxValue;
+        int maxBufferDepth = 0;
+        int lateFrames = 0;
+        double oldestLatestSnapshotAge = 0.0;
+        NetworkedFireState representative = null;
+
+        foreach (NetworkedFireState fire in ActiveFires)
+        {
+            if (fire == null || fire.model == null)
+                continue;
+
+            fireCount++;
+            int depth = fire._presentationBuffer.Count;
+            minBufferDepth = Mathf.Min(minBufferDepth, depth);
+            maxBufferDepth = Mathf.Max(maxBufferDepth, depth);
+            lateFrames += fire._latePresentationFrameCount;
+            if (depth > 0)
+            {
+                oldestLatestSnapshotAge = System.Math.Max(
+                    oldestLatestSnapshotAge,
+                    realtime.roomTime - fire._presentationBuffer[depth - 1].roomTime);
+            }
+
+            if (representative == null &&
+                (fire.model.isBurning || fire._hasPresentedSnapshot && fire._presentedSnapshot.IsBurning))
+            {
+                representative = fire;
+            }
+        }
+
+        if (fireCount == 0)
+            return;
+
+        _nextGlobalDiagnosticsTime = Time.unscaledTime + 2f;
+
+        float recommendedDelay = Mathf.Clamp(
+            (_smoothedRttMs * 0.5f + Mathf.Max(_smoothedRttVariationMs, _receiveJitterMs) * 2f + 30f) / 1000f,
+            0.1f,
+            0.5f);
+        string representativeState = representative != null
+            ? $" sample={representative.name} canonical(spread={representative.model.fireSpread:F3},ext={representative.model.extinguishProgress:F3},flags={GetLifecycleFlags(representative.model.isBurning, representative.model.isExtinguished, representative.model.isBurnedOut)}) presented(spread={(representative._hasPresentedSnapshot ? representative._presentedSnapshot.fireSpread : -1f):F3},ext={(representative._hasPresentedSnapshot ? representative._presentedSnapshot.extinguishProgress : -1f):F3},flags={(representative._hasPresentedSnapshot ? representative._presentedSnapshot.lifecycleFlags : -1)}) vfxTick={representative._flammableObject.GetNetworkVfxLogicalTick()} emitters={representative._flammableObject.GetNetworkVfxEmitterCount()}"
+            : string.Empty;
+
+        Debug.Log(
+            $"[FireSync] client={realtime.clientID} room={realtime.roomTime:F3} presentation={realtime.roomTime - GetSharedPresentationDelay():F3} delay={GetSharedPresentationDelay() * 1000f:F0}ms RTT={_smoothedRttMs:F0}ms variation={_smoothedRttVariationMs:F1}ms receiveJitter={_receiveJitterMs:F1}ms recommended={recommendedDelay * 1000f:F0}ms fires={fireCount} buffer={minBufferDepth}-{maxBufferDepth} latestAgeMax={oldestLatestSnapshotAge * 1000.0:F0}ms lateFrames={lateFrames}{representativeState}",
+            this);
     }
 
     // ------------------------------------------------------------------
@@ -454,6 +661,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         ApplySprayHits();
         ObserveIgnisAndWriteModel();
         ObserveFireProfileAndWriteModel();
+        PublishPresentationSnapshot(false);
         ApplySynchronizedExtinguishFade();
         AdvanceAuthorityVfxClock();
 
@@ -480,18 +688,25 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (!model.isBurning || !_flammableObject.onFire || model.ignitionEpoch <= 0)
             return;
 
+        bool hasPresentation = TryGetPresentedSnapshot(out FirePresentationSnapshot presentation);
+        if (hasPresentation && !presentation.IsBurning)
+            return;
+
+        int presentedEpoch = hasPresentation
+            ? Mathf.Max(1, presentation.ignitionEpoch)
+            : model.ignitionEpoch;
         int seed = model.vfxSeed == 0
-            ? DeriveCycleVfxSeed(model.ignitionEpoch)
+            ? DeriveCycleVfxSeed(presentedEpoch)
             : model.vfxSeed;
-        bool restartVfx = _appliedIgnitionEpoch != model.ignitionEpoch ||
+        bool restartVfx = _appliedIgnitionEpoch != presentedEpoch ||
                           _appliedVfxSeed != seed;
 
         _flammableObject.ApplyNetworkVfxSimulationState(
             seed,
-            GetSynchronizedFireAge(),
+            hasPresentation ? GetSynchronizedFireAge(presentation) : GetSynchronizedFireAge(),
             restartVfx);
 
-        _appliedIgnitionEpoch = model.ignitionEpoch;
+        _appliedIgnitionEpoch = presentedEpoch;
         _appliedVfxSeed = seed;
     }
 
@@ -775,6 +990,14 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             // the visual construction barrier consumed by puppets.
             model.visualMetadataEpoch = nextIgnitionEpoch;
 
+            // Reset/start is already scheduled in room time. Record that same
+            // instant as a presentation transition so all clients reveal the new
+            // cycle after the common presentation delay, including burning-to-
+            // burning resets where lifecycle flags alone do not change.
+            model.presentationTransitionRoomTime = model.resetAtRoomTime;
+            model.presentationTransitionEpoch = model.presentationTransitionEpoch + 1;
+            PublishPresentationSnapshot(true);
+
             // Written last: reliable property ordering makes this the barrier that
             // tells puppets all post-reset state above is ready to consume.
             model.resetCompletedEpoch = resetEpoch;
@@ -895,6 +1118,11 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         bool burning = _flammableObject.onFire;
         bool extinguished = _flammableObject.IsExtinguished();
         bool burnedOut = _flammableObject.hasBurnedOut();
+        int previousLifecycleFlags = GetLifecycleFlags(
+            model.isBurning,
+            model.isExtinguished,
+            model.isBurnedOut);
+        int nextLifecycleFlags = GetLifecycleFlags(burning, extinguished, burnedOut);
         bool forceProgressWrite = extinguished != model.isExtinguished || burnedOut != model.isBurnedOut;
 
         // Publish the timing values as soon as the authority observes extinguish.
@@ -926,6 +1154,15 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (model.isBurnedOut != burnedOut)
             model.isBurnedOut = burnedOut;
 
+        if (nextLifecycleFlags != previousLifecycleFlags && realtime != null && realtime.connected)
+        {
+            // Reliable epoch is written after the canonical flags and transition
+            // time, making it a discrete presentation barrier on remote clients.
+            model.presentationTransitionRoomTime = realtime.roomTime;
+            model.presentationTransitionEpoch = model.presentationTransitionEpoch + 1;
+            _nextPresentationSnapshotTime = 0f;
+        }
+
         if (forceProgressWrite || Time.unscaledTime >= _nextExtinguishStateSyncTime)
         {
             float threshold = GetExtinguishThreshold();
@@ -955,6 +1192,274 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         }
     }
 
+    private static int GetLifecycleFlags(bool burning, bool extinguished, bool burnedOut)
+    {
+        return (burning ? 1 : 0) |
+               (extinguished ? 2 : 0) |
+               (burnedOut ? 4 : 0);
+    }
+
+    private FirePresentationSnapshot CreateCurrentPresentationSnapshot(double roomTime)
+    {
+        return new FirePresentationSnapshot
+        {
+            roomTime = roomTime,
+            fireSpread = Mathf.Clamp(_flammableObject.fireSpread, 0f, _flammableObject.maxSpread),
+            extinguishProgress = GetExtinguishThreshold() > 0f
+                ? Mathf.Clamp01(_flammableObject.GetPutOutRadius() / GetExtinguishThreshold())
+                : 0f,
+            putOutCenterLocal = transform.InverseTransformPoint(_flammableObject.GetPutOutCenter()),
+            temperature = _fireProfileController != null
+                ? Mathf.Max(0f, _fireProfileController.currentTemperature)
+                : 0f,
+            lifecycleFlags = GetLifecycleFlags(
+                _flammableObject.onFire,
+                _flammableObject.IsExtinguished(),
+                _flammableObject.hasBurnedOut()),
+            ignitionEpoch = model != null ? model.ignitionEpoch : 0,
+            ignitionOriginLocal = transform.InverseTransformPoint(_flammableObject.GetFireOrigin()),
+            ignitionStartRoomTime = model != null ? model.ignitionStartRoomTime : 0.0,
+            extinguishFadeStartRoomTime = model != null ? model.extinguishFadeStartRoomTime : 0.0,
+            extinguishFadeDuration = model != null ? model.extinguishFadeDuration : 0f
+        };
+    }
+
+    private FirePresentationSnapshot CreatePresentationSnapshotFromModel(double roomTime)
+    {
+        return new FirePresentationSnapshot
+        {
+            roomTime = roomTime,
+            fireSpread = Mathf.Clamp(model.presentationFireSpread, 0f, _flammableObject.maxSpread),
+            extinguishProgress = Mathf.Clamp01(model.presentationExtinguishProgress),
+            putOutCenterLocal = model.presentationPutOutCenterLocal,
+            temperature = Mathf.Max(0f, model.presentationTemperature),
+            lifecycleFlags = model.presentationLifecycleFlags,
+            ignitionEpoch = model.presentationIgnitionEpoch,
+            ignitionOriginLocal = model.presentationIgnitionOriginLocal,
+            ignitionStartRoomTime = model.presentationIgnitionStartRoomTime,
+            extinguishFadeStartRoomTime = model.presentationExtinguishFadeStartRoomTime,
+            extinguishFadeDuration = model.presentationExtinguishFadeDuration
+        };
+    }
+
+    private void WritePresentationSnapshotToModel(FirePresentationSnapshot snapshot)
+    {
+        if (model == null)
+            return;
+
+        model.presentationFireSpread = snapshot.fireSpread;
+        model.presentationExtinguishProgress = snapshot.extinguishProgress;
+        model.presentationPutOutCenterLocal = snapshot.putOutCenterLocal;
+        model.presentationTemperature = snapshot.temperature;
+        model.presentationLifecycleFlags = snapshot.lifecycleFlags;
+        model.presentationIgnitionEpoch = snapshot.ignitionEpoch;
+        model.presentationIgnitionOriginLocal = snapshot.ignitionOriginLocal;
+        model.presentationIgnitionStartRoomTime = snapshot.ignitionStartRoomTime;
+        model.presentationExtinguishFadeStartRoomTime = snapshot.extinguishFadeStartRoomTime;
+        model.presentationExtinguishFadeDuration = snapshot.extinguishFadeDuration;
+
+        // Highest property ID and written last: consumers treat this as the
+        // coherent-sample barrier for the latest-value fields above.
+        model.presentationSnapshotRoomTime = snapshot.roomTime;
+    }
+
+    private void PublishPresentationSnapshot(bool force)
+    {
+        if (model == null || realtime == null || !realtime.connected || !IsAuthority)
+            return;
+
+        float sharedDelay = Mathf.Clamp(
+            model.presentationDelaySeconds > 0f ? model.presentationDelaySeconds : presentationDelaySeconds,
+            0.05f,
+            0.5f);
+        if (model.presentationDelaySeconds <= 0f)
+            model.presentationDelaySeconds = sharedDelay;
+
+        double now = realtime.roomTime;
+        FirePresentationSnapshot snapshot = CreateCurrentPresentationSnapshot(now);
+        bool changed = !_hasPublishedPresentationSnapshot ||
+                       snapshot.lifecycleFlags != _lastPublishedPresentationSnapshot.lifecycleFlags ||
+                       snapshot.ignitionEpoch != _lastPublishedPresentationSnapshot.ignitionEpoch ||
+                       Mathf.Abs(snapshot.fireSpread - _lastPublishedPresentationSnapshot.fireSpread) >= 0.002f ||
+                       Mathf.Abs(snapshot.extinguishProgress - _lastPublishedPresentationSnapshot.extinguishProgress) >= 0.002f ||
+                       (snapshot.putOutCenterLocal - _lastPublishedPresentationSnapshot.putOutCenterLocal).sqrMagnitude >= 0.0001f ||
+                       Mathf.Abs(snapshot.temperature - _lastPublishedPresentationSnapshot.temperature) >= 0.25f;
+        bool activeOrRecentlyActive = snapshot.IsBurning ||
+                                      (_hasPublishedPresentationSnapshot &&
+                                       _lastPublishedPresentationSnapshot.IsBurning);
+        bool keepAliveDue = activeOrRecentlyActive &&
+                            Time.unscaledTime - _lastPresentationSnapshotLocalTime >=
+                            PresentationKeepAliveInterval;
+
+        if (!force && Time.unscaledTime < _nextPresentationSnapshotTime && !keepAliveDue)
+            return;
+        if (!force && !changed && !keepAliveDue)
+            return;
+
+        AddPresentationSnapshot(snapshot);
+        WritePresentationSnapshotToModel(snapshot);
+        _lastPublishedPresentationSnapshot = snapshot;
+        _hasPublishedPresentationSnapshot = true;
+        _lastPresentationSnapshotLocalTime = Time.unscaledTime;
+        _nextPresentationSnapshotTime = Time.unscaledTime + PresentationSnapshotInterval;
+    }
+
+    private void CapturePresentationSnapshotFromModel()
+    {
+        if (model == null || model.presentationSnapshotRoomTime <= 0.0 ||
+            model.presentationSnapshotRoomTime <= _lastReceivedPresentationSnapshotRoomTime)
+        {
+            return;
+        }
+
+        _lastReceivedPresentationSnapshotRoomTime = model.presentationSnapshotRoomTime;
+        AddPresentationSnapshot(CreatePresentationSnapshotFromModel(
+            model.presentationSnapshotRoomTime));
+    }
+
+    private void OnPresentationSnapshotRoomTimeDidChange(FireStateModel changedModel, double value)
+    {
+        CapturePresentationSnapshotFromModel();
+    }
+
+    private void OnPresentationTransitionEpochDidChange(FireStateModel changedModel, int value)
+    {
+        if (value <= _lastReceivedPresentationTransitionEpoch ||
+            changedModel.presentationTransitionRoomTime <= 0.0)
+        {
+            return;
+        }
+
+        _lastReceivedPresentationTransitionEpoch = value;
+
+        // The reliable epoch is written after the canonical lifecycle metadata.
+        // Capture those fields at the authority's transition time even if the next
+        // bounded-rate continuous snapshot has not arrived yet.
+        AddPresentationSnapshot(new FirePresentationSnapshot
+        {
+            roomTime = changedModel.presentationTransitionRoomTime,
+            fireSpread = Mathf.Clamp(changedModel.fireSpread, 0f, _flammableObject.maxSpread),
+            extinguishProgress = Mathf.Clamp01(changedModel.extinguishProgress),
+            putOutCenterLocal = changedModel.putOutCenterLocal,
+            temperature = Mathf.Max(0f, changedModel.profileTemperature),
+            lifecycleFlags = GetLifecycleFlags(
+                changedModel.isBurning,
+                changedModel.isExtinguished,
+                changedModel.isBurnedOut),
+            ignitionEpoch = changedModel.ignitionEpoch,
+            ignitionOriginLocal = changedModel.ignitionOriginLocal,
+            ignitionStartRoomTime = changedModel.ignitionStartRoomTime,
+            extinguishFadeStartRoomTime = changedModel.extinguishFadeStartRoomTime,
+            extinguishFadeDuration = changedModel.extinguishFadeDuration
+        });
+    }
+
+    private void AddPresentationSnapshot(FirePresentationSnapshot snapshot)
+    {
+        if (snapshot.roomTime <= 0.0)
+            return;
+
+        int insertIndex = _presentationBuffer.Count;
+        while (insertIndex > 0 && _presentationBuffer[insertIndex - 1].roomTime > snapshot.roomTime)
+            insertIndex--;
+
+        if (insertIndex > 0 &&
+            System.Math.Abs(_presentationBuffer[insertIndex - 1].roomTime - snapshot.roomTime) < 0.000001)
+        {
+            _presentationBuffer[insertIndex - 1] = snapshot;
+        }
+        else if (insertIndex < _presentationBuffer.Count &&
+                 System.Math.Abs(_presentationBuffer[insertIndex].roomTime - snapshot.roomTime) < 0.000001)
+        {
+            _presentationBuffer[insertIndex] = snapshot;
+        }
+        else
+        {
+            _presentationBuffer.Insert(insertIndex, snapshot);
+        }
+
+        while (_presentationBuffer.Count > PresentationBufferCapacity)
+            _presentationBuffer.RemoveAt(0);
+    }
+
+    private bool TryGetPresentedSnapshot(out FirePresentationSnapshot result)
+    {
+        result = default;
+        if (_presentationBuffer.Count == 0 || realtime == null || !realtime.connected)
+            return false;
+
+        double presentationTime = realtime.roomTime - GetSharedPresentationDelay();
+        int upperIndex = -1;
+        for (int i = 0; i < _presentationBuffer.Count; i++)
+        {
+            if (_presentationBuffer[i].roomTime >= presentationTime)
+            {
+                upperIndex = i;
+                break;
+            }
+        }
+
+        if (upperIndex < 0)
+        {
+            result = _presentationBuffer[_presentationBuffer.Count - 1];
+            result.roomTime = presentationTime;
+            if (presentationTime - _presentationBuffer[_presentationBuffer.Count - 1].roomTime >
+                PresentationSnapshotInterval * 1.5 &&
+                _lastLatePresentationUnityFrame != Time.frameCount)
+            {
+                _lastLatePresentationUnityFrame = Time.frameCount;
+                _latePresentationFrameCount++;
+            }
+
+            return true;
+        }
+
+        if (upperIndex == 0)
+        {
+            result = _presentationBuffer[0];
+            result.roomTime = presentationTime;
+            return true;
+        }
+
+        FirePresentationSnapshot from = _presentationBuffer[upperIndex - 1];
+        FirePresentationSnapshot to = _presentationBuffer[upperIndex];
+        double duration = to.roomTime - from.roomTime;
+        float t = duration > 0.000001
+            ? Mathf.Clamp01((float)((presentationTime - from.roomTime) / duration))
+            : 1f;
+
+        // Lifecycle and ignition epochs are step values. Do not blend across a
+        // discrete transition; switch exactly at its authoritative sample time.
+        if (from.lifecycleFlags != to.lifecycleFlags || from.ignitionEpoch != to.ignitionEpoch)
+        {
+            result = presentationTime + 0.000001 >= to.roomTime ? to : from;
+            result.roomTime = presentationTime;
+            return true;
+        }
+
+        result = from;
+        result.roomTime = presentationTime;
+        result.fireSpread = Mathf.Lerp(from.fireSpread, to.fireSpread, t);
+        result.extinguishProgress = Mathf.Lerp(from.extinguishProgress, to.extinguishProgress, t);
+        result.putOutCenterLocal = Vector3.Lerp(from.putOutCenterLocal, to.putOutCenterLocal, t);
+        result.temperature = Mathf.Lerp(from.temperature, to.temperature, t);
+        result.ignitionOriginLocal = Vector3.Lerp(from.ignitionOriginLocal, to.ignitionOriginLocal, t);
+        return true;
+    }
+
+    private float GetSharedPresentationDelay()
+    {
+        if (model != null && model.presentationDelaySeconds > 0f)
+            return Mathf.Clamp(model.presentationDelaySeconds, 0.05f, 0.5f);
+
+        return Mathf.Clamp(presentationDelaySeconds, 0.05f, 0.5f);
+    }
+
+    private bool HasBufferedPresentationMetadata()
+    {
+        return model != null && model.presentationDelaySeconds > 0f;
+    }
+
     /// <summary>
     /// Radius of put-out area at which Ignis considers this object fully extinguished.
     /// Mirrors the check inside FlammableObject.IncrementalExtinguish.
@@ -973,26 +1478,59 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         NeuterLocalIgnition();
         ApplyProfileStateFromModel();
 
-        if (model.isBurning)
+        if (TryGetPresentedSnapshot(out FirePresentationSnapshot presentation))
         {
-            ApplySynchronizedBurningVisual();
-            ApplyExactExtinguishState();
-            ApplyLocalExtinguishPrediction();
+            _presentedSnapshot = presentation;
+            _hasPresentedSnapshot = true;
+            if (presentation.IsBurning)
+            {
+                ApplySynchronizedBurningVisual(presentation);
+                ApplyExactExtinguishState(presentation);
+                if (enableLocalExtinguishPrediction)
+                    ApplyLocalExtinguishPrediction();
+                else
+                    ResetLocalExtinguishPrediction();
+            }
+            else
+            {
+                _flammableObject.ApplyNetworkInactiveState(
+                    presentation.IsExtinguished,
+                    presentation.IsBurnedOut);
+                ResetLocalExtinguishPrediction();
+            }
+
+            if (presentation.IsExtinguished)
+            {
+                ApplySynchronizedExtinguishFade(
+                    presentation.roomTime,
+                    presentation.extinguishFadeStartRoomTime,
+                    presentation.extinguishFadeDuration);
+            }
         }
         else
         {
-            // Reliable authority flags are canonical. Remove a phantom flame
-            // immediately and repair terminal flags even if local Ignis ran ahead.
-            _flammableObject.ApplyNetworkInactiveState(
-                model.isExtinguished,
-                model.isBurnedOut);
+            // Backward compatibility for rooms created by builds without buffered
+            // presentation metadata.
+            if (model.isBurning)
+            {
+                ApplySynchronizedBurningVisual();
+                ApplyExactExtinguishState();
+                if (enableLocalExtinguishPrediction)
+                    ApplyLocalExtinguishPrediction();
+            }
+            else
+            {
+                _flammableObject.ApplyNetworkInactiveState(
+                    model.isExtinguished,
+                    model.isBurnedOut);
+            }
+
+            ApplySynchronizedExtinguishFade();
         }
 
-        ApplySynchronizedExtinguishFade();
-
-        if (model.isBurning &&
-            _flammableObject.onFire &&
-            (model.isExtinguished || model.isBurnedOut))
+        if (_flammableObject.onFire &&
+            ((_hasPresentedSnapshot && (_presentedSnapshot.IsExtinguished || _presentedSnapshot.IsBurnedOut)) ||
+             (!_hasPresentedSnapshot && (model.isExtinguished || model.isBurnedOut))))
         {
             _flammableObject.RefreshNetworkFireVisualState();
 
@@ -1001,7 +1539,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
                 : model.vfxSeed;
             _flammableObject.ApplyNetworkVfxSimulationState(
                 seed,
-                GetSynchronizedFireAge(),
+                _hasPresentedSnapshot
+                    ? GetSynchronizedFireAge(_presentedSnapshot)
+                    : GetSynchronizedFireAge(),
                 false);
         }
     }
@@ -1086,6 +1626,40 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _appliedVfxSeed = seed;
     }
 
+    private void ApplySynchronizedBurningVisual(FirePresentationSnapshot presentation)
+    {
+        if (!presentation.IsBurning)
+            return;
+
+        int epoch = Mathf.Max(1, presentation.ignitionEpoch);
+        int seed = model.vfxSeed == 0 ? DeriveCycleVfxSeed(epoch) : model.vfxSeed;
+        bool restartVfx = _appliedIgnitionEpoch != epoch || _appliedVfxSeed != seed;
+
+        _flammableObject.ApplyNetworkFireOriginLocal(presentation.ignitionOriginLocal);
+        if (!_flammableObject.onFire)
+        {
+            _flammableObject.ConfigureNetworkVfxSeed(seed);
+            _flammableObject.SetOnFireFromCenterFromNetwork();
+            _flammableObject.ApplyNetworkFireOriginLocal(presentation.ignitionOriginLocal);
+            restartVfx = true;
+        }
+
+        if (!_flammableObject.onFire)
+            return;
+
+        if (!presentation.IsExtinguished && !presentation.IsBurnedOut)
+        {
+            _flammableObject.ApplyNetworkFireVisualState(
+                seed,
+                GetSynchronizedFireAge(presentation),
+                presentation.fireSpread,
+                restartVfx);
+        }
+
+        _appliedIgnitionEpoch = epoch;
+        _appliedVfxSeed = seed;
+    }
+
     private float GetSynchronizedFireAge()
     {
         if (realtime == null || !realtime.connected || model.ignitionStartRoomTime <= 0.0)
@@ -1110,8 +1684,28 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         return age;
     }
 
+    private float GetSynchronizedFireAge(FirePresentationSnapshot presentation)
+    {
+        if (presentation.ignitionStartRoomTime <= 0.0 || _flammableObject.fireCrawlSpeed <= 0.00001f)
+            return 0f;
+
+        float age = Mathf.Max(
+            0f,
+            (float)(presentation.roomTime - presentation.ignitionStartRoomTime));
+        if (!presentation.IsBurnedOut && !presentation.IsExtinguished)
+        {
+            float burnoutThreshold = _flammableObject.burnOutStart_s + _flammableObject.burnOutLength_s;
+            age = Mathf.Min(age, Mathf.Max(0f, burnoutThreshold - 0.01f));
+        }
+
+        return age;
+    }
+
     private float GetPredictedAuthoritySpread(float fireAge)
     {
+        // Compatibility only: current rooms render authoritative buffered samples.
+        // Retain this for a mixed-version/old datastore whose presentation delay
+        // and snapshot fields are absent; do not use it in the synchronized path.
         if (_awaitingPostResetSpreadSample)
             return 0f;
 
@@ -1274,6 +1868,20 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _flammableObject.ApplyNetworkExtinguishState(centerWorld, targetRadius, model.isExtinguished);
     }
 
+    private void ApplyExactExtinguishState(FirePresentationSnapshot presentation)
+    {
+        if (!_flammableObject.onFire)
+            return;
+
+        float threshold = GetExtinguishThreshold();
+        Vector3 centerWorld = transform.TransformPoint(presentation.putOutCenterLocal);
+        float targetRadius = presentation.extinguishProgress * Mathf.Max(0f, threshold);
+        _flammableObject.ApplyNetworkExtinguishState(
+            centerWorld,
+            targetRadius,
+            presentation.IsExtinguished);
+    }
+
     /// <summary>
     /// Forces the local Ignis visual into the extinguished/burned-out fade, using the
     /// same public onFireTimer mechanism Ignis uses internally when a fire goes out.
@@ -1299,10 +1907,22 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     /// </summary>
     private void ApplySynchronizedExtinguishFade()
     {
-        if (model == null ||
-            !model.isExtinguished ||
-            model.extinguishFadeStartRoomTime <= 0.0 ||
-            model.extinguishFadeDuration <= 0f ||
+        if (model == null || !model.isExtinguished)
+            return;
+
+        ApplySynchronizedExtinguishFade(
+            realtime != null && realtime.connected ? realtime.roomTime : 0.0,
+            model.extinguishFadeStartRoomTime,
+            model.extinguishFadeDuration);
+    }
+
+    private void ApplySynchronizedExtinguishFade(
+        double presentationRoomTime,
+        double fadeStartRoomTime,
+        float fadeDuration)
+    {
+        if (fadeStartRoomTime <= 0.0 ||
+            fadeDuration <= 0f ||
             realtime == null ||
             !realtime.connected ||
             !_flammableObject.onFire)
@@ -1310,8 +1930,8 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             return;
         }
 
-        float duration = model.extinguishFadeDuration;
-        double elapsedRoomTime = realtime.roomTime - model.extinguishFadeStartRoomTime;
+        float duration = fadeDuration;
+        double elapsedRoomTime = presentationRoomTime - fadeStartRoomTime;
         float elapsed = Mathf.Clamp((float)elapsedRoomTime, 0f, duration + 0.01f);
 
         // Ignis compares onFireTimer against its local burnOutLength_s, so apply
@@ -1322,6 +1942,32 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         _flammableObject.onFireTimer = _flammableObject.burnOutStart_s + elapsed;
     }
 
+    private float GetPresentedBurnoutMultiplier(FirePresentationSnapshot presentation)
+    {
+        if (presentation.IsBurnedOut)
+            return 0f;
+        if (!presentation.IsExtinguished ||
+            presentation.extinguishFadeStartRoomTime <= 0.0 ||
+            presentation.extinguishFadeDuration <= 0f)
+        {
+            return 1f;
+        }
+
+        float progress = (float)((presentation.roomTime - presentation.extinguishFadeStartRoomTime) /
+                                 presentation.extinguishFadeDuration);
+        return 1f - Mathf.Clamp01(progress);
+    }
+
+    private void ApplyPresentedLifecycleSideEffects(FirePresentationSnapshot presentation)
+    {
+        if (presentation.lifecycleFlags == _lastAppliedPresentedLifecycleFlags)
+            return;
+
+        _lastAppliedPresentedLifecycleFlags = presentation.lifecycleFlags;
+        if (presentation.IsExtinguished || presentation.IsBurnedOut)
+            RunSharedExtinguishCleanup();
+    }
+
     // ------------------------------------------------------------------
     // Model change handlers (all clients)
     // ------------------------------------------------------------------
@@ -1330,6 +1976,9 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     {
         if (IsAuthority)
             return; // authority's Ignis already shows reality
+
+        if (HasBufferedPresentationMetadata())
+            return;
 
         if (value)
             ApplySynchronizedBurningVisual();
@@ -1342,10 +1991,18 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (!value)
             return;
 
-        if (!IsAuthority)
-            ApplyExtinguishedVisual(false);
+        if (IsAuthority)
+        {
+            if (!HasBufferedPresentationMetadata())
+                RunSharedExtinguishCleanup();
+            return;
+        }
 
-        RunSharedExtinguishCleanup();
+        if (!HasBufferedPresentationMetadata())
+        {
+            ApplyExtinguishedVisual(false);
+            RunSharedExtinguishCleanup();
+        }
     }
 
     private void OnIsBurnedOutDidChange(FireStateModel changedModel, bool value)
@@ -1353,10 +2010,18 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (!value)
             return;
 
-        if (!IsAuthority)
-            ApplyExtinguishedVisual(true);
+        if (IsAuthority)
+        {
+            if (!HasBufferedPresentationMetadata())
+                RunSharedExtinguishCleanup();
+            return;
+        }
 
-        RunSharedExtinguishCleanup();
+        if (!HasBufferedPresentationMetadata())
+        {
+            ApplyExtinguishedVisual(true);
+            RunSharedExtinguishCleanup();
+        }
     }
 
     private void OnExtinguishProgressDidChange(FireStateModel changedModel, float value)
@@ -1364,13 +2029,14 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (!IsAuthority)
         {
             _awaitingPostResetExtinguishSample = false;
-            ApplyExactExtinguishState();
+            if (!HasBufferedPresentationMetadata())
+                ApplyExactExtinguishState();
         }
     }
 
     private void OnPutOutCenterDidChange(FireStateModel changedModel, Vector3 value)
     {
-        if (!IsAuthority)
+        if (!IsAuthority && !HasBufferedPresentationMetadata())
             ApplyExactExtinguishState();
     }
 
@@ -1419,7 +2085,7 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
 
     private void OnIgnitionEpochDidChange(FireStateModel changedModel, int value)
     {
-        if (!IsAuthority && changedModel.isBurning)
+        if (!IsAuthority && !HasBufferedPresentationMetadata() && changedModel.isBurning)
             ApplySynchronizedBurningVisual();
     }
 
@@ -1427,13 +2093,14 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
     {
         _awaitingPostResetSpreadSample = false;
 
-        if (!IsAuthority && changedModel.isBurning)
+        if (!IsAuthority && !HasBufferedPresentationMetadata() && changedModel.isBurning)
             ApplySynchronizedBurningVisual();
     }
 
     private void OnVisualMetadataEpochDidChange(FireStateModel changedModel, int value)
     {
-        if (!IsAuthority && changedModel.isBurning && value == changedModel.ignitionEpoch)
+        if (!IsAuthority && !HasBufferedPresentationMetadata() &&
+            changedModel.isBurning && value == changedModel.ignitionEpoch)
             ApplySynchronizedBurningVisual();
     }
 
