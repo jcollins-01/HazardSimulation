@@ -133,4 +133,56 @@ public partial class FireStateModel
     // ignitionEpoch property ID avoids breaking existing Normcore schema history.
     [RealtimeProperty(25, true, true)]
     private int _visualMetadataEpoch;
+
+    // --- Buffered multiplayer presentation. ---
+
+    // One room-wide value per fire keeps every client on the same presentation
+    // timeline. This is deliberately reliable and changes very rarely.
+    [RealtimeProperty(26, true, true)]
+    private float _presentationDelaySeconds;
+
+    // Discrete lifecycle changes use a reliable room-time barrier. State flags
+    // above have lower property IDs, so they deserialize before the epoch callback.
+    [RealtimeProperty(27, true, true)]
+    private double _presentationTransitionRoomTime;
+
+    [RealtimeProperty(28, true, true)]
+    private int _presentationTransitionEpoch;
+
+    // A compact semantic visual snapshot. These latest-value properties are sent
+    // at a bounded rate; the timestamp is written last and acts as the sample
+    // barrier. Canonical simulation/failover state remains in properties 1-25.
+    [RealtimeProperty(29, RealtimePropertyType.UnreliableRedundant, true)]
+    private float _presentationFireSpread;
+
+    [RealtimeProperty(30, RealtimePropertyType.UnreliableRedundant, true)]
+    private float _presentationExtinguishProgress;
+
+    [RealtimeProperty(31, RealtimePropertyType.UnreliableRedundant, true)]
+    private Vector3 _presentationPutOutCenterLocal;
+
+    [RealtimeProperty(32, RealtimePropertyType.UnreliableRedundant, true)]
+    private float _presentationTemperature;
+
+    // Bit 0: burning, bit 1: extinguished, bit 2: burned out.
+    [RealtimeProperty(33, RealtimePropertyType.UnreliableRedundant, true)]
+    private int _presentationLifecycleFlags;
+
+    [RealtimeProperty(34, RealtimePropertyType.UnreliableRedundant, true)]
+    private int _presentationIgnitionEpoch;
+
+    [RealtimeProperty(35, RealtimePropertyType.UnreliableRedundant, true)]
+    private Vector3 _presentationIgnitionOriginLocal;
+
+    [RealtimeProperty(36, RealtimePropertyType.UnreliableRedundant, true)]
+    private double _presentationIgnitionStartRoomTime;
+
+    [RealtimeProperty(37, RealtimePropertyType.UnreliableRedundant, true)]
+    private double _presentationExtinguishFadeStartRoomTime;
+
+    [RealtimeProperty(38, RealtimePropertyType.UnreliableRedundant, true)]
+    private float _presentationExtinguishFadeDuration;
+
+    [RealtimeProperty(39, RealtimePropertyType.UnreliableRedundant, true)]
+    private double _presentationSnapshotRoomTime;
 }
