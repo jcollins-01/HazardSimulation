@@ -394,7 +394,11 @@ namespace Ignis
             if (!_localLifecycleSimulationEnabled)
                 return;
 
-            if (!FlameEngine.instance.pause && !burntOut)
+            // The engine can be unavailable briefly during scene startup and again
+            // while objects are torn down. A missing engine means there is no fire
+            // simulation to advance; retry naturally on the next frame.
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine != null && !flameEngine.pause && !burntOut)
             {
                 if (currentIgnitionCoolingCooldown_s > 0)
                 {
@@ -576,6 +580,7 @@ namespace Ignis
         /// </summary>
         public void ResetObj()
         {
+            FlameEngine flameEngine = FlameEngine.instance;
             onFire = false;
             onFireTimer = 0;
             fireSpread = 0;
@@ -587,7 +592,8 @@ namespace Ignis
             {
                 if (fire)
                 {
-                    FlameEngine.instance.RemoveFlame(fire.gameObject);
+                    if (flameEngine != null)
+                        flameEngine.RemoveFlame(fire.gameObject);
                     Destroy(fire.gameObject);
                 }
 
@@ -799,8 +805,12 @@ namespace Ignis
                 return;
             }
 
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine == null)
+                return;
+
             if (!_applyingNetworkLifecycleState &&
-                FlameEngine.instance.FlameCount() >= FlameEngine.instance.maxFlamesInWorld)
+                flameEngine.FlameCount() >= flameEngine.maxFlamesInWorld)
             {
                 return;
             }
@@ -828,7 +838,7 @@ namespace Ignis
                 {
                     foreach (BoxCollider box in flammableColliders)
                     {
-                        GameObject trigger = Instantiate(FlameEngine.instance.fireTriggerPrefab, box.transform.TransformPoint(box.center), box.transform.rotation, FlameEngine.instance.triggerParent);
+                        GameObject trigger = Instantiate(flameEngine.fireTriggerPrefab, box.transform.TransformPoint(box.center), box.transform.rotation, flameEngine.triggerParent);
                         FireTrigger triggerComp = trigger.GetComponent<FireTrigger>();
 
 
@@ -996,6 +1006,93 @@ namespace Ignis
         }
 
         /// <summary>
+        /// Applies semantic presentation controls without changing the authority's
+        /// Ignis simulation variables. NetworkedFireState calls this after normal
+        /// simulation updates so authority and puppets render the same buffered
+        /// spread/extinguish region at the same room time.
+        /// </summary>
+        public void ApplyNetworkPresentationVisualState(
+            bool visible,
+            Vector3 fireOriginLocal,
+            float presentedSpread,
+            Vector3 putOutCenterLocal,
+            float presentedPutOutRadius,
+            float profileVisualScaleCorrection,
+            float burnoutMultiplier)
+        {
+            Vector3 fireOriginWorld = transform.TransformPoint(fireOriginLocal);
+            Vector3 putOutCenterWorld = transform.TransformPoint(putOutCenterLocal);
+            float spread = Mathf.Clamp(presentedSpread, 0f, maxSpread);
+            float putOut = Mathf.Max(0f, presentedPutOutRadius);
+            float scaleCorrection = Mathf.Clamp(profileVisualScaleCorrection, 0f, 2f);
+
+            for (int i = 0; i < fires.Count; i++)
+            {
+                VisualEffect fire = fires[i];
+                if (!fire)
+                    continue;
+
+                // Disabling the renderer is the only immediate way to hide every
+                // existing GPU particle during a scheduled lifecycle transition.
+                fire.enabled = visible;
+                if (!visible)
+                    continue;
+
+                if (fire.HasFloat("Spread_radius"))
+                    fire.SetFloat("Spread_radius", spread);
+                if (fire.HasVector3("Spread_center"))
+                    fire.SetVector3("Spread_center", fireOriginWorld);
+
+                fire.SetVector3("PutOutArea_center", putOutCenterWorld);
+                fire.SetFloat("PutOutArea_radius", putOut);
+                if (fire.HasFloat("BurnOutMultiplier"))
+                    fire.SetFloat("BurnOutMultiplier", Mathf.Clamp01(burnoutMultiplier));
+
+                // FireProfileController changes these three values with
+                // temperature. Correct the latest local values back to the
+                // buffered presentation temperature without affecting simulation.
+                fire.SetFloat("FireVFXMultiplier",
+                    flameVFXMultiplier * flameVisibilityMultiplier * scaleCorrection);
+                fire.SetFloat("FlameLength", flameLength * scaleCorrection / 4f);
+                fire.SetFloat("FlameParticleSize", flameParticleSize * scaleCorrection);
+            }
+
+            for (int i = 0; i < flameLights.Count; i++)
+            {
+                Light light = flameLights[i];
+                if (!light)
+                    continue;
+
+                bool insideSpread = Vector3.Distance(light.transform.position, fireOriginWorld) <= spread;
+                bool outsidePutOut = putOut < 0.05f ||
+                                     Vector3.Distance(light.transform.position, putOutCenterWorld) > putOut;
+                light.gameObject.SetActive(visible && insideSpread && outsidePutOut);
+            }
+
+            // Sources are still generated locally (microscopic phase differences
+            // are acceptable), but their audible lifecycle follows the same
+            // presentation barrier as flame visibility.
+            for (int i = 0; i < fireSFX.Count; i++)
+            {
+                AudioSource source = fireSFX[i];
+                if (source)
+                    source.mute = !visible;
+            }
+        }
+
+        /// <summary>Current shared logical VFX tick, for synchronization diagnostics.</summary>
+        public int GetNetworkVfxLogicalTick()
+        {
+            return _networkVfxLogicalTick;
+        }
+
+        /// <summary>Number of locally instantiated Ignis emitters.</summary>
+        public int GetNetworkVfxEmitterCount()
+        {
+            return fires.Count;
+        }
+
+        /// <summary>
         /// Refreshes exposed shader, particle and light parameters after network
         /// code changes an extinguish timer or put-out area on a strict puppet.
         /// </summary>
@@ -1124,6 +1221,10 @@ namespace Ignis
 
         private void UpdateShaders()
         {
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine == null)
+                return;
+
             if (enableMaterialAnimation)
             {
                 Renderer[] rends = animateMaterialsRenderers.ToArray();
@@ -1131,12 +1232,18 @@ namespace Ignis
                 {
                     foreach (Renderer rend in rends)
                     {
+                        if (rend == null)
+                            continue;
+
                         for (int i = 0; i < rend.materials.Length; i++)
                         {
                             Material mat = rend.materials[i];
+                            if (mat == null)
+                                continue;
+
                             if (flammableMaterialIndexes.Count <= 0 || flammableMaterialIndexes.Contains(i))
                             {
-                                if (mat.shader == FlameEngine.instance.flameableShader)
+                                if (mat.shader == flameEngine.flameableShader)
                                 {
                                     UpdateIgnisShader(mat, rend);
                                 }
@@ -1146,11 +1253,11 @@ namespace Ignis
                                 }
                             }
 
-                            if (FlameEngine.instance.modifyFlamesOnRuntime)
+                            if (flameEngine.modifyFlamesOnRuntime)
                             {
                                 if (flammableMaterialIndexes.Count <= 0 || flammableMaterialIndexes.Contains(i))
                                 {
-                                    if (mat.shader == FlameEngine.instance.flameableShader)
+                                    if (mat.shader == flameEngine.flameableShader)
                                     {
                                         SetupIgnisShader(mat);
                                     }
@@ -1168,6 +1275,14 @@ namespace Ignis
 
         private void SetupShaders()
         {
+            // Networked resets can arrive while the scene is still initializing or
+            // tearing down. In that window the singleton lookup legitimately returns
+            // null, so leave the materials untouched and let later shader updates
+            // configure them once the engine is available.
+            FlameEngine flameEngine = FlameEngine.instance;
+            if (flameEngine == null)
+                return;
+
             if (enableMaterialAnimation)
             {
                 Renderer[] rends = gameObject.GetComponentsInChildren<Renderer>();
@@ -1179,9 +1294,12 @@ namespace Ignis
                         for (int i = 0; i < rend.materials.Length; i++)
                         {
                             Material mat = rend.materials[i];
+                            if (mat == null)
+                                continue;
+
                             if (flammableMaterialIndexes.Count <= 0 || flammableMaterialIndexes.Contains(i))
                             {
-                                if (mat.shader == FlameEngine.instance.flameableShader)
+                                if (mat.shader == flameEngine.flameableShader)
                                 {
                                     SetupIgnisShader(mat);
                                 }

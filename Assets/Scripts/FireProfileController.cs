@@ -647,6 +647,19 @@ public class FireProfileController : MonoBehaviour
     }
 
     /// <summary>
+    /// Returns the same visual scale used by UpdateFireVisuals for an arbitrary
+    /// authoritative temperature sample. This lets the presentation layer render
+    /// an older buffered sample without rewinding gameplay temperature.
+    /// </summary>
+    public float GetVisualScaleForTemperature(float temperature)
+    {
+        if (maxTemperature <= 0)
+            return 1f;
+
+        return Mathf.Max(Mathf.Clamp01(temperature / maxTemperature), 0.5f);
+    }
+
+    /// <summary>
     /// Shared compatibility rule for particle collisions, authority raycasts, and
     /// puppet-side visual prediction.
     /// </summary>
