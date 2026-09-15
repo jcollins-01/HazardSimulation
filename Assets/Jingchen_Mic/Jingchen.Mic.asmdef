@@ -2,7 +2,8 @@
     "name": "Jingchen.Mic",
     "rootNamespace": "Jingchen.Mic",
     "references": [
-        "Normal.Realtime.Shared"
+        "Normal.Realtime.Shared",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
