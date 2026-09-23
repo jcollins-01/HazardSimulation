@@ -1107,6 +1107,32 @@ namespace Ignis
         }
 
         /// <summary>
+        /// Reapplies the current public smoke appearance values to every live Ignis
+        /// emitter. Runtime controllers call this after changing smoke alpha or color.
+        /// </summary>
+        public void RefreshSmokeAppearance()
+        {
+            Vector4 currentSmokeColor = new Vector4(
+                smokeColor.r * smokeColorIntensity,
+                smokeColor.g * smokeColorIntensity,
+                smokeColor.b * smokeColorIntensity,
+                smokeColor.a);
+
+            for (int i = 0; i < fires.Count; i++)
+            {
+                VisualEffect fireEffect = fires[i];
+                if (!fireEffect)
+                    continue;
+
+                if (fireEffect.HasVector4("SmokeColor"))
+                    fireEffect.SetVector4("SmokeColor", currentSmokeColor);
+
+                if (fireEffect.HasFloat("SmokeAlpha"))
+                    fireEffect.SetFloat("SmokeAlpha", smokeAlpha);
+            }
+        }
+
+        /// <summary>
         /// Advances every fire emitter on a shared 30 Hz logical clock. VFX Graph's
         /// automatic per-render-frame clock is paused, so a dropped Quest frame no
         /// longer changes the particle path. Late clients backfill at most 3 seconds;

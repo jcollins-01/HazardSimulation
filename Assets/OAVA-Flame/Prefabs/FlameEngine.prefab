@@ -4924,7 +4924,7 @@ MonoBehaviour:
       type: 3}
     fireBoxOldSchoolVariantPrefab: {fileID: 4776773267008342689, guid: 70a099ba8bbd11d4383ffea31c010523,
       type: 3}
-    onlySmokeVariantPrefab: {fileID: 5235580746247467855, guid: 341ff4022aa76934c82310063faea4ad,
+    onlySmokeVariantPrefab: {fileID: 5235580746247467855, guid: e0f250b0d1844cab95603b890092ad81,
       type: 3}
     fireBoxCustomVariantPrefab: {fileID: 1782572316093908408, guid: 848a2236341ce4b4ab81f5ebb377411f,
       type: 3}

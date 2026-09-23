@@ -29,6 +29,39 @@ using UnityEngine;
 [RequireComponent(typeof(FlammableObject))]
 public class NetworkedFireState : RealtimeComponent<FireStateModel>
 {
+    /// <summary>
+    /// Read-only lifecycle data exposed to local presentation systems such as room smoke.
+    /// Online values follow the same buffered timeline used by the fire visuals.
+    /// </summary>
+    public struct FireLifecycleSnapshot
+    {
+        public bool IsBurning { get; private set; }
+        public bool IsExtinguished { get; private set; }
+        public bool IsBurnedOut { get; private set; }
+        public int IgnitionEpoch { get; private set; }
+        public double IgnitionStartTime { get; private set; }
+        public double ExtinguishmentStartTime { get; private set; }
+        public double CurrentTime { get; private set; }
+
+        public FireLifecycleSnapshot(
+            bool isBurning,
+            bool isExtinguished,
+            bool isBurnedOut,
+            int ignitionEpoch,
+            double ignitionStartTime,
+            double extinguishmentStartTime,
+            double currentTime)
+        {
+            IsBurning = isBurning;
+            IsExtinguished = isExtinguished;
+            IsBurnedOut = isBurnedOut;
+            IgnitionEpoch = ignitionEpoch;
+            IgnitionStartTime = ignitionStartTime;
+            ExtinguishmentStartTime = extinguishmentStartTime;
+            CurrentTime = currentTime;
+        }
+    }
+
     [Header("Spray Hit Detection (authority only)")]
     [Tooltip("Radius of the sphere cast used by the fire authority to detect spraying tools hitting this fire.")]
     [SerializeField] private float sprayHitRadius = 0.1f;
@@ -163,6 +196,59 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
                 return true; // offline: preserve legacy single-player behavior
             return isOwnedLocallySelf;
         }
+    }
+
+    /// <summary>
+    /// Returns a coherent fire lifecycle snapshot without exposing the generated
+    /// Normcore model. Offline play falls back to the local Ignis lifecycle.
+    /// </summary>
+    public bool TryGetLifecycleSnapshot(out FireLifecycleSnapshot snapshot)
+    {
+        snapshot = default;
+        if (_flammableObject == null)
+            return false;
+
+        if (realtime == null || !realtime.connected)
+        {
+            bool isBurning = _flammableObject.onFire;
+            bool isExtinguished = _flammableObject.IsExtinguished();
+            bool isBurnedOut = _flammableObject.hasBurnedOut();
+            snapshot = new FireLifecycleSnapshot(
+                isBurning,
+                isExtinguished,
+                isBurnedOut,
+                isBurning || isExtinguished || isBurnedOut ? 1 : 0,
+                0.0,
+                0.0,
+                Time.time);
+            return true;
+        }
+
+        if (model == null)
+            return false;
+
+        if (TryGetPresentedSnapshot(out FirePresentationSnapshot presentation))
+        {
+            snapshot = new FireLifecycleSnapshot(
+                presentation.IsBurning,
+                presentation.IsExtinguished,
+                presentation.IsBurnedOut,
+                presentation.ignitionEpoch,
+                presentation.ignitionStartRoomTime,
+                presentation.extinguishFadeStartRoomTime,
+                presentation.roomTime);
+            return true;
+        }
+
+        snapshot = new FireLifecycleSnapshot(
+            model.isBurning,
+            model.isExtinguished,
+            model.isBurnedOut,
+            model.ignitionEpoch,
+            model.ignitionStartRoomTime,
+            model.extinguishFadeStartRoomTime,
+            realtime.roomTime);
+        return true;
     }
 
     /// <summary>
