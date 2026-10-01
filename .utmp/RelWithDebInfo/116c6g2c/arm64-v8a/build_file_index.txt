@@ -1,0 +1,2 @@
+/Users/ktmartinez/Documents/GitHub/HazardSimulation/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/CMakeLists.txt
+/Users/ktmartinez/Documents/GitHub/HazardSimulation/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/CMakeLists.txt
