@@ -7,6 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
 
 /// <summary>
 /// Builds the locomotion study scenes from the hand tracking demo scene so the environment,
@@ -78,11 +79,17 @@ public static class LocomotionSceneBuilder
             return false;
         }
 
+        MatchHandCastersToController(origin, "Left Hand", "Left Controller");
+        MatchHandCastersToController(origin, "Right Hand", "Right Controller");
+
         if (mode == LocomotionModeConfigurator.Mode.Teleport)
         {
             AddHandTeleport(origin, "Left Hand", Handedness.Left);
             AddHandTeleport(origin, "Right Hand", Handedness.Right);
         }
+
+        AddHandSpray(origin, "Left Hand", "Right Hand", Handedness.Left);
+        AddHandSpray(origin, "Right Hand", "Left Hand", Handedness.Right);
 
         if (!origin.TryGetComponent(out LocomotionModeConfigurator configurator))
             configurator = origin.gameObject.AddComponent<LocomotionModeConfigurator>();
@@ -102,6 +109,31 @@ public static class LocomotionSceneBuilder
 
         LogSummary(origin, mode);
         return true;
+    }
+
+    /// <summary>
+    /// The hand rig's Near-Far casters only hit the Default/UI layers, while the controllers were set up to
+    /// also hit Equipment (the fire extinguisher's layer), so hands could not grab it. Give each hand's
+    /// casters every physics layer its controller's casters use.
+    /// </summary>
+    private static void MatchHandCastersToController(XROrigin origin, string handName, string controllerName)
+    {
+        var all = origin.GetComponentsInChildren<Transform>(true);
+        Transform hand = all.FirstOrDefault(t => t.name == handName);
+        Transform controller = all.FirstOrDefault(t => t.name == controllerName);
+        if (hand == null || controller == null)
+        {
+            Debug.LogError($"[Locomotion] Could not find '{handName}' or '{controllerName}' to match grab layers.");
+            return;
+        }
+
+        int sphereLayers = controller.GetComponentsInChildren<SphereInteractionCaster>(true).Aggregate(0, (m, c) => m | c.physicsLayerMask.value);
+        int curveLayers = controller.GetComponentsInChildren<CurveInteractionCaster>(true).Aggregate(0, (m, c) => m | c.raycastMask.value);
+
+        foreach (var caster in hand.GetComponentsInChildren<SphereInteractionCaster>(true))
+            caster.physicsLayerMask = caster.physicsLayerMask.value | sphereLayers;
+        foreach (var caster in hand.GetComponentsInChildren<CurveInteractionCaster>(true))
+            caster.raycastMask = caster.raycastMask.value | curveLayers;
     }
 
     private static void AddHandTeleport(XROrigin origin, string handName, Handedness handedness)
@@ -141,15 +173,56 @@ public static class LocomotionSceneBuilder
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
+    private static void AddHandSpray(XROrigin origin, string holdingHandName, string freeHandName, Handedness holdingHandedness)
+    {
+        var all = origin.GetComponentsInChildren<Transform>(true);
+        Transform holdingHand = all.FirstOrDefault(t => t.name == holdingHandName);
+        Transform freeHand = all.FirstOrDefault(t => t.name == freeHandName);
+        var holdingInteractor = holdingHand != null ? holdingHand.GetComponentInChildren<NearFarInteractor>(true) : null;
+        if (holdingInteractor == null || freeHand == null)
+        {
+            Debug.LogError($"[Locomotion] Could not find '{holdingHandName}' Near-Far interactor or '{freeHandName}'; hand spray not added.");
+            return;
+        }
+
+        // The free hand's teleport ray is left alone so the player can still teleport while holding the extinguisher.
+        var freeInteractors = freeHand.GetComponentsInChildren<XRBaseInteractor>(true)
+            .Where(i => i.GetComponentInParent<HandTeleportGesture>(true) == null)
+            .ToArray();
+
+        var root = new GameObject("Hand Spray");
+        root.transform.SetParent(holdingHand, false);
+        var spray = root.AddComponent<HandSprayGesture>();
+
+        var so = new SerializedObject(spray);
+        so.FindProperty("holdingHand").intValue = (int)holdingHandedness;
+        so.FindProperty("holdingInteractor").objectReferenceValue = holdingInteractor;
+        var free = so.FindProperty("freeHandInteractors");
+        free.arraySize = freeInteractors.Length;
+        for (int i = 0; i < freeInteractors.Length; i++)
+            free.GetArrayElementAtIndex(i).objectReferenceValue = freeInteractors[i];
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
     private static void LogSummary(XROrigin origin, LocomotionModeConfigurator.Mode mode)
     {
         var lines = origin.GetComponentsInChildren<Behaviour>(true)
             .Where(b => b is UnityEngine.XR.Interaction.Toolkit.Locomotion.LocomotionProvider
                         || b is XRRayInteractor
-                        || b is HandTeleportGesture)
-            .Select(b => $"  {(b.enabled ? "ON " : "off")}  {b.GetType().Name}  ({GetPath(b.transform, origin.transform)})");
+                        || b is HandTeleportGesture
+                        || b is HandSprayGesture
+                        || b is SphereInteractionCaster
+                        || b is CurveInteractionCaster)
+            .Select(b => $"  {(b.enabled ? "ON " : "off")}  {b.GetType().Name}{LayerInfo(b)}  ({GetPath(b.transform, origin.transform)})");
         Debug.Log($"[Locomotion] {mode}:\n{string.Join("\n", lines)}");
     }
+
+    private static string LayerInfo(Behaviour b) => b switch
+    {
+        SphereInteractionCaster s => $" mask={s.physicsLayerMask.value}",
+        CurveInteractionCaster c => $" mask={c.raycastMask.value}",
+        _ => "",
+    };
 
     private static string GetPath(Transform t, Transform root)
     {
@@ -161,10 +234,14 @@ public static class LocomotionSceneBuilder
 
     private static void AddToBuildSettings(List<string> paths)
     {
+        // Rebuilt scenes get new GUIDs, so refresh existing entries in place (keeping their order and enabled state).
         var scenes = EditorBuildSettings.scenes.ToList();
         foreach (var path in paths)
         {
-            if (scenes.All(s => s.path != path))
+            int index = scenes.FindIndex(s => s.path == path);
+            if (index >= 0)
+                scenes[index] = new EditorBuildSettingsScene(path, scenes[index].enabled);
+            else
                 scenes.Add(new EditorBuildSettingsScene(path, true));
         }
         EditorBuildSettings.scenes = scenes.ToArray();
