@@ -25,6 +25,8 @@ public class PlayerController : MonoBehaviour
     private float verticalVelocity;
     private bool isXRActive;
 
+    public bool IsLocalPlayer => isLocalPlayer;
+
     private void OnEnable()
     {
         if (isLocalPlayer)

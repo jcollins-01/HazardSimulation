@@ -75,6 +75,29 @@ public class RoomSmokeController : MonoBehaviour
     private bool hasObservedIgnition;
 
     /// <summary>
+    /// Returns the current visibility of a configured room smoke zone relative to
+    /// its authored opacity, so local player effects follow smoke dispersal.
+    /// </summary>
+    public bool TryGetSmokeZoneExposure(int index, out Transform emitter, out float exposure)
+    {
+        emitter = null;
+        exposure = 0f;
+
+        if (index < 0 || index >= runtimeZones.Count)
+            return false;
+
+        SmokeZoneRuntime zone = runtimeZones[index];
+        if (zone.settings.smokeSource == null || zone.authoredAlpha <= 0f)
+            return false;
+
+        emitter = zone.settings.smokeSource.transform;
+        exposure = Mathf.Clamp01(zone.currentAlpha / zone.authoredAlpha);
+        return true;
+    }
+
+    public int SmokeZoneCount => runtimeZones.Count;
+
+    /// <summary>
     /// Caches every zone's authored appearance after all scene objects have completed Awake,
     /// prepares distance delays, and hides the smoke until the fire lifecycle is ready.
     /// </summary>
