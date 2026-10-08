@@ -706,6 +706,11 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
         if (model == null || realtime == null || !realtime.connected || !model.isRoomConnected)
             return;
 
+        // A desktop monitor only observes; it must never own the fire simulation,
+        // otherwise joining first would leave every fire running on the monitor.
+        if (MonitorMode.IsActive)
+            return;
+
         if (!isUnownedSelf)
         {
             _ownershipRequestPending = false;
