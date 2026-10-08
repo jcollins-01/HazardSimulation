@@ -907,7 +907,12 @@ public class NetworkedFireState : RealtimeComponent<FireStateModel>
             Debug.Log($"[NetworkedFireState] Multiplayer fire quorum: {playerCount}/{MinimumPlayersToStartConfiguredFires} player avatars ready.");
         }
 
-        SetMultiplayerQuorum(playerCount >= MinimumPlayersToStartConfiguredFires);
+        bool singleUserTestingEnabled =
+            NetworkedFireSettings.Instance != null &&
+            NetworkedFireSettings.Instance.AllowSingleUserFireStartForTesting;
+        SetMultiplayerQuorum(
+            singleUserTestingEnabled ||
+            playerCount >= MinimumPlayersToStartConfiguredFires);
     }
 
     private static void SetMultiplayerQuorum(bool hasQuorum)
