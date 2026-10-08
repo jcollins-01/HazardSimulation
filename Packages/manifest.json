@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.atteneder.gltfast": "https://github.com/atteneder/glTFast.git",
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v10.3.0",
     "com.normalvr.normcore": "3.5.1",
     "com.unity.ai.navigation": "2.0.9",
     "com.unity.animation.rigging": "1.4.1",
