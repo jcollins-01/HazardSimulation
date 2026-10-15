@@ -27,8 +27,6 @@ Shader "Hidden/TIC/WhiteHotComposite"
 
             half3 TemperatureColour(float temperature)
             {
-                // Deliberately restrained TIC colours: temperature should remain
-                // legible without turning the display into saturated RGB artwork.
                 const half3 yellow = half3(0.78, 0.64, 0.20);
                 const half3 orange = half3(0.82, 0.32, 0.10);
                 const half3 red = half3(0.68, 0.075, 0.045);
@@ -72,11 +70,12 @@ Shader "Hidden/TIC/WhiteHotComposite"
                 half warmth = smoothstep(21.0, max(22.0, _YellowThresholdCelsius), temperature);
                 half thermalLift = warmth * lerp(0.24h, 0.42h, structuralDetail);
                 whiteHot = saturate(whiteHot + thermalLift * (1.0h - whiteHot));
+
                 half3 grayscale = whiteHot.xxx;
 
-                // White remains the top of the grayscale range. Crossing the
-                // configurable first threshold enters yellow, then moves only
-                // toward orange and red as temperature increases.
+                // Restore the restrained TIC palette: cool surfaces stay
+                // white-hot grayscale while hotter measured surfaces transition
+                // through yellow, orange, and red.
                 float blendWidth = max(_ThresholdBlendCelsius, 1.0);
                 half colourAmount = smoothstep(
                     _YellowThresholdCelsius - blendWidth,
@@ -91,14 +90,22 @@ Shader "Hidden/TIC/WhiteHotComposite"
                     _RedThresholdCelsius + blendWidth,
                     temperature);
                 half3 palette = TemperatureColour(temperature);
-
-                // Retain detector/scene contrast inside colourized regions so
-                // edges do not collapse into flat RGB blocks.
                 half detail = lerp(0.62h, 0.96h, structuralDetail);
                 half3 coloured = palette * detail;
                 half colourStrength = colourAmount * lerp(0.24h, 0.46h, orangeAmount);
                 colourStrength = lerp(colourStrength, 0.66h, redAmount * colourAmount);
-                return half4(lerp(grayscale, coloured, colourStrength), 1.0);
+                half3 thermalImage = lerp(grayscale, coloured, colourStrength);
+
+                // The meter is rendered into the same camera target. Preserve
+                // only its saturated fill pixels after the thermal pass so the
+                // physical TIC screen keeps its color cue without allowing
+                // transparent fire particles to bypass the grayscale image.
+                half sourcePeak = max(max(scene.r, scene.g), scene.b);
+                half sourceFloor = min(min(scene.r, scene.g), scene.b);
+                half sourceChroma = sourcePeak - sourceFloor;
+                half meterRegion = step(0.68h, uv.x) * step(uv.y, 0.065h);
+                half meterPixel = meterRegion * step(0.10h, sourceChroma);
+                return half4(lerp(thermalImage, scene, meterPixel), 1.0);
             }
             ENDHLSL
         }

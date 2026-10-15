@@ -51,7 +51,7 @@ MonoBehaviour:
   _joinRoomOnStartOptions:
     _enabled: 1
     _mode: 0
-    _roomName: Test Room
+    _roomName: HazardSimulation-kheja-private-20261009
     _roomGroupName: test-group
     _roomCapacity: 4
     _roomServerConfiguration: 

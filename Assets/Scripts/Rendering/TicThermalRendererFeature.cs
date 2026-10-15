@@ -79,6 +79,9 @@ public sealed class TicThermalRendererFeature : ScriptableRendererFeature
             maskMaterial = mask;
             compositeMaterial = composite;
             settings = presentationSettings;
+            // Composite after transparent scene elements so fire particles are
+            // part of the grayscale thermal image. The composite preserves
+            // the small colored TIC meter band from the source image.
             renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
             requiresIntermediateTexture = true;
         }

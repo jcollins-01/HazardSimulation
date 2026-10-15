@@ -8,6 +8,8 @@ using UnityEngine;
 [DefaultExecutionOrder(-50)]
 public sealed class ThermalRadiationManager : MonoBehaviour
 {
+    private const float AmbientCelsius = 21f;
+    private const float ApparentSurfaceMaximumCelsius = 450f;
     private const float UpdateInterval = 0.2f;
     private const float RadiationRadius = 3f;
     private const float MaximumTransferredHeat = 0.28f;
@@ -196,6 +198,39 @@ public sealed class ThermalRadiationManager : MonoBehaviour
         return Mathf.Clamp01(sourceHeat) * MaximumTransferredHeat * falloff * falloff * falloff;
     }
 
+    public static bool TryEstimateRadiantTemperature(Vector3 point, out float celsius)
+    {
+        RemoveMissingSurfaces();
+
+        float strongestHeat = 0f;
+        for (int i = 0; i < Surfaces.Count; i++)
+        {
+            HazardTemperature source = Surfaces[i];
+            if (!IsActiveSource(source))
+                continue;
+
+            Vector3 origin = source.GetRadiationOrigin();
+            float distance = Vector3.Distance(origin, point);
+            if (distance >= RadiationRadius || IsObstructed(source, origin, point))
+                continue;
+
+            strongestHeat = Mathf.Max(
+                strongestHeat,
+                CalculateTransferredHeat(source.RadiantHeat, distance));
+        }
+
+        if (strongestHeat <= 0.001f)
+        {
+            celsius = AmbientCelsius;
+            return false;
+        }
+
+        // This is a local TIC estimate for surfaces too large to receive a
+        // uniform HazardTemperature component, such as floors and walls.
+        celsius = Mathf.Lerp(AmbientCelsius, ApparentSurfaceMaximumCelsius, strongestHeat);
+        return true;
+    }
+
     public static bool IsLineObstructed(
         HazardTemperature source,
         HazardTemperature receiver,
@@ -233,6 +268,35 @@ public sealed class ThermalRadiationManager : MonoBehaviour
         {
             Transform hit = hits[i].collider != null ? hits[i].collider.transform : null;
             if (hit == null || IsPartOf(hit, source.transform) || IsPartOf(hit, receiver.transform))
+                continue;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsObstructed(
+        HazardTemperature source,
+        Vector3 origin,
+        Vector3 destination)
+    {
+        Vector3 delta = destination - origin;
+        float distance = delta.magnitude;
+        float queryDistance = distance - 0.02f;
+        if (queryDistance <= 0.02f)
+            return false;
+
+        RaycastHit[] hits = Physics.RaycastAll(
+            origin,
+            delta / distance,
+            queryDistance,
+            Physics.AllLayers,
+            QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Transform hit = hits[i].collider != null ? hits[i].collider.transform : null;
+            if (hit == null || IsPartOf(hit, source.transform))
                 continue;
             return true;
         }
