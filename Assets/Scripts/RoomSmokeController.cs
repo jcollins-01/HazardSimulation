@@ -135,13 +135,19 @@ public class RoomSmokeController : MonoBehaviour
         // its post-extinguish visual fade.
         if (lifecycle.IsExtinguished || lifecycle.IsBurnedOut)
         {
+            double dispersalStartTime = GetTransitionStartTime(
+                lifecycle.ExtinguishmentStartTime,
+                lifecycle.CurrentTime);
+            if (currentState != SmokeState.Dispersed &&
+                lifecycle.CurrentTime - dispersalStartTime <
+                Mathf.Max(0f, fadeDuration) + Mathf.Max(0f, maximumDistanceDelay))
+                EnsureSmokeSourcesIgnited();
+
             if (currentState == SmokeState.Dormant)
                 PrepareAuthoredAppearanceForLateExtinguish();
 
             if (currentState != SmokeState.Dispersing && currentState != SmokeState.Dispersed)
-                BeginDispersal(GetTransitionStartTime(
-                    lifecycle.ExtinguishmentStartTime,
-                    lifecycle.CurrentTime));
+                BeginDispersal(dispersalStartTime);
 
             if (currentState == SmokeState.Dispersing)
                 UpdateDispersal(lifecycle.CurrentTime);
@@ -151,6 +157,8 @@ public class RoomSmokeController : MonoBehaviour
 
         if (lifecycle.IsBurning)
         {
+            EnsureSmokeSourcesIgnited();
+
             if (currentState == SmokeState.Dormant ||
                 currentState == SmokeState.Dispersing ||
                 currentState == SmokeState.Dispersed ||
@@ -254,6 +262,33 @@ public class RoomSmokeController : MonoBehaviour
     }
 
     /// <summary>
+    /// Starts each local Ignis emitter when the stove lifecycle needs room smoke.
+    /// Keeping these sources active lets the controller handle the full fade and reignition.
+    /// </summary>
+    private void EnsureSmokeSourcesIgnited()
+    {
+        for (int i = 0; i < runtimeZones.Count; i++)
+        {
+            FlammableObject smokeSource = runtimeZones[i].settings.smokeSource;
+            if (smokeSource == null)
+                continue;
+
+            smokeSource.isEffectOnForever = true;
+            smokeSource.burnOutStart_s = float.MaxValue;
+            smokeSource.burnOutLength_s = float.MaxValue;
+            if (smokeSource.onFire)
+                continue;
+
+            // These emitters present smoke; their Ignis fire triggers must not
+            // ignite nearby flammable room objects.
+            smokeSource.spreadLayerMask = 0;
+            smokeSource.useFireSFX = false;
+            smokeSource.enableMaterialAnimation = false;
+            smokeSource.SetOnFireFromCenter();
+        }
+    }
+
+    /// <summary>
     /// Converts the fire temperature into a safe zero-to-one value for legacy fire
     /// sources that do not have a NetworkedFireState component.
     /// </summary>
@@ -340,7 +375,24 @@ public class RoomSmokeController : MonoBehaviour
         }
 
         if (everyZoneFinished)
+        {
             currentState = SmokeState.Dispersed;
+            StopSmokeSources();
+        }
+    }
+
+    /// <summary>
+    /// Removes Ignis emitters after their room smoke has completely dispersed.
+    /// A later stove ignition starts fresh emitters through EnsureSmokeSourcesIgnited.
+    /// </summary>
+    private void StopSmokeSources()
+    {
+        for (int i = 0; i < runtimeZones.Count; i++)
+        {
+            FlammableObject smokeSource = runtimeZones[i].settings.smokeSource;
+            if (smokeSource != null && smokeSource.onFire)
+                smokeSource.ResetObj();
+        }
     }
 
     /// <summary>
