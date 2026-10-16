@@ -83,26 +83,13 @@ public sealed class MonitorCamera : MonoBehaviour
         if (flattenVoiceAudio && Time.unscaledTime >= nextAudioRefreshTime)
         {
             nextAudioRefreshTime = Time.unscaledTime + 0.5f;
-            FlattenVoiceAudio();
+            ObservedAvatars.FlattenVoices(avatars);
         }
     }
 
     private void RefreshAvatars()
     {
-        avatars.Clear();
-        clientIds.Clear();
-        if (avatarManager == null || avatarManager.avatars == null)
-            return;
-
-        foreach (KeyValuePair<int, RealtimeAvatar> pair in avatarManager.avatars)
-        {
-            if (pair.Value != null)
-                clientIds.Add(pair.Key);
-        }
-        clientIds.Sort();
-        foreach (int clientId in clientIds)
-            avatars.Add(avatarManager.avatars[clientId]);
-
+        ObservedAvatars.Collect(avatarManager, avatars, clientIds);
         if (followIndex >= avatars.Count)
             followIndex = FollowEveryone;
     }
@@ -228,18 +215,6 @@ public sealed class MonitorCamera : MonoBehaviour
         return Mathf.Min(maxHeight, (spread + 2f) / Mathf.Tan(halfFov));
     }
 
-    private void FlattenVoiceAudio()
-    {
-        foreach (RealtimeAvatar avatar in avatars)
-        {
-            foreach (AudioSource source in avatar.GetComponentsInChildren<AudioSource>(true))
-            {
-                source.spatialBlend = 0f;
-                source.spatialize = false;
-            }
-        }
-    }
-
     private void OnGUI()
     {
         if (!showOverlay)
@@ -279,9 +254,5 @@ public sealed class MonitorCamera : MonoBehaviour
 
     private string GetLabel(int index) => $"Player {index + 1} (id {clientIds[index]})";
 
-    private bool IsSpeaking(RealtimeAvatar avatar)
-    {
-        RealtimeAvatarVoice voice = avatar.head != null ? avatar.head.GetComponent<RealtimeAvatarVoice>() : null;
-        return voice != null && voice.voiceVolume > speakingThreshold;
-    }
+    private bool IsSpeaking(RealtimeAvatar avatar) => ObservedAvatars.IsSpeaking(avatar, speakingThreshold);
 }

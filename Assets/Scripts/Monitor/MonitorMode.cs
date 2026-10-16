@@ -15,6 +15,10 @@ using UnityEngine.XR.Management;
 /// Enable it per machine via the Editor menu "Tools/Monitor Mode", or in a build by
 /// launching with the "-monitor" command-line argument. Nothing is stored in the
 /// scene, so VR clients are unaffected.
+///
+/// The Commander scene uses the same entity-less join through <see cref="BeginCommander"/>,
+/// but puts the observer in the fire truck (<see cref="CommanderCab"/>) instead of the
+/// bird's-eye camera.
 /// </summary>
 public static class MonitorMode
 {
@@ -24,18 +28,38 @@ public static class MonitorMode
     private const float MonitorPlumeLodDistance = 60f;
     private const float MonitorPlumeCullDistance = 120f;
 
+    private static CommanderCab commanderCab;
+
+    /// <summary>True for any observer client (monitor or commander): no avatar, never owns fires.</summary>
     public static bool IsActive { get; private set; }
+
+    public static bool IsCommander => commanderCab != null;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void Initialize()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        commanderCab = null;
         IsActive = ReadEnabledFlag();
         if (!IsActive)
             return;
 
         Debug.Log("[MonitorMode] Desktop observer mode is ON.");
         StopXR();
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    /// <summary>
+    /// Makes this client an observer that joins the next networked scene seated in
+    /// <paramref name="cab"/>. Takes precedence over the bird's-eye monitor toggle.
+    /// </summary>
+    public static void BeginCommander(CommanderCab cab)
+    {
+        commanderCab = cab;
+        IsActive = true;
+        Debug.Log("[MonitorMode] Commander view is ON.");
+        StopXR();
+        SceneManager.sceneLoaded -= OnSceneLoaded;
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
@@ -73,16 +97,19 @@ public static class MonitorMode
 
         avatarManager.localAvatarPrefab = null;
 
+        Pose rigPose = Pose.identity;
         Vector3 startFocus = Vector3.zero;
         foreach (XROrigin rig in UnityEngine.Object.FindObjectsByType<XROrigin>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
         {
             if (rig.gameObject.scene != scene)
                 continue;
+            rigPose = new Pose(rig.transform.position, rig.transform.rotation);
             startFocus = rig.transform.position;
             rig.gameObject.SetActive(false);
         }
 
-        // Only the monitor camera should hear the room.
+        // Only the observer's own camera should hear the room. The commander cab lives in
+        // DontDestroyOnLoad, so its listener is not in this scene and stays enabled.
         foreach (AudioListener listener in UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if (listener.gameObject.scene == scene)
@@ -90,6 +117,12 @@ public static class MonitorMode
         }
 
         ExtendWindowSmokePlumeRange(scene);
+
+        if (commanderCab != null)
+        {
+            commanderCab.EnterScene(scene, avatarManager, rigPose);
+            return;
+        }
 
         GameObject cameraObject = new("Monitor Camera");
         SceneManager.MoveGameObjectToScene(cameraObject, scene);
