@@ -3,18 +3,23 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Climbing;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Movement;
 using UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Turning;
 
 /// <summary>
 /// Restricts the XR Origin (XR Rig) to a single locomotion technique so each locomotion
 /// study scene only offers the technique it is testing.
 ///
-/// Turning is always physical: every snap/continuous turn provider is disabled.
+/// Snap turn is always off, and turning is physical except in <see cref="Mode.WalkingStick"/>.
 ///  - <see cref="Mode.Natural"/>: every locomotion provider and every teleport ray is
 ///    disabled, so the only way to move is to physically walk around the play space.
 ///  - <see cref="Mode.Teleport"/>: only the <see cref="TeleportationProvider"/> stays on.
 ///    Controllers keep their thumbstick teleport ray, and hands use
 ///    <see cref="HandTeleportGesture"/>.
+///  - <see cref="Mode.WalkingStick"/>: only the <see cref="ContinuousMoveProvider"/> and
+///    <see cref="ContinuousTurnProvider"/> stay on, driven by <see cref="HandWalkingStickLocomotion"/>
+///    (swing a fist to walk, tilt a thumbs-up to turn). Every teleport ray is disabled.
 ///
 /// Components are disabled rather than GameObjects deactivated, because the starter rig's
 /// ControllerInputActionManager re-activates the teleport GameObjects on its own.
@@ -24,7 +29,7 @@ using UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation;
 [DefaultExecutionOrder(-200)]
 public class LocomotionModeConfigurator : MonoBehaviour
 {
-    public enum Mode { Natural, Teleport }
+    public enum Mode { Natural, Teleport, WalkingStick }
 
     [SerializeField] private Mode mode = Mode.Natural;
 
@@ -36,10 +41,14 @@ public class LocomotionModeConfigurator : MonoBehaviour
     {
         mode = newMode;
         bool teleport = mode == Mode.Teleport;
+        bool walkingStick = mode == Mode.WalkingStick;
         int teleportLayer = InteractionLayerMask.GetMask("Teleport");
 
         foreach (var provider in GetComponentsInChildren<LocomotionProvider>(true))
-            provider.enabled = teleport && provider is TeleportationProvider;
+        {
+            provider.enabled = (teleport && provider is TeleportationProvider)
+                               || (walkingStick && (provider is ContinuousMoveProvider || provider is ContinuousTurnProvider));
+        }
 
         foreach (var climbTeleport in GetComponentsInChildren<ClimbTeleportInteractor>(true))
             climbTeleport.enabled = false;
@@ -65,5 +74,8 @@ public class LocomotionModeConfigurator : MonoBehaviour
 
         foreach (var gesture in GetComponentsInChildren<HandTeleportGesture>(true))
             gesture.enabled = teleport;
+
+        foreach (var walkingStickLocomotion in GetComponentsInChildren<HandWalkingStickLocomotion>(true))
+            walkingStickLocomotion.enabled = walkingStick;
     }
 }

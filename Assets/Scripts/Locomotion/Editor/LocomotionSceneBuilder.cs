@@ -8,6 +8,9 @@ using UnityEngine;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 using UnityEngine.XR.Interaction.Toolkit.Interactors.Casters;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Movement;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Turning;
 
 /// <summary>
 /// Builds the locomotion study scenes from the hand tracking demo scene so the environment,
@@ -24,14 +27,26 @@ public static class LocomotionSceneBuilder
     private const string TeleportInteractorPrefab =
         "Assets/Samples/XR Interaction Toolkit/3.0.10/Starter Assets/Prefabs/Interactors/Teleport Interactor.prefab";
 
+    private const string WalkingStickScene = "Locomotion - Walking Stick";
+
+    /// <summary>Top walking speed (m/s) for the walking stick scene, set on the rig's move provider.</summary>
+    private const float WalkingStickMoveSpeed = 2f;
+
     private static readonly (string name, LocomotionModeConfigurator.Mode mode)[] Scenes =
     {
         ("Locomotion - Natural Walking", LocomotionModeConfigurator.Mode.Natural),
         ("Locomotion - Teleport", LocomotionModeConfigurator.Mode.Teleport),
+        (WalkingStickScene, LocomotionModeConfigurator.Mode.WalkingStick),
     };
 
     [MenuItem("Tools/Locomotion/Build Locomotion Scenes")]
-    public static void BuildAll()
+    public static void BuildAll() => Build(Scenes);
+
+    /// <summary>Builds only the walking stick scene, so the other scenes are not regenerated.</summary>
+    [MenuItem("Tools/Locomotion/Build Walking Stick Scene")]
+    public static void BuildWalkingStick() => Build(Scenes.Where(s => s.name == WalkingStickScene));
+
+    private static void Build(IEnumerable<(string name, LocomotionModeConfigurator.Mode mode)> scenes)
     {
         if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
             return;
@@ -46,7 +61,7 @@ public static class LocomotionSceneBuilder
             AssetDatabase.CreateFolder(Path.GetDirectoryName(OutputFolder).Replace('\\', '/'), Path.GetFileName(OutputFolder));
 
         var built = new List<string>();
-        foreach (var (name, mode) in Scenes)
+        foreach (var (name, mode) in scenes)
         {
             string path = $"{OutputFolder}/{name}.unity";
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null)
@@ -86,6 +101,10 @@ public static class LocomotionSceneBuilder
         {
             AddHandTeleport(origin, "Left Hand", Handedness.Left);
             AddHandTeleport(origin, "Right Hand", Handedness.Right);
+        }
+        else if (mode == LocomotionModeConfigurator.Mode.WalkingStick)
+        {
+            AddWalkingStick(origin);
         }
 
         AddHandSpray(origin, "Left Hand", "Right Hand", Handedness.Left);
@@ -173,6 +192,36 @@ public static class LocomotionSceneBuilder
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
+    private static void AddWalkingStick(XROrigin origin)
+    {
+        var all = origin.GetComponentsInChildren<Transform>(true);
+        Transform leftHand = all.FirstOrDefault(t => t.name == "Left Hand");
+        Transform rightHand = all.FirstOrDefault(t => t.name == "Right Hand");
+        var mediator = origin.GetComponentInChildren<LocomotionMediator>(true);
+        var moveProvider = origin.GetComponentInChildren<ContinuousMoveProvider>(true);
+        var turnProvider = origin.GetComponentInChildren<ContinuousTurnProvider>(true);
+        if (mediator == null || moveProvider == null || turnProvider == null)
+        {
+            Debug.LogError("[Locomotion] Could not find the Locomotion mediator, move provider or smooth turn provider; walking stick not added.");
+            return;
+        }
+
+        var root = new GameObject("Walking Stick");
+        root.transform.SetParent(mediator.transform, false);
+        var walkingStick = root.AddComponent<HandWalkingStickLocomotion>();
+
+        var so = new SerializedObject(walkingStick);
+        so.FindProperty("moveProvider").objectReferenceValue = moveProvider;
+        so.FindProperty("turnProvider").objectReferenceValue = turnProvider;
+        so.FindProperty("head").objectReferenceValue = origin.Camera.transform;
+        so.FindProperty("trackingSpace").objectReferenceValue = origin.CameraFloorOffsetObject.transform;
+        so.FindProperty("leftHandInteractor").objectReferenceValue = leftHand != null ? leftHand.GetComponentInChildren<NearFarInteractor>(true) : null;
+        so.FindProperty("rightHandInteractor").objectReferenceValue = rightHand != null ? rightHand.GetComponentInChildren<NearFarInteractor>(true) : null;
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        moveProvider.moveSpeed = WalkingStickMoveSpeed;
+    }
+
     private static void AddHandSpray(XROrigin origin, string holdingHandName, string freeHandName, Handedness holdingHandedness)
     {
         var all = origin.GetComponentsInChildren<Transform>(true);
@@ -211,6 +260,7 @@ public static class LocomotionSceneBuilder
                         || b is XRRayInteractor
                         || b is HandTeleportGesture
                         || b is HandSprayGesture
+                        || b is HandWalkingStickLocomotion
                         || b is SphereInteractionCaster
                         || b is CurveInteractionCaster)
             .Select(b => $"  {(b.enabled ? "ON " : "off")}  {b.GetType().Name}{LayerInfo(b)}  ({GetPath(b.transform, origin.transform)})");
